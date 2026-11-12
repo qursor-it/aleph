@@ -1,0 +1,4 @@
+loop/logs/
+compiler/target/
+target/
+*.o

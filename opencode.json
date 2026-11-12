@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "deepseek/deepseek-chat",
+  "permission": {
+    "read": "allow",
+    "edit": "allow",
+    "webfetch": "deny",
+    "external_directory": "deny",
+    "doom_loop": "deny",
+    "bash": {
+      "*": "allow",
+      "git push*": "deny",
+      "git remote*": "deny",
+      "git reset --hard*": "deny",
+      "git rebase*": "deny",
+      "git clean*": "deny",
+      "git commit --amend*": "deny",
+      "rm -rf /*": "deny",
+      "rm -rf ~*": "deny",
+      "sudo *": "deny",
+      "curl *": "deny",
+      "wget *": "deny",
+      "ssh *": "deny",
+      "scp *": "deny"
+    }
+  }
+}

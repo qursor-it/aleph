@@ -1,0 +1,52 @@
+(* Aleph v0.1 grammar. Tokens separated by exactly one space (" ").
+   NL = "\n". Body lines start with exactly one space.
+   Expression parsing is arity-directed: arity of calls comes from
+   pass-1 signatures (user fns, record constructors) and the builtin table. *)
+
+file        = { use_item NL } { type_item NL } { fn_item } ;
+
+use_item    = "use" " " capname [ " " string ] ;
+capname     = "fs.read" | "fs.write" | "net.host" | "env" | "time" ;
+
+type_item   = "type" " " ident { " " field } ;
+field       = ident ":" type ;
+
+fn_item     = "fn" " " ident { " " param } " " "->" " " type NL
+              [ " " "doc" " " string NL ]
+              { " " "ex" " " expr " " "=" " " expr NL }
+              { " " stmt NL }
+              " " expr NL ;
+param       = ident ":" type ;
+stmt        = "let" " " ident " " expr
+            | "do" " " expr ;
+
+type        = "i64" | "f64" | "bool" | "str" | "unit"
+            | "list" " " type
+            | "opt" " " type
+            | "res" " " type " " type
+            | ident ;
+
+expr        = literal
+            | ident                                  (* variable or 0-arity call *)
+            | "@" ident
+            | call
+            | unop " " expr
+            | binop " " expr " " expr
+            | "if" " " expr " " expr " " expr
+            | "[" expr { " " expr } "]"
+            | "empty" " " type
+            | "none" " " type
+            | ( "some" | "ok" | "err" | "try" | "has" | "isok" ) " " expr
+            | "else" " " expr " " expr
+            | "." ident " " expr ;
+
+call        = ident { " " expr } ;                   (* exactly arity(ident) args *)
+unop        = "not" | "neg" ;
+binop       = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | "<=" | ">" | ">="
+            | "and" | "or" ;
+
+literal     = int | float | string | "true" | "false" | "nil" ;
+int         = "0" | [ "-" ] digit19 { digit } ;
+float       = [ "-" ] digit { digit } "." digit { digit } ;
+string      = '"' { char | "\n" | "\t" | '\"' | "\\" } '"' ;
+ident       = lower { lower | digit } ;              (* not a keyword *)

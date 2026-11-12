@@ -1,0 +1,66 @@
+# Aleph lexicon — v0 (provisional)
+# The lexicon is DATA, separate from the grammar (ADR-0005).
+# Spellings below are provisional choices. They must be re-scored against
+# real tokenizers (Anthropic, OpenAI, DeepSeek, Qwen, Llama) before v1.0:
+#   prefer 1 token in all contexts (line start, after space, after symbol),
+#   stable across tokenizers, not confusable with other identifiers.
+# Changing a spelling = reprinting the AST; migrations are automatic (ADR-0003).
+
+version = "0"
+
+[keywords]
+function   = "fn"
+record     = "type"
+capability = "use"
+bind       = "let"
+effect     = "do"
+example    = "ex"
+intent     = "doc"
+cond       = "if"
+propagate  = "try"
+optsome    = "some"
+optnone    = "none"
+resok      = "ok"
+reserr     = "err"
+default    = "else"
+isome      = "has"
+isokay     = "isok"
+emptylist  = "empty"
+unitval    = "nil"
+true       = "true"
+false      = "false"
+land       = "and"
+lor        = "or"
+lnot       = "not"
+negate     = "neg"
+
+[types]
+int     = "i64"
+float   = "f64"
+boolean = "bool"
+string  = "str"
+unit    = "unit"
+list    = "list"
+option  = "opt"
+result  = "res"
+
+[operators]
+add = "+"
+sub = "-"
+mul = "*"
+div = "/"
+mod = "%"
+eq  = "=="
+ne  = "!="
+lt  = "<"
+le  = "<="
+gt  = ">"
+ge  = ">="
+arrow = "->"
+fnref = "@"
+field = "."
+
+[builtins]
+names = ["len","at","push","slice","rev","sort","range","sum","map","filter","fold",
+         "cat","count","split","join","trim","upper","lower","contains","show","int","float",
+         "args","print","eprint","read","write"]
