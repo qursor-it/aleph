@@ -28,7 +28,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-018 C codegen for expressions and functions; `aleph build` invokes `cc` — ADR-0006
 - [x] T-019 C codegen for all builtins incl. map/filter/fold via function pointers
 - [x] T-020 Differential tests: interpreter vs native output identical for all golden programs
-- [ ] T-021 Benchmark harness `bench/run.sh`: time + memory of native Aleph vs Python vs C on `bench/tasks.md` programs (write reference versions)
+- [x] T-021 Benchmark harness `bench/run.sh`: time + memory of native Aleph vs Python vs C on `bench/tasks.md` programs (write reference versions)
 
 ## M3 — Agent tooling
 

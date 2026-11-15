@@ -380,3 +380,25 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 271 passed (216 unit, 43 CLI, 1 differential, 8 golden, 3 tlon)
 - next: T-021 benchmark harness `bench/run.sh`.
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T21:13 T-021 done
+- `bench/ref/py/NAME.py` and `bench/ref/c/NAME.c`: Python 3 (stdlib) and C99 (libc) references for all 15 `bench/tasks.md` programs; they consume the same `.args`, `data/in.txt` and write `out/up.txt`, matching the Aleph golden stdout/stderr/exit byte for byte
+- `bench/run.sh`: builds `target/release/aleph` once with `CARGO_BUILD_JOBS=1` + nice (or uses `ALEPH`), then per task in a temp dir with `data/` and `out/` compiles the C ref (`cc -O2`) and native Aleph (`aleph build`), verifies native/interpreter/Python/C against `.out`/`.err`/`.exit`/`.files` before timing, runs each `BENCH_RUNS` times (default 3) under `/usr/bin/time -f "%e %M"` (bash `time` + rss `n/a` fallback), and prints a markdown table; supports `BENCH_TASKS`; any mismatch exits non-zero
+- `bench/README.md` and `bench/results-sample.md`: usage, measured quantities, `/usr/bin/time` 10 ms resolution and shared-VPS caveats; `BENCH_SCALE` is documented as unsupported because task sizes are fixed by the goldens
+- `compiler/tests/bench_refs.rs`: two fast tests compile/run each C ref and each Python ref once in hermetic dirs and compare stdout/stderr/exit/written files with the Aleph goldens; skips without `cc` unless `ALEPH_REQUIRE_CC=1`, skips Python with a notice when `python3` is absent
+- tests: 273 passed (216 unit, 2 bench_refs, 43 CLI, 1 differential, 8 golden, 3 tlon)
+- decisions: none (harness only)
+- next: M3 tasks (T-022 llms.txt first).
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T21:25 T-021 review fixes done
+- timing: `bench/run.sh` now exports `LC_ALL=C` and measures each run with bash `EPOCHREALTIME` around the process itself (microseconds), reporting the median in ms with two decimals; `/usr/bin/time -f "%M"` is used only for peak RSS, and a missing `/usr/bin/time` only makes RSS `n/a`
+- memory: the table is now `task | native ms | interp ms | python ms | c ms | native KB | interp KB | python KB | c KB` (per-engine peak RSS)
+- scaling: `BENCH_SCALE=1` appends a bench-only `fib35` row built from `bench/heavy/fib35.aph` + `.out` and `bench/ref/{c,py}/fib35.*`; the default 15 tasks stay short and startup-dominated
+- `points` refs now use the same 40-iteration Newton sqrt as the Aleph source (equal work, output still `12.0`); `reverse.c` grows its token array dynamically instead of a fixed 256 bound
+- `bench_refs.rs`: `CC` set but not runnable now panics loudly; `fib35` is covered too; `cc` missing without `CC`/`ALEPH_REQUIRE_CC` still skips
+- `time_engine`/`rss_engine` take the expected exit code, removing the dead nonzero-exit timing path; README explains timing, per-engine RSS, `BENCH_SCALE`, fixture-range assumptions (no R001 emulation) and removes the incorrect `-O2` constant-folding claim
+- tests: 273 passed (216 unit, 2 bench_refs, 43 CLI, 1 differential, 8 golden, 3 tlon); `BENCH_RUNS=3 bench/run.sh` green and sample table updated
+- decisions: none (harness only)
+- next: M3 tasks (T-022 llms.txt first).
+- agent: opencode/deepseek-v4.1-flash
