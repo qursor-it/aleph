@@ -1,0 +1,2 @@
+fn f -> str
+ show [[1]]

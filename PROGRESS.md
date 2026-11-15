@@ -143,3 +143,36 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: none
 - next: T-010 type checker
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T13:10 T-010 done
+- `compiler/src/check.rs`: bidirectional type checker with `Type` (primitives, list/opt/res, records, fn, inference vars, `Error`), a substitution with occurs check, and `CheckOutput { diagnostics, records, signatures }`; `check(file, ast)` lowers type annotations (unknown `Named` -> T002 at the type node) and checks every function even after errors
+- calls: user functions and record constructors use their lowered signatures; builtins instantiate `T/A/B` with fresh vars per call and per `@f`; `Primitive`/`Showable` bounds are deferred and flushed at the end of each function (T004), unresolved vars skipped; `@f` is accepted only when the expected type resolves to a function (T006 otherwise)
+- rules: literals/vars, `+ - * / %`, `== !=` (T004 on non-primitives), comparisons, `and/or/not/neg`, `if`, lists, `empty`, field access (T003), `some`/`none`, `ok`/`err` (T010 without an expected `res`), `try` (T007 unless the enclosing function returns `res _ E`), `else`, `has`, `isok`; examples use an empty environment and check rhs against lhs; `main` must have no params and return `unit` or `res unit str` (T008)
+- `compiler/src/main.rs`: `aleph check` runs lex/parse -> F001 -> type check; T diagnostics are printed with exit 1, a clean file still reaches X001
+- diagnostics: new T002/T003/T004/T006/T007/T008 added to `diag::CODES` and `spec/diagnostics.md`; canonical type text (fn types `(A B) -> R`, unresolved vars `_`); ADR-0019 (Proposed)
+- goldens: 20 `tests/aph/type_*.aph` + `.diag` covering T001 (ret/arg/binop/if/list/do/ctor/try), T002, T003 x2, T004 x4, T006, T007, T008 x2, T010; unit tests cover unify/occurs, no-cascade, fresh vars per call, sort/show/show-in-map bounds, fnrefs, try, else, main forms, and SPEC §12 + existing valid goldens clean
+- tests: 143 passed (123 unit, 17 CLI, 3 golden)
+- decisions: ADR-0019 (Proposed)
+- next: T-012 capability checker C001/C002; T-014 examples runner (structural comparison, non-primitive examples allowed)
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T14:05 T-010 review fixes done
+- `else` now propagates the expected type: the default branch gives `T` (checked against `expected` when present), then the value is checked against `opt T` (some/none/opt-typed) or `res T fresh` (ok/err/try/res-typed); `else err "x" 0` in an `i64` function is valid, and `else o 0` still uses the inferred opt/res payload
+- operators probe operands before checking: a lone inference variable is unified with the concrete operand; two unresolved variables are unified with each other and their `numeric`/`primitive`/`i64` constraint is deferred (T004 after the function body) instead of reporting `_`; `ok + x 1` after `let x try err "x"` is valid
+- `@f` to an effectful builtin (`print`, `eprint`, `read`, `write`) is T006, keeping capability checking on `Call` nodes only (`map @read xs` -> T006)
+- `ok`/`err` with a concrete non-`res` expected report T001 (`expected` = that type, `found` = `res _ _`) and return `Error`; T010 is only for no expected type or an unresolved expected variable; `check_ok`/`check_err`/`check_try` return `Error` on failure
+- recovery uses `contains_error` everywhere, so container types such as `list error` never cascade into T001; `unify` is transactional (substitution snapshot restored on failure)
+- recursive records are allowed (`type node v:i64 next:opt node`; `node 1 none node` type-checks)
+- `Type` now implements `Display` for the canonical diagnostics spelling (`list i64`, `res unit str`, `(i64 str) -> bool`, `_`, `error`), used by all diagnostics and available to T-016
+- ADR-0019 updated with effectful FnRefs, recursive records and the Display spelling; new unit tests cover every review point
+- tests: 150 passed (130 unit, 17 CLI, 3 golden)
+- decisions: ADR-0019 (Proposed, updated)
+- next: T-012 capability checker C001/C002
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T14:20 T-010 else/try correction done
+- `else`: only syntactic `ok`/`err` are result-shaped (and `some`/`none` option-shaped); `try` and every other value are inferred, then required to be `opt T` or `res T E`. `else try r 0` with `r: res opt i64 str` is accepted (try yields `opt i64`), while `r: res i64 str` reports T001
+- tests: 151 passed (131 unit, 17 CLI, 3 golden)
+- decisions: ADR-0019 unchanged
+- next: T-012 capability checker C001/C002
+- agent: opencode/deepseek-v4.1-flash

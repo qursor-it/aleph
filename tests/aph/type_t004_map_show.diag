@@ -1,0 +1,1 @@
+{"code":"T004","severity":"error","file":"tests/aph/type_t004_map_show.aph","line":2,"col":6,"node":"n10","msg":"type constraint not satisfied","expected":"showable","found":"list list i64"}

@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/type_t001_ctor.aph","line":3,"col":4,"node":"n7","msg":"type mismatch","expected":"i64","found":"str"}

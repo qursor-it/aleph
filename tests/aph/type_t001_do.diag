@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/type_t001_do.aph","line":2,"col":5,"node":"n4","msg":"type mismatch","expected":"unit","found":"i64"}

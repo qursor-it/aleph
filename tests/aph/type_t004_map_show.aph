@@ -1,0 +1,2 @@
+fn f xs:list list list i64 -> list str
+ map @show xs

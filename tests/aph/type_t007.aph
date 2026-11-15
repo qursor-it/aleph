@@ -1,0 +1,2 @@
+fn f r:res i64 str -> i64
+ try r

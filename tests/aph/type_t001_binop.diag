@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/type_t001_binop.aph","line":2,"col":6,"node":"n5","msg":"type mismatch","expected":"i64 or f64","found":"str"}

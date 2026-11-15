@@ -1,0 +1,3 @@
+fn f r:res i64 str -> res i64 bool
+ let x try r
+ ok x

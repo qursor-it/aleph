@@ -3,6 +3,7 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use alephc::ast;
+use alephc::check as type_check;
 use alephc::cli;
 use alephc::diag::Diagnostic;
 use alephc::parser;
@@ -71,7 +72,12 @@ fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
         return vec![canonical_diagnostic(&cli.file, &source, &canonical)];
     }
 
-    vec![Diagnostic::not_implemented(&cli.file)]
+    let checked = type_check::check(&cli.file, &file);
+    if checked.diagnostics.is_empty() {
+        vec![Diagnostic::not_implemented(&cli.file)]
+    } else {
+        checked.diagnostics
+    }
 }
 
 /// F001: the source is not the canonical printing of its AST (SPEC §10).

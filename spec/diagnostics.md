@@ -13,7 +13,13 @@ must match this table exactly.
 | P003 | unknown function |
 | F001 | not in canonical form (include `canonical`) |
 | T001 | type mismatch |
+| T002 | unknown type |
+| T003 | invalid field access |
+| T004 | type constraint not satisfied |
 | T005 | shadowed binding |
+| T006 | function reference not allowed here |
+| T007 | try outside result function |
+| T008 | invalid main signature |
 | T010 | cannot infer type of ok/err/none |
 | E001 | missing examples |
 | E002 | example failed (expected/found) |
