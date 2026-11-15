@@ -115,3 +115,31 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 118 passed (102 unit, 14 CLI, 2 golden); new tests for type depth, leftovers, reserved names, duplicate fields, T005 insertion/multiple params and failed-result recovery
 - next: T-008 printer/canonical form; T-009 F001
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T12:30 T-008 done
+- `compiler/src/printer.rs`: `print_file(&ast::File) -> String` renders uses/types/fns in AST order; functions emit the header plus one-space body lines (`doc`, `ex`, `let`/`do`, result). Expressions and types are prefix with single spaces, lists attach brackets (`[[1 2] [3]]`), floats keep stored text, strings use `ast::escape_str`; keywords/operators come from `lexicon` (only `:`, `[`, `]`, `=`, `"` are literal punctuation)
+- `aleph fmt FILE` prints canonical text (exit 0); `-w` writes it in place; lex/parse diagnostics remain JSON with exit 1
+- tests: canonical snippets covering every expression/type/item form, both SPEC §12 programs, every `tests/aph/*.aph` with `.out`/`.ast`, non-canonical inputs (spaces, trailing spaces, empty lines, item and body order), and a 500-case LCG AST generator (depth-limited, arity-respecting calls) checking `parse(print(ast)) == ast` and `same_ids`
+- decisions: none (implements ADR-0003, ADR-0016, ADR-0017)
+- next: T-009 F001 canonical check
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T12:30 T-009 done
+- `aleph check`: after a clean parse, compares the source text with `printer::print_file`; any difference emits one F001 (`line`/`col` at the first differing line, col 1, msg `not in canonical form`, `canonical` = full canonical text) and exits 1; canonical input still reaches X001
+- golden `tests/aph/fmt_*` cases: non-canonical `.aph` with `.fmt` expected `aleph fmt` output and `.diag` expected F001 JSON; harness runs `fmt` over every `.fmt` case and the existing check harness covers the `.diag` files
+- tests: 128 passed (108 unit, 17 CLI, 3 golden)
+- decisions: none
+- next: T-010 type checker
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T12:45 T-008/T-009 review fixes done
+- printer generator: `gen_type` emits `Named` (`point`); expressions include `Ctor` calls (`point` arity 2) and every builtin with its table arity (including 0-arity `args`); uses cover all capabilities with random paths containing `"`, `\`, newline and tab; docs, ints (`i64::MIN/MAX`, `0`) and floats (`0.5`, `-0.25`, `10.0`) are randomized
+- `fmt -w` writes `FILE.aleph-tmp` in the same directory and renames it over `FILE`, so a failed write cannot truncate the source; test checks the temp file is gone
+- lexer: raw control bytes inside string literals (`< 0x20` or `0x7F`) are L001; only `\n`/`\t` escapes are accepted (new lexer test)
+- `print_file` documents the empty-module canonical text (`""`) and the parser-producible AST precondition
+- F001 now reports the first differing byte column within the reported line (goldens and CLI test updated; `fmt_spaces` col 4, `fmt_body_order` col 2)
+- `Use::canonical_text` is public and is the single `use`-line printer shared by the printer and the SPEC §3 sort key
+- tests: 129 passed (109 unit, 17 CLI, 3 golden)
+- decisions: none
+- next: T-010 type checker
+- agent: opencode/deepseek-v4.1-flash

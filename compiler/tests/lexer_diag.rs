@@ -62,6 +62,54 @@ fn lexer_diagnostics_match_golden_files() {
 }
 
 #[test]
+fn fmt_golden_files_match() {
+    let repo = repo_root();
+    let directory = repo.join("tests/aph");
+    let mut cases: Vec<PathBuf> = fs::read_dir(&directory)
+        .expect("tests/aph exists")
+        .map(|entry| entry.expect("readable dir entry").path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("aph"))
+        .filter(|path| path.with_extension("fmt").is_file())
+        .collect();
+    cases.sort();
+
+    assert!(!cases.is_empty(), "no .aph/.fmt cases in {directory:?}");
+
+    for aph in cases {
+        let relative = aph.strip_prefix(&repo).expect("case is inside the repo");
+        let output = Command::new(env!("CARGO_BIN_EXE_aleph"))
+            .current_dir(&repo)
+            .arg("fmt")
+            .arg(relative)
+            .output()
+            .expect("failed to run aleph");
+
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{} should exit 0",
+            relative.display()
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "{} wrote stderr: {}",
+            relative.display(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let expected = fs::read(aph.with_extension("fmt")).expect("read .fmt");
+        if output.stdout != expected {
+            panic!(
+                "fmt mismatch for {}\nexpected:\n{}\nactual:\n{}",
+                relative.display(),
+                String::from_utf8_lossy(&expected),
+                String::from_utf8_lossy(&output.stdout),
+            );
+        }
+    }
+}
+
+#[test]
 fn ast_golden_files_match() {
     let repo = repo_root();
     let directory = repo.join("tests/aph");

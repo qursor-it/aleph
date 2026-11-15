@@ -508,8 +508,11 @@ pub fn escape_str(value: &str) -> String {
 }
 
 impl Use {
-    /// The canonical text of this item, used as the SPEC §3 sort key.
-    fn canonical_text(&self) -> String {
+    /// Canonical text of this `use` line (SPEC §3.1).
+    ///
+    /// This is the single implementation shared by the printer and by the
+    /// SPEC §3 sort key in [`File::canonicalize`].
+    pub fn canonical_text(&self) -> String {
         let mut text = String::new();
         text.push_str(lexicon::keyword("capability").expect("lexicon entry for use"));
         text.push(' ');

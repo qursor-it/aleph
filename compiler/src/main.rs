@@ -6,6 +6,7 @@ use alephc::ast;
 use alephc::cli;
 use alephc::diag::Diagnostic;
 use alephc::parser;
+use alephc::printer;
 
 fn main() -> ExitCode {
     let cli = match cli::parse(std::env::args_os().skip(1)) {
@@ -19,6 +20,7 @@ fn main() -> ExitCode {
 
     match cli.command.as_str() {
         "check" => emit_diagnostics(&check(&cli)),
+        "fmt" => fmt_command(&cli),
         "ast" => ast_command(&cli),
         // Later phases are still stubbed.
         _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
@@ -47,8 +49,8 @@ fn read_source(cli: &cli::Cli) -> Result<String, Box<Diagnostic>> {
     })
 }
 
-/// `aleph check`: lex and parse, then stop at the first phase that is not
-/// implemented yet (ADR-0015).
+/// `aleph check`: lex and parse, reject non-canonical text (F001), then stop at
+/// the first phase that is not implemented yet (ADR-0015).
 fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
     let source = match read_source(cli) {
         Ok(source) => source,
@@ -56,11 +58,111 @@ fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
     };
 
     let output = parser::parse(&cli.file, &source);
-    if output.diagnostics.is_empty() {
-        vec![Diagnostic::not_implemented(&cli.file)]
-    } else {
-        output.diagnostics
+    if !output.diagnostics.is_empty() {
+        return output.diagnostics;
     }
+
+    let Some(file) = output.file else {
+        return vec![Diagnostic::not_implemented(&cli.file)];
+    };
+
+    let canonical = printer::print_file(&file);
+    if source != canonical {
+        return vec![canonical_diagnostic(&cli.file, &source, &canonical)];
+    }
+
+    vec![Diagnostic::not_implemented(&cli.file)]
+}
+
+/// F001: the source is not the canonical printing of its AST (SPEC §10).
+fn canonical_diagnostic(file: &str, source: &str, canonical: &str) -> Diagnostic {
+    let (line, col) = first_difference(source, canonical);
+    Diagnostic::error("F001", file, line, col, "not in canonical form").with_canonical(canonical)
+}
+
+/// The 1-based `(line, byte column)` where `source` and `canonical` first
+/// differ.
+///
+/// Extra lines are reported at the first line that exists in only one text
+/// (column 1). If every line matches and the texts differ only in the final LF,
+/// report the end of the last line; identical text reports `(1, 1)`.
+fn first_difference(source: &str, canonical: &str) -> (u32, u32) {
+    if source == canonical {
+        return (1, 1);
+    }
+
+    let source_lines: Vec<&str> = source.lines().collect();
+    let canonical_lines: Vec<&str> = canonical.lines().collect();
+
+    for (index, (left, right)) in source_lines.iter().zip(&canonical_lines).enumerate() {
+        if left != right {
+            return (index as u32 + 1, first_differing_col(left, right));
+        }
+    }
+
+    if source_lines.len() != canonical_lines.len() {
+        return (source_lines.len().min(canonical_lines.len()) as u32 + 1, 1);
+    }
+
+    let last_col = source_lines
+        .last()
+        .map(|line| line.len() as u32 + 1)
+        .unwrap_or(1);
+    (source_lines.len().max(1) as u32, last_col)
+}
+
+/// First differing byte column of two lines, 1-based (SPEC §9 columns are
+/// byte columns).
+fn first_differing_col(left: &str, right: &str) -> u32 {
+    let left = left.as_bytes();
+    let right = right.as_bytes();
+    let mut index = 0;
+    while index < left.len() && index < right.len() && left[index] == right[index] {
+        index += 1;
+    }
+    index as u32 + 1
+}
+
+/// `aleph fmt`: print the canonical text, or write it with `-w`.
+fn fmt_command(cli: &cli::Cli) -> ExitCode {
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let output = parser::parse(&cli.file, &source);
+    if !output.diagnostics.is_empty() {
+        return emit_diagnostics(&output.diagnostics);
+    }
+
+    let Some(file) = output.file else {
+        return emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]);
+    };
+    let canonical = printer::print_file(&file);
+
+    if cli.write {
+        // Write a sibling temp file, then rename over the original so a failed
+        // write cannot leave a half-written source file.
+        let temp = format!("{}.aleph-tmp", cli.file);
+        if let Err(err) = fs::write(&temp, canonical) {
+            eprintln!("aleph: failed to write file: {err}");
+            return ExitCode::from(2);
+        }
+        if let Err(err) = fs::rename(&temp, &cli.file) {
+            let _ = fs::remove_file(&temp);
+            eprintln!("aleph: failed to replace file: {err}");
+            return ExitCode::from(2);
+        }
+        return ExitCode::SUCCESS;
+    }
+
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = out.write_all(canonical.as_bytes()) {
+        eprintln!("aleph: failed to write canonical text: {err}");
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
 }
 
 /// `aleph ast`: parse and print the AST as JSON.

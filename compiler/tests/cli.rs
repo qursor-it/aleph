@@ -127,7 +127,7 @@ fn run_program_args_after_file_are_not_interpreted() {
 
 #[test]
 fn every_stubbed_subcommand_reports_not_implemented() {
-    for command in ["check", "fmt", "test", "run", "build", "explain", "tokens"] {
+    for command in ["check", "test", "run", "build", "explain", "tokens"] {
         let file = if command == "check" {
             temp_source("check_all.aph", LEXABLE_SOURCE)
         } else {
@@ -141,6 +141,54 @@ fn every_stubbed_subcommand_reports_not_implemented() {
         assert_eq!(value["code"], "X001", "command {command}");
         assert_eq!(value["file"], file.as_str(), "command {command}");
     }
+}
+
+#[test]
+fn fmt_prints_canonical_text_and_writes_in_place() {
+    let file = temp_source("fmt.aph", "fn  main -> unit\n\n nil   \n");
+    let canonical = "fn main -> unit\n nil\n";
+
+    let out = run(&["fmt", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stderr.is_empty());
+    assert_eq!(String::from_utf8(out.stdout).unwrap(), canonical);
+
+    let out = run(&["fmt", "-w", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stdout.is_empty());
+    assert!(out.stderr.is_empty());
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), canonical);
+    assert!(!std::path::Path::new(&format!("{file}.aleph-tmp")).exists());
+}
+
+#[test]
+fn fmt_reports_parse_diagnostics() {
+    let file = temp_source("fmt_error.aph", "fn main -> unit\n nope\n");
+    let out = run(&["fmt", file.as_str()]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stderr.is_empty());
+
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
+    assert_eq!(value["code"], "P003");
+    assert_eq!(value["found"], "nope");
+}
+
+#[test]
+fn check_reports_f001_for_non_canonical_source() {
+    let file = temp_source("check_f001.aph", "fn  main -> unit\n\n nil   \n");
+    let out = run(&["check", file.as_str()]);
+    assert_eq!(out.status.code(), Some(1));
+
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
+    assert_eq!(value["code"], "F001");
+    assert_eq!(value["severity"], "error");
+    assert_eq!(value["file"], file.as_str());
+    assert_eq!(value["line"], 1);
+    assert_eq!(value["col"], 4);
+    assert_eq!(value["msg"], "not in canonical form");
+    assert_eq!(value["canonical"], "fn main -> unit\n nil\n");
 }
 
 #[test]

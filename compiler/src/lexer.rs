@@ -386,6 +386,17 @@ impl<'a> LineScanner<'a> {
                     }
                     index += 1 + escaped.len_utf8();
                 }
+                byte if byte.is_ascii_control() => {
+                    // Raw control characters are not allowed in strings; only
+                    // the `\n` and `\t` escapes are (SPEC §2).
+                    self.push_error("L001", index + 1, "invalid character");
+                    let ch = self.text[index..]
+                        .chars()
+                        .next()
+                        .expect("character is present");
+                    value.push(ch);
+                    index += ch.len_utf8();
+                }
                 _ => {
                     let ch = self.text[index..]
                         .chars()
@@ -748,8 +759,24 @@ mod tests {
     }
 
     #[test]
-    fn l001_does_not_apply_inside_strings() {
+    fn l001_does_not_apply_to_printable_non_ascii_inside_strings() {
         assert_eq!(kinds("\"é\""), vec![TokenKind::Str("é".to_string())]);
+    }
+
+    #[test]
+    fn l001_raw_control_characters_in_strings() {
+        for (source, col) in [
+            ("\"a\tb\"", 3),
+            ("\"a\rb\"", 3),
+            ("\"\u{1}\"", 2),
+            ("\"\u{7f}\"", 2),
+        ] {
+            let found = diagnostics(source);
+            assert_eq!(found.len(), 1, "source {source:?}");
+            assert_eq!(found[0].code, "L001", "source {source:?}");
+            assert_eq!(found[0].msg, "invalid character", "source {source:?}");
+            assert_eq!(found[0].col, col, "source {source:?}");
+        }
     }
 
     #[test]

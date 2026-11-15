@@ -12,8 +12,8 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-005 AST types with node ids (pre-order), `aleph ast` JSON output — ADR-0003 (`aleph ast` wired in T-007)
 - [x] T-006 Parser pass 1: collect use/type/fn headers and signatures (types parsed prefix) — SPEC §3–4
 - [x] T-007 Parser pass 2: arity-directed expressions, body lines (doc/ex/let/do/result), P001–P003 — SPEC §5, ADR-0004
-- [ ] T-008 Printer: canonical form; round-trip property tests; `aleph fmt` — SPEC §10
-- [ ] T-009 Canonical check F001 with `canonical` field in diagnostic — SPEC §10
+- [x] T-008 Printer: canonical form; round-trip property tests; `aleph fmt` — SPEC §10
+- [x] T-009 Canonical check F001 with `canonical` field in diagnostic — SPEC §10
 - [ ] T-010 Type checker: primitives, lists, opt/res, records, bidirectional ok/err/none, T001/T005/T010 — SPEC §4–5
 - [x] T-011 Builtin table (types, arity, effect, capability) shared by parser, checker, interpreter — SPEC §5.1
 - [ ] T-012 Capability checker C001/C002 — SPEC §8, ADR-0008

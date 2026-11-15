@@ -1,0 +1,8 @@
+fn main -> unit
+ print "hi"
+use env
+type point x:f64 y:f64
+fn add a:i64 b:i64 -> i64
+ let x + a b
+ ex add 2 3 = 5
+ x
