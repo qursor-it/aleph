@@ -1,0 +1,228 @@
+/*
+ * Tlön, the Aleph runtime (v0.1).
+ *
+ * This header is the contract between generated C code and the runtime.  It is
+ * C99 + libc (plus pthreads for aleph_main_run), compiled with GCC or Clang:
+ * checked arithmetic uses __builtin_*_overflow, so tcc is not supported.
+ * See ADR-0024.
+ *
+ * Values are immutable and arena-allocated.  Generated code never frees.
+ */
+#ifndef TLON_H
+#define TLON_H
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#if defined(__GNUC__)
+#define AL_NORETURN __attribute__((noreturn))
+#else
+#define AL_NORETURN
+#endif
+
+/* Runtime limits, mirroring compiler/src/interp.rs (ADR-0021). */
+#define AL_MAX_CALL_DEPTH 10000
+#define AL_MAX_EVAL_DEPTH 20000
+#define AL_MAX_RANGE_LEN 10000000
+#define AL_MAIN_STACK_SIZE (256u * 1024u * 1024u)
+
+typedef enum {
+    AL_UNIT = 0,
+    AL_I64,
+    AL_F64,
+    AL_BOOL,
+    AL_STR,
+    AL_LIST,
+    AL_NONE,
+    AL_SOME,
+    AL_OK,
+    AL_ERR,
+    AL_RECORD,
+    AL_FN
+} AlTag;
+
+typedef struct AlValue AlValue;
+typedef struct AlStr AlStr;
+typedef struct AlList AlList;
+typedef struct AlBox AlBox;
+typedef struct AlRecord AlRecord;
+typedef struct AlRecordInfo AlRecordInfo;
+typedef struct AlFn AlFn;
+
+struct AlValue {
+    AlTag tag;
+    union {
+        int64_t i64;
+        double f64;
+        bool b;
+        const AlStr *str;
+        AlList *list;
+        AlBox *box;
+        AlRecord *rec;
+        const AlFn *fn;
+    } u;
+};
+
+struct AlStr {
+    size_t len;
+    const char *data;
+};
+
+struct AlList {
+    size_t len;
+    AlValue items[];
+};
+
+struct AlBox {
+    AlValue value;
+};
+
+struct AlRecordInfo {
+    const char *name;
+    size_t field_count;
+};
+
+struct AlRecord {
+    const AlRecordInfo *info;
+    size_t n;
+    AlValue fields[];
+};
+
+typedef enum {
+    AL_FN_USER = 0,
+    AL_FN_CTOR,
+    AL_FN_BUILTIN
+} AlFnKind;
+
+struct AlFn {
+    AlValue (*code)(AlValue *, size_t);
+    const char *name;
+    AlFnKind kind;
+};
+
+/*
+ * Source location attached to evaluation frames and traps.
+ *
+ * Pointers passed to aleph_eval_enter/aleph_call_enter must have static
+ * storage duration: generated code emits `static const AlLoc` values.
+ */
+typedef struct AlLoc {
+    uint32_t node;
+    uint32_t line;
+    uint32_t col;
+} AlLoc;
+
+/* Filesystem capabilities (ADR-0020). */
+typedef enum {
+    AL_CAP_FS_READ = 0,
+    AL_CAP_FS_WRITE = 1
+} AlCap;
+
+typedef struct AlUse {
+    AlCap cap;
+    const char *path; /* NULL when the capability has no path. */
+} AlUse;
+
+/*
+ * Process-wide setup performed by generated main / the driver.
+ *
+ * These pointers are stored, not copied: `file`, the `AlUse` table and its
+ * path strings, and the `argv` strings must remain valid for the whole
+ * program (static storage duration is the normal choice).
+ */
+void aleph_set_file(const char *file);
+void aleph_set_uses(const AlUse *uses, size_t count);
+void aleph_set_args(int argc, const char *const *argv);
+
+/* Arena allocation (ADR-0007): 16-byte aligned, never freed. */
+void *aleph_alloc(size_t size);
+
+/* Evaluation depth accounting and the current source location (R004). */
+void aleph_eval_enter(const AlLoc *loc);
+void aleph_eval_leave(void);
+void aleph_call_enter(const AlLoc *loc);
+void aleph_call_leave(void);
+
+/* Structured traps (SPEC §6/§9): write one JSON line to stderr, exit 70. */
+void aleph_trap(const char *code, const char *msg) AL_NORETURN;
+void aleph_trap_at(const char *code, const char *msg, const AlLoc *loc)
+    AL_NORETURN;
+
+/* Value constructors. */
+AlValue aleph_unit(void);
+AlValue aleph_i64(int64_t value);
+AlValue aleph_f64(double value);
+AlValue aleph_bool(bool value);
+AlValue aleph_str(const char *text);
+AlValue aleph_str_n(const char *text, size_t len);
+AlValue aleph_list(const AlValue *items, size_t len);
+AlValue aleph_list_new(size_t len);
+AlValue aleph_none(void);
+AlValue aleph_some(AlValue value);
+AlValue aleph_ok(AlValue value);
+AlValue aleph_err(AlValue value);
+AlValue aleph_record(const AlRecordInfo *info, const AlValue *fields, size_t count);
+AlValue aleph_fn(AlValue (*code)(AlValue *, size_t), const char *name);
+AlValue aleph_fn_kind(AlValue (*code)(AlValue *, size_t), const char *name,
+                      AlFnKind kind);
+
+/* Checked i64 arithmetic (R001/R002). */
+AlValue aleph_add_i64(AlValue left, AlValue right);
+AlValue aleph_sub_i64(AlValue left, AlValue right);
+AlValue aleph_mul_i64(AlValue left, AlValue right);
+AlValue aleph_div_i64(AlValue left, AlValue right);
+AlValue aleph_mod_i64(AlValue left, AlValue right);
+AlValue aleph_neg_i64(AlValue value);
+
+/* Structural equality and primitive comparisons (ADR-0021). */
+bool aleph_values_equal(AlValue left, AlValue right);
+bool aleph_lt(AlValue left, AlValue right);
+bool aleph_le(AlValue left, AlValue right);
+bool aleph_gt(AlValue left, AlValue right);
+bool aleph_ge(AlValue left, AlValue right);
+
+/* show / literal; both return a fresh AL_STR value. */
+AlValue aleph_show(AlValue value);
+AlValue aleph_literal(AlValue value);
+
+/* Non-higher-order builtins (SPEC §5.1). */
+AlValue aleph_b_len(AlValue xs);
+AlValue aleph_b_at(AlValue xs, AlValue index);
+AlValue aleph_b_push(AlValue xs, AlValue value);
+AlValue aleph_b_slice(AlValue xs, AlValue start, AlValue end);
+AlValue aleph_b_rev(AlValue xs);
+AlValue aleph_b_sort(AlValue xs);
+AlValue aleph_b_range(AlValue start, AlValue end);
+AlValue aleph_b_sum(AlValue xs);
+AlValue aleph_b_cat(AlValue left, AlValue right);
+AlValue aleph_b_count(AlValue text);
+AlValue aleph_b_split(AlValue text, AlValue separator);
+AlValue aleph_b_join(AlValue parts, AlValue separator);
+AlValue aleph_b_trim(AlValue text);
+AlValue aleph_b_upper(AlValue text);
+AlValue aleph_b_lower(AlValue text);
+AlValue aleph_b_contains(AlValue text, AlValue needle);
+AlValue aleph_b_show(AlValue value);
+AlValue aleph_b_int(AlValue text);
+AlValue aleph_b_float(AlValue text);
+AlValue aleph_b_args(void);
+AlValue aleph_b_print(AlValue text);
+AlValue aleph_b_eprint(AlValue text);
+AlValue aleph_b_read(AlValue path);
+AlValue aleph_b_write(AlValue path, AlValue text);
+
+/* Capability path check (exposed for the tests and future codegen). */
+bool aleph_path_allowed(AlCap cap, const char *path);
+
+/*
+ * Run main on a pthread with a 256 MiB stack.
+ *
+ * `argc`/`argv` are the program arguments (excluding the executable name).
+ * Returns 0 for unit/ok, 1 for `err` (printed to stderr), or exits 70 on a
+ * trap.
+ */
+int aleph_main_run(AlValue (*main_code)(AlValue *, size_t), int argc,
+                   const char *const *argv);
+
+#endif /* TLON_H */

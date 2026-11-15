@@ -24,7 +24,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 
 ## M2 — Native (C backend + Tlön runtime)
 
-- [ ] T-017 Tlön runtime in C: arena allocator, strings, lists, checked arithmetic, traps, capability checks — ADR-0006, ADR-0007
+- [x] T-017 Tlön runtime in C: arena allocator, strings, lists, checked arithmetic, traps, capability checks — ADR-0006, ADR-0007
 - [ ] T-018 C codegen for expressions and functions; `aleph build` invokes `cc` — ADR-0006
 - [ ] T-019 C codegen for all builtins incl. map/filter/fold via function pointers
 - [ ] T-020 Differential tests: interpreter vs native output identical for all golden programs

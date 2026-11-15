@@ -297,3 +297,30 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0018 (Proposed, updated); ADR-0023 unchanged
 - next: T-017 Tlön runtime in C
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T18:05 T-017 done
+- `tlon/tlon.h` + `tlon/tlon.c`: tagged `AlValue` ABI (`AlStr`/`AlList`/`AlRecord`/`AlBox`/`AlFn`), single 16-byte-aligned bump arena, location stack plus eval/call depth R004 mirror, JSON traps exit 70, checked i64 R001/R002, every non-higher-order SPEC §5.1 builtin, `resolve_lenient` R003 and `aleph_main_run` (pthread 256 MiB, unit/ok/err handling)
+- `show`/`literal` match the interpreter; f64 uses shortest round-trip with Rust's half-away-from-zero tie rounding (fixes exact `.625` cases) and the `-4`/`16` exponent thresholds
+- `compiler/tests/tlon.rs` compiles `tlon/tlon.c` + `tlon/test_tlon.c` with `nice -n 15 cc -std=c99 -O1 -Wall -Wextra -Werror -pthread`, runs trap/builtin/format checks, and compares ~2000 deterministic f64 bit patterns with Rust `{:?}`; skips only when `cc` is missing
+- decisions: ADR-0024 (Proposed)
+- tests: 249 passed (210 unit, 29 CLI, 8 golden, 2 tlon)
+- next: T-018 C codegen for expressions/functions and `aleph build`
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T18:27 T-017 review fixes done
+- `tlon/tlon.c`: fixed the last `split` segment (runs to `source_len` when no separator remains); embedded-NUL `read`/`write` paths now return `err "invalid input"`; arena chunk headers and every `len + 1` allocation are overflow-checked to R005; arena chunk bases are explicitly rounded to 16 bytes; `write()` returning 0 is `err "io error"` and `close()` errors are ignored like Rust; `aleph_main_run` exits 70 (one-line stderr) instead of falling back to the default stack when pthread setup fails; function equality now compares `AlFnKind` plus name like `FnTarget`; `resolve_lenient` starts its ancestor scan at `count - 1` like Rust and preserves trailing-slash behaviour
+- `tlon/tlon.h`: documented that `AlLoc` pointers passed to `aleph_eval_enter`/`aleph_call_enter` need static storage; added `AlFnKind` and `aleph_fn_kind`
+- `tlon/test_tlon.c`: added split driver mode, function-kind equality checks, embedded-NUL path checks, trailing-slash path checks
+- `compiler/tests/tlon.rs`: new `--split` parity test against Rust `str::split`; `ALEPH_REQUIRE_CC=1` turns a missing `cc` from a skip into a failure
+- tests: 250 passed (210 unit, 29 CLI, 8 golden, 3 tlon)
+- next: T-018 C codegen for expressions/functions and `aleph build`
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T18:45 T-017 cycle-2 review fixes done
+- `tlon/tlon.c`: `read`/`write` now perform the capability check on the full length-aware path first (NUL paths outside a prefix trap R003; covered NUL paths return `err "invalid input"`); `aleph_str_n(NULL,len)` zero-fills and `aleph_record(...,NULL,n)` zero-initializes fields; `pthread_join` failure exits 70 with a one-line stderr message; GCC/Clang requirement documented in the header/ADR
+- `tlon/tlon.h`: documented static/program-duration lifetime for `aleph_set_file`/`aleph_set_uses`/`aleph_set_args` pointers and the `__builtin_*_overflow` compiler requirement
+- `tlon/test_tlon.c`: added NUL-path-outside-prefix R003, existing-symlink-escape R003 for read and write, NULL-source zeroing checks
+- `compiler/tests/tlon.rs`: unchanged; full suite still green
+- tests: 250 passed (210 unit, 29 CLI, 8 golden, 3 tlon)
+- next: T-018 C codegen for expressions/functions and `aleph build`
+- agent: opencode/deepseek-v4.1-flash
