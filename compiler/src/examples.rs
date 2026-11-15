@@ -116,7 +116,7 @@ fn missing_examples(file: &str, ast: &ast::File) -> Vec<Diagnostic> {
 
 /// The set of functions that reach an effectful builtin, directly or
 /// transitively (ADR-0022).
-fn effectful_fns(ast: &ast::File) -> BTreeSet<String> {
+pub(crate) fn effectful_fns(ast: &ast::File) -> BTreeSet<String> {
     let user_fns: BTreeSet<&str> = ast
         .fns
         .iter()
@@ -183,56 +183,10 @@ fn is_effectful_builtin(name: &str) -> bool {
 fn walk_body(function: &Fn, visit: &mut impl FnMut(&Expr)) {
     for stmt in &function.stmts {
         match &stmt.kind {
-            StmtKind::Let { value, .. } | StmtKind::Do { value } => walk_expr(value, visit),
+            StmtKind::Let { value, .. } | StmtKind::Do { value } => ast::walk_expr(value, visit),
         }
     }
-    walk_expr(&function.result, visit);
-}
-
-fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
-    visit(expr);
-    match &expr.kind {
-        ExprKind::Call { args, .. } => {
-            for arg in args {
-                walk_expr(arg, visit);
-            }
-        }
-        ExprKind::BinOp { lhs, rhs, .. } => {
-            walk_expr(lhs, visit);
-            walk_expr(rhs, visit);
-        }
-        ExprKind::UnOp { operand, .. } => walk_expr(operand, visit),
-        ExprKind::If { cond, then_, else_ } => {
-            walk_expr(cond, visit);
-            walk_expr(then_, visit);
-            walk_expr(else_, visit);
-        }
-        ExprKind::List { elems } => {
-            for elem in elems {
-                walk_expr(elem, visit);
-            }
-        }
-        ExprKind::Field { value, .. }
-        | ExprKind::Some { value }
-        | ExprKind::Ok { value }
-        | ExprKind::Err { value }
-        | ExprKind::Try { value }
-        | ExprKind::Has { value }
-        | ExprKind::IsOk { value } => walk_expr(value, visit),
-        ExprKind::Else { value, default } => {
-            walk_expr(value, visit);
-            walk_expr(default, visit);
-        }
-        ExprKind::Int { .. }
-        | ExprKind::Float { .. }
-        | ExprKind::Str { .. }
-        | ExprKind::Bool { .. }
-        | ExprKind::Nil
-        | ExprKind::Var { .. }
-        | ExprKind::FnRef { .. }
-        | ExprKind::Empty { .. }
-        | ExprKind::None { .. } => {}
-    }
+    ast::walk_expr(&function.result, visit);
 }
 
 fn node_name(id: NodeId) -> String {

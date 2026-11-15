@@ -1,0 +1,90 @@
+{
+  "file": "tests/aph/ex_spec12_fib.aph",
+  "capabilities": [],
+  "types": [],
+  "functions": [
+    {
+      "name": "add",
+      "signature": "fn add a:i64 b:i64 -> i64",
+      "params": [
+        {
+          "name": "a",
+          "type": "i64"
+        },
+        {
+          "name": "b",
+          "type": "i64"
+        }
+      ],
+      "ret": "i64",
+      "doc": null,
+      "effectful": false,
+      "examples": [
+        "add 2 3 = 5"
+      ],
+      "calls": [],
+      "builtins": []
+    },
+    {
+      "name": "fib",
+      "signature": "fn fib n:i64 -> i64",
+      "params": [
+        {
+          "name": "n",
+          "type": "i64"
+        }
+      ],
+      "ret": "i64",
+      "doc": "nth fibonacci number",
+      "effectful": false,
+      "examples": [
+        "fib 0 = 0",
+        "fib 10 = 55"
+      ],
+      "calls": [
+        "fib"
+      ],
+      "builtins": []
+    },
+    {
+      "name": "total",
+      "signature": "fn total xs:list i64 -> i64",
+      "params": [
+        {
+          "name": "xs",
+          "type": "list i64"
+        }
+      ],
+      "ret": "i64",
+      "doc": null,
+      "effectful": false,
+      "examples": [
+        "total [1 2 3] = 6",
+        "total empty i64 = 0"
+      ],
+      "calls": [
+        "add"
+      ],
+      "builtins": [
+        "fold"
+      ]
+    },
+    {
+      "name": "main",
+      "signature": "fn main -> unit",
+      "params": [],
+      "ret": "unit",
+      "doc": null,
+      "effectful": true,
+      "examples": [],
+      "calls": [
+        "fib"
+      ],
+      "builtins": [
+        "print",
+        "show"
+      ]
+    }
+  ],
+  "entry": "main"
+}

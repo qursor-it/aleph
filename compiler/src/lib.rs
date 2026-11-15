@@ -5,6 +5,7 @@ pub mod check;
 pub mod cli;
 pub mod diag;
 pub mod examples;
+pub mod explain;
 pub mod interp;
 pub mod lexer;
 pub mod lexicon;

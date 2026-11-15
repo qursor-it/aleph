@@ -262,3 +262,26 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: none
 - next: T-016 `aleph explain`
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T15:17 T-016 done
+- `compiler/src/explain.rs`: typed `Report` (`file`, `capabilities`, `types`, `functions`, `entry`) built after read -> lex/parse -> type check -> caps; capabilities always first via `caps::capabilities`, types sorted by name, functions in canonical file order, entry `main`/null
+- per function: canonical header and params from `printer::print_type`, doc, `effectful` from `examples::effectful_fns`, examples from `printer::print_expr`, sorted unique user calls and builtins from the body incl. `@fnref` (examples excluded, documented)
+- text format documented in the module: `capabilities: CAP ["path"]` / `none`, `type NAME f:T ...`, `fn ...`, indented `doc`/`effectful`/`examples`/`calls`/`builtins`, `entry: main|-`; all lists are `Vec`/`BTreeSet`, never hash-ordered
+- `--json`: serde structs in declaration order, two-space pretty print plus trailing LF; `aleph explain` wired in `main.rs` with the diagnostics path unchanged (JSON lines, exit 1)
+- golden harness: `.explain` runs `aleph explain`, `.explain.json` runs `aleph explain --json`; both accepted as companions and `.explain.json` is checked as a two-part sidecar; added both formats for `ex_spec12_fib`, `ex_spec12_words` and the new `explain_records` program
+- CLI test: ill-typed file prints `T001`, exits 1, byte-identical over two runs; valid record program is also byte-identical
+- tests: 242 passed (208 unit, 26 CLI, 8 golden)
+- decisions: none
+- next: T-017 Tlön runtime in C
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T15:29 T-016 review fixes done
+- explain text no longer hard-codes keywords: function headers and record lines use `lexicon::keyword`/`lexicon::operator`; the JSON schema field names stay as specified
+- `doc` is now quoted and escaped (`doc: "..."`) or `doc: -` when absent, keeping null distinct from `""`; explain text goldens regenerated
+- shared pre-order walker `ast::walk_expr` added (with a unit test) and used by `explain`, `caps` and `examples`; the three local copies are gone
+- added empty `tests/aph/explain_records.diag` (check is silent)
+- ADR-0023 (Proposed) records the text layout, JSON field names/order, body-only call graph and determinism rules as a contract
+- tests: 243 passed (209 unit, 26 CLI, 8 golden)
+- decisions: ADR-0023 (Proposed)
+- next: T-017 Tlön runtime in C
+- agent: opencode/deepseek-v4.1-flash

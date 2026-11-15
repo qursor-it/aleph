@@ -761,6 +761,57 @@ fn collect_expr(expr: &Expr, ids: &mut Vec<NodeId>) {
     }
 }
 
+/// Walk `expr` in pre-order, calling `visit` on every expression node.
+///
+/// Children are visited left to right: call arguments, binary operands, unary
+/// operand, `if` condition then branches, list elements, wrapped values and
+/// `else` value then default. Types inside `empty`/`none` are not expressions.
+pub fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
+    visit(expr);
+    match &expr.kind {
+        ExprKind::Call { args, .. } => {
+            for arg in args {
+                walk_expr(arg, visit);
+            }
+        }
+        ExprKind::BinOp { lhs, rhs, .. } => {
+            walk_expr(lhs, visit);
+            walk_expr(rhs, visit);
+        }
+        ExprKind::UnOp { operand, .. } => walk_expr(operand, visit),
+        ExprKind::If { cond, then_, else_ } => {
+            walk_expr(cond, visit);
+            walk_expr(then_, visit);
+            walk_expr(else_, visit);
+        }
+        ExprKind::List { elems } => {
+            for elem in elems {
+                walk_expr(elem, visit);
+            }
+        }
+        ExprKind::Field { value, .. }
+        | ExprKind::Some { value }
+        | ExprKind::Ok { value }
+        | ExprKind::Err { value }
+        | ExprKind::Try { value }
+        | ExprKind::Has { value }
+        | ExprKind::IsOk { value } => walk_expr(value, visit),
+        ExprKind::Else { value, default } => {
+            walk_expr(value, visit);
+            walk_expr(default, visit);
+        }
+        ExprKind::Int { .. }
+        | ExprKind::Float { .. }
+        | ExprKind::Str { .. }
+        | ExprKind::Bool { .. }
+        | ExprKind::Nil
+        | ExprKind::Var { .. }
+        | ExprKind::FnRef { .. }
+        | ExprKind::Empty { .. }
+        | ExprKind::None { .. } => {}
+    }
+}
+
 /// Serialize a file as pretty JSON with a trailing newline (`aleph ast`).
 pub fn to_json(file: &File) -> String {
     debug_assert!(
@@ -1110,6 +1161,31 @@ mod tests {
         assert!(!first.same_ids(&second));
         second = first.clone();
         assert!(first.same_ids(&second));
+    }
+
+    #[test]
+    fn walk_expr_visits_nodes_in_preorder() {
+        let expr = expr(ExprKind::BinOp {
+            op: BinOp::Add,
+            lhs: Box::new(int(1)),
+            rhs: Box::new(expr(ExprKind::Call {
+                callee: "f".to_string(),
+                callee_kind: CalleeKind::Fn,
+                args: vec![var("a")],
+            })),
+        });
+
+        let mut tags = Vec::new();
+        walk_expr(&expr, &mut |node| {
+            tags.push(match &node.kind {
+                ExprKind::BinOp { .. } => "binop",
+                ExprKind::Int { .. } => "int",
+                ExprKind::Call { .. } => "call",
+                ExprKind::Var { .. } => "var",
+                _ => "other",
+            });
+        });
+        assert_eq!(tags, ["binop", "int", "call", "var"]);
     }
 
     #[test]

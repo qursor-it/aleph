@@ -66,23 +66,23 @@ pub fn check_caps(file: &str, ast: &ast::File) -> Vec<Diagnostic> {
 
     for function in &ast.fns {
         for example in &function.examples {
-            walk_expr(&example.lhs, &mut |expr| {
+            ast::walk_expr(&example.lhs, &mut |expr| {
                 check_call(file, ast, expr, &mut diagnostics)
             });
-            walk_expr(&example.rhs, &mut |expr| {
+            ast::walk_expr(&example.rhs, &mut |expr| {
                 check_call(file, ast, expr, &mut diagnostics)
             });
         }
         for stmt in &function.stmts {
             match &stmt.kind {
                 StmtKind::Let { value, .. } | StmtKind::Do { value } => {
-                    walk_expr(value, &mut |expr| {
+                    ast::walk_expr(value, &mut |expr| {
                         check_call(file, ast, expr, &mut diagnostics)
                     });
                 }
             }
         }
-        walk_expr(&function.result, &mut |expr| {
+        ast::walk_expr(&function.result, &mut |expr| {
             check_call(file, ast, expr, &mut diagnostics)
         });
     }
@@ -202,53 +202,6 @@ fn check_call(file: &str, ast: &ast::File, expr: &Expr, diagnostics: &mut Vec<Di
 fn sorted_prefixes(prefixes: Vec<&str>) -> Vec<String> {
     let sorted: BTreeSet<String> = prefixes.into_iter().map(str::to_string).collect();
     sorted.into_iter().collect()
-}
-
-/// Walk `expr` in pre-order, calling `visit` on every node.
-fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
-    visit(expr);
-    match &expr.kind {
-        ExprKind::Call { args, .. } => {
-            for arg in args {
-                walk_expr(arg, visit);
-            }
-        }
-        ExprKind::BinOp { lhs, rhs, .. } => {
-            walk_expr(lhs, visit);
-            walk_expr(rhs, visit);
-        }
-        ExprKind::UnOp { operand, .. } => walk_expr(operand, visit),
-        ExprKind::If { cond, then_, else_ } => {
-            walk_expr(cond, visit);
-            walk_expr(then_, visit);
-            walk_expr(else_, visit);
-        }
-        ExprKind::List { elems } => {
-            for elem in elems {
-                walk_expr(elem, visit);
-            }
-        }
-        ExprKind::Field { value, .. }
-        | ExprKind::Some { value }
-        | ExprKind::Ok { value }
-        | ExprKind::Err { value }
-        | ExprKind::Try { value }
-        | ExprKind::Has { value }
-        | ExprKind::IsOk { value } => walk_expr(value, visit),
-        ExprKind::Else { value, default } => {
-            walk_expr(value, visit);
-            walk_expr(default, visit);
-        }
-        ExprKind::Int { .. }
-        | ExprKind::Float { .. }
-        | ExprKind::Str { .. }
-        | ExprKind::Bool { .. }
-        | ExprKind::Nil
-        | ExprKind::Var { .. }
-        | ExprKind::FnRef { .. }
-        | ExprKind::Empty { .. }
-        | ExprKind::None { .. } => {}
-    }
 }
 
 fn node_name(id: NodeId) -> String {

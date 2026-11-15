@@ -1,0 +1,28 @@
+capabilities: none
+fn add a:i64 b:i64 -> i64
+  doc: -
+  effectful: no
+  examples: add 2 3 = 5
+  calls: -
+  builtins: -
+fn fib n:i64 -> i64
+  doc: "nth fibonacci number"
+  effectful: no
+  examples: fib 0 = 0
+  examples: fib 10 = 55
+  calls: fib
+  builtins: -
+fn total xs:list i64 -> i64
+  doc: -
+  effectful: no
+  examples: total [1 2 3] = 6
+  examples: total empty i64 = 0
+  calls: add
+  builtins: fold
+fn main -> unit
+  doc: -
+  effectful: yes
+  examples: -
+  calls: fib
+  builtins: print show
+entry: main

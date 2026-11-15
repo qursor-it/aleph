@@ -1,0 +1,52 @@
+{
+  "file": "tests/aph/ex_spec12_words.aph",
+  "capabilities": [
+    {
+      "cap": "fs.read",
+      "path": "data"
+    }
+  ],
+  "types": [],
+  "functions": [
+    {
+      "name": "words",
+      "signature": "fn words s:str -> i64",
+      "params": [
+        {
+          "name": "s",
+          "type": "str"
+        }
+      ],
+      "ret": "i64",
+      "doc": null,
+      "effectful": false,
+      "examples": [
+        "words \"a b c\" = 3"
+      ],
+      "calls": [],
+      "builtins": [
+        "len",
+        "split",
+        "trim"
+      ]
+    },
+    {
+      "name": "main",
+      "signature": "fn main -> res unit str",
+      "params": [],
+      "ret": "res unit str",
+      "doc": null,
+      "effectful": true,
+      "examples": [],
+      "calls": [
+        "words"
+      ],
+      "builtins": [
+        "print",
+        "read",
+        "show"
+      ]
+    }
+  ],
+  "entry": "main"
+}

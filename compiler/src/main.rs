@@ -8,6 +8,7 @@ use alephc::check as type_check;
 use alephc::cli;
 use alephc::diag::Diagnostic;
 use alephc::examples;
+use alephc::explain;
 use alephc::interp;
 use alephc::parser;
 use alephc::printer;
@@ -27,6 +28,7 @@ fn main() -> ExitCode {
         "fmt" => fmt_command(&cli),
         "test" => test_command(&cli),
         "run" => run_command(&cli),
+        "explain" => explain_command(&cli),
         "ast" => ast_command(&cli),
         // Later phases are still stubbed.
         _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
@@ -169,6 +171,49 @@ fn run_command(cli: &cli::Cli) -> ExitCode {
             ExitCode::from(70)
         }
     }
+}
+
+/// `aleph explain`: lex, parse, type check and capability check (no F001, no
+/// examples), then print the deterministic report as text or JSON.
+fn explain_command(cli: &cli::Cli) -> ExitCode {
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let output = parser::parse(&cli.file, &source);
+    if !output.diagnostics.is_empty() {
+        return emit_diagnostics(&output.diagnostics);
+    }
+
+    let Some(file) = output.file else {
+        return emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]);
+    };
+
+    let checked = type_check::check(&cli.file, &file);
+    if !checked.diagnostics.is_empty() {
+        return emit_diagnostics(&checked.diagnostics);
+    }
+
+    let capabilities = caps::check_caps(&cli.file, &file);
+    if !capabilities.is_empty() {
+        return emit_diagnostics(&capabilities);
+    }
+
+    let report = explain::report(&cli.file, &file);
+    let text = if cli.json {
+        explain::to_json(&report)
+    } else {
+        explain::to_text(&report)
+    };
+
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = out.write_all(text.as_bytes()) {
+        eprintln!("aleph: failed to write explain output: {err}");
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
 }
 
 /// F001: the source is not the canonical printing of its AST (SPEC §10).

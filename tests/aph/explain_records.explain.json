@@ -1,0 +1,77 @@
+{
+  "file": "tests/aph/explain_records.aph",
+  "capabilities": [],
+  "types": [
+    {
+      "name": "point",
+      "fields": [
+        {
+          "name": "x",
+          "type": "f64"
+        },
+        {
+          "name": "y",
+          "type": "f64"
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "origin",
+      "signature": "fn origin -> point",
+      "params": [],
+      "ret": "point",
+      "doc": null,
+      "effectful": false,
+      "examples": [
+        "origin = point 0.0 0.0"
+      ],
+      "calls": [],
+      "builtins": []
+    },
+    {
+      "name": "shift",
+      "signature": "fn shift p:point dx:f64 dy:f64 -> point",
+      "params": [
+        {
+          "name": "p",
+          "type": "point"
+        },
+        {
+          "name": "dx",
+          "type": "f64"
+        },
+        {
+          "name": "dy",
+          "type": "f64"
+        }
+      ],
+      "ret": "point",
+      "doc": "translate a point",
+      "effectful": false,
+      "examples": [
+        "shift point 1.0 2.0 3.0 4.0 = point 4.0 6.0"
+      ],
+      "calls": [],
+      "builtins": []
+    },
+    {
+      "name": "main",
+      "signature": "fn main -> unit",
+      "params": [],
+      "ret": "unit",
+      "doc": null,
+      "effectful": true,
+      "examples": [],
+      "calls": [
+        "shift"
+      ],
+      "builtins": [
+        "print",
+        "show"
+      ]
+    }
+  ],
+  "entry": "main"
+}

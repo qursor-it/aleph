@@ -108,7 +108,8 @@ fn print_fn(function: &ast::Fn) -> Vec<String> {
         .collect()
 }
 
-fn print_type(ty: &ast::Type) -> String {
+/// Canonical type spelling, shared with `aleph explain`.
+pub(crate) fn print_type(ty: &ast::Type) -> String {
     match &ty.kind {
         TypeKind::I64 => type_name("int").to_string(),
         TypeKind::F64 => type_name("float").to_string(),
@@ -135,7 +136,8 @@ fn print_unop(op: UnOp) -> &'static str {
     op.spelling()
 }
 
-fn print_expr(expr: &ast::Expr) -> String {
+/// Canonical expression text, shared with `aleph explain`.
+pub(crate) fn print_expr(expr: &ast::Expr) -> String {
     match &expr.kind {
         ExprKind::Int { value } => value.to_string(),
         ExprKind::Float { value } => value.clone(),

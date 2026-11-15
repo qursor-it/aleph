@@ -1,0 +1,14 @@
+capabilities: fs.read "data"
+fn words s:str -> i64
+  doc: -
+  effectful: no
+  examples: words "a b c" = 3
+  calls: -
+  builtins: len split trim
+fn main -> res unit str
+  doc: -
+  effectful: yes
+  examples: -
+  calls: words
+  builtins: print read show
+entry: main

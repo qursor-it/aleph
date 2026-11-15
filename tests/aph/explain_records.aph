@@ -1,0 +1,12 @@
+type point x:f64 y:f64
+fn origin -> point
+ ex origin = point 0.0 0.0
+ point 0.0 0.0
+fn shift p:point dx:f64 dy:f64 -> point
+ doc "translate a point"
+ ex shift point 1.0 2.0 3.0 4.0 = point 4.0 6.0
+ point + .x p dx + .y p dy
+fn main -> unit
+ let p shift point 0.0 0.0 1.0 2.0
+ do print show + .x p .y p
+ nil

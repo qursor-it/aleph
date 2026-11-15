@@ -20,7 +20,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-013 Interpreter: all expressions and builtins, traps R001–R004 with JSON + exit 70 — SPEC §6, ADR-0009
 - [x] T-014 Examples runner: E001/E002, `aleph test`, run inside `aleph check` — ADR-0010, ADR-0022
 - [x] T-015 Golden test harness: one `compiler/tests/golden.rs` for `.out`/`.diag`/`.ast`/`.fmt`, orphans rejected, hermetic run dirs; SPEC §12 examples + 15 benchmark programs
-- [ ] T-016 `aleph explain` (deterministic): capabilities, signatures, docs, examples, call graph; text and `--json`
+- [x] T-016 `aleph explain` (deterministic): capabilities, signatures, docs, examples, call graph; text and `--json`
 
 ## M2 — Native (C backend + Tlön runtime)
 

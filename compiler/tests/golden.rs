@@ -12,6 +12,8 @@
 //! - `NAME.diag` is `aleph check` stdout byte for byte: empty means a clean
 //!   file (exit 0), non-empty means diagnostics (exit 1).
 //! - `NAME.ast` and `NAME.fmt` are the stdout of `aleph ast` and `aleph fmt`.
+//! - `NAME.explain` and `NAME.explain.json` are the stdout of
+//!   `aleph explain` and `aleph explain --json`.
 //! - `NAME.out` is the stdout of `aleph run`. Optional companions are
 //!   `NAME.args` (one argument per line), `NAME.exit` (expected exit code,
 //!   default 0), `NAME.err` (expected stderr) and `NAME.files` (safe relative
@@ -32,11 +34,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 /// Sidecar extensions that belong to a `NAME.aph` source.
-const SIDECARS: [&str; 8] = ["out", "diag", "ast", "fmt", "args", "exit", "err", "files"];
+const SIDECARS: [&str; 9] = [
+    "out", "diag", "ast", "fmt", "explain", "args", "exit", "err", "files",
+];
 /// Extensions that only make sense next to a `NAME.out` run golden.
 const RUN_MODIFIERS: [&str; 4] = ["args", "exit", "err", "files"];
 /// At least one of these makes a source file a golden case.
-const COMPANIONS: [&str; 4] = ["out", "diag", "ast", "fmt"];
+const COMPANIONS: [&str; 5] = ["out", "diag", "ast", "fmt", "explain"];
+/// A `NAME.explain.json` sidecar has a two-part extension.
+const EXPLAIN_JSON_SUFFIX: &str = ".explain.json";
 /// A spawned `aleph` process that runs longer than this is killed.
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -204,6 +210,21 @@ fn copy_dir(source: &Path, destination: &Path) {
     }
 }
 
+/// Whether a `NAME.aph` source has at least one golden companion.
+fn has_companion(path: &Path) -> bool {
+    COMPANIONS
+        .iter()
+        .any(|companion| path.with_extension(companion).is_file())
+        || path.with_extension("explain.json").is_file()
+}
+
+/// The `.aph` source a `NAME.explain.json` sidecar belongs to.
+fn explain_json_source(path: &Path) -> Option<PathBuf> {
+    let name = path.file_name()?.to_str()?;
+    let stem = name.strip_suffix(EXPLAIN_JSON_SUFFIX)?;
+    Some(path.with_file_name(format!("{stem}.aph")))
+}
+
 #[test]
 fn golden_files_are_consistent() {
     let directory = repo_root().join("tests/aph");
@@ -218,21 +239,25 @@ fn golden_files_are_consistent() {
     let mut missing_run_goldens = Vec::new();
 
     for path in paths {
-        let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
-            continue;
-        };
         let name = file_name(&path);
 
-        if extension == "aph" {
-            let has_companion = COMPANIONS
-                .iter()
-                .any(|companion| path.with_extension(companion).is_file());
-            if !has_companion {
+        if path.extension().and_then(|ext| ext.to_str()) == Some("aph") {
+            if !has_companion(&path) {
                 orphan_sources.push(name);
             }
             continue;
         }
 
+        if let Some(source) = explain_json_source(&path) {
+            if !source.is_file() {
+                missing_sources.push(name);
+            }
+            continue;
+        }
+
+        let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
+            continue;
+        };
         if !SIDECARS.contains(&extension) {
             continue;
         }
@@ -249,7 +274,7 @@ fn golden_files_are_consistent() {
     let mut problems = Vec::new();
     if !orphan_sources.is_empty() {
         problems.push(format!(
-            "orphan .aph files (need one of .out/.diag/.ast/.fmt): {}",
+            "orphan .aph files (need one of .out/.diag/.ast/.fmt/.explain/.explain.json): {}",
             orphan_sources.join(", ")
         ));
     }
@@ -398,6 +423,94 @@ fn ast_golden_files_match() {
     assert!(
         failures.is_empty(),
         "{} ast golden failure(s):\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn explain_golden_files_match() {
+    let repo = repo_root();
+    let mut failures = Vec::new();
+    for aph in cases_with("explain") {
+        let relative = relative(&repo, &aph);
+        let output = match aleph(&["explain", relative]) {
+            Ok(output) => output,
+            Err(error) => {
+                failures.push(format!("{relative}: {error}"));
+                continue;
+            }
+        };
+        let expected = fs::read(aph.with_extension("explain")).expect("read .explain");
+
+        if output.status.code() != Some(0) {
+            failures.push(format!(
+                "{relative}: explain expected exit 0, got {:?} (stderr: {})",
+                output.status.code(),
+                show_bytes(&output.stderr)
+            ));
+        }
+        if !output.stderr.is_empty() {
+            failures.push(format!(
+                "{relative}: unexpected stderr: {}",
+                show_bytes(&output.stderr)
+            ));
+        }
+        if output.stdout != expected {
+            failures.push(format!(
+                "{relative}: explain stdout mismatch\nexpected:\n{}\nactual:\n{}",
+                show_bytes(&expected),
+                show_bytes(&output.stdout)
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} explain golden failure(s):\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn explain_json_golden_files_match() {
+    let repo = repo_root();
+    let mut failures = Vec::new();
+    for aph in cases_with("explain.json") {
+        let relative = relative(&repo, &aph);
+        let output = match aleph(&["explain", "--json", relative]) {
+            Ok(output) => output,
+            Err(error) => {
+                failures.push(format!("{relative}: {error}"));
+                continue;
+            }
+        };
+        let expected = fs::read(aph.with_extension("explain.json")).expect("read .explain.json");
+
+        if output.status.code() != Some(0) {
+            failures.push(format!(
+                "{relative}: explain --json expected exit 0, got {:?} (stderr: {})",
+                output.status.code(),
+                show_bytes(&output.stderr)
+            ));
+        }
+        if !output.stderr.is_empty() {
+            failures.push(format!(
+                "{relative}: unexpected stderr: {}",
+                show_bytes(&output.stderr)
+            ));
+        }
+        if output.stdout != expected {
+            failures.push(format!(
+                "{relative}: explain --json stdout mismatch\nexpected:\n{}\nactual:\n{}",
+                show_bytes(&expected),
+                show_bytes(&output.stdout)
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} explain JSON golden failure(s):\n{}",
         failures.len(),
         failures.join("\n")
     );

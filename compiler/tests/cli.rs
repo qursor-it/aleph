@@ -256,7 +256,7 @@ fn run_trap_is_json_on_stderr_and_exits_seventy() {
 
 #[test]
 fn every_stubbed_subcommand_reports_not_implemented() {
-    for command in ["build", "explain", "tokens"] {
+    for command in ["build", "tokens"] {
         let file = "foo.aph".to_string();
         let out = run(&[command, file.as_str()]);
         assert_eq!(out.status.code(), Some(1), "command {command}");
@@ -266,6 +266,39 @@ fn every_stubbed_subcommand_reports_not_implemented() {
         assert_eq!(value["code"], "X001", "command {command}");
         assert_eq!(value["file"], file.as_str(), "command {command}");
     }
+}
+
+#[test]
+fn explain_prints_type_diagnostics_and_is_byte_identical_across_runs() {
+    let file = temp_source(
+        "explain_ill_typed.aph",
+        "fn main -> unit\n let x + 1 \"x\"\n nil\n",
+    );
+
+    let first = run(&["explain", file.as_str()]);
+    let second = run(&["explain", file.as_str()]);
+    assert_eq!(first.status.code(), Some(1));
+    assert!(first.stderr.is_empty());
+    assert_eq!(first.stdout, second.stdout, "explain output must be stable");
+    assert_eq!(first.status.code(), second.status.code());
+
+    let stdout = String::from_utf8(first.stdout).expect("stdout is UTF-8");
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines.len(), 1, "stdout: {stdout}");
+    let value: serde_json::Value =
+        serde_json::from_str(lines[0]).expect("diagnostic must be valid JSON");
+    assert_eq!(value["code"], "T001");
+    assert_eq!(value["file"], file.as_str());
+
+    let file = temp_source(
+        "explain_stable.aph",
+        "type point x:f64 y:f64\nfn main -> unit\n nil\n",
+    );
+    let first = run(&["explain", file.as_str()]);
+    let second = run(&["explain", file.as_str()]);
+    assert_eq!(first.status.code(), Some(0));
+    assert!(first.stderr.is_empty());
+    assert_eq!(first.stdout, second.stdout, "explain output must be stable");
 }
 
 #[test]
