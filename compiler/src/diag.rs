@@ -137,6 +137,7 @@ pub const CODES: &[(&str, &str)] = &[
     ("E002", "example failed (expected/found)"),
     ("C001", "missing capability"),
     ("C002", "path not covered by capability"),
+    ("C003", "invalid capability"),
     ("R001", "integer overflow"),
     ("R002", "division by zero"),
     ("R003", "capability violation at run time"),

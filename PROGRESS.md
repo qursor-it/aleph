@@ -176,3 +176,23 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0019 unchanged
 - next: T-012 capability checker C001/C002
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T14:40 T-012 done
+- `compiler/src/caps.rs`: `check_caps` walks every builtin Call (examples, statements, result) and reports C001 missing capability / C002 literal path not covered, sorted by (line, col); `covers` normalizes `/`, drops empty and `.` segments, rejects `..`, and distinguishes absolute paths; `capabilities` returns sorted, deduplicated (spelling, path) pairs
+- C003 invalid capability for `..` prefixes and fs.read/fs.write without a path; added to diag::CODES and spec/diagnostics.md; ADR-0020 Proposed
+- `aleph check` pipeline is now F001 -> T -> C -> X001; SPEC §12 second program passes C checks
+- golden: `tests/aph/cap_c001_read|cap_c001_write|cap_c002_outside|cap_c002_dotdot|cap_c003_dotdot|cap_c003_nopath` with .diag, and `cap_valid` with the expected X001
+- tests: 168 passed (148 unit, 17 CLI, 3 golden)
+- decisions: ADR-0020 (Proposed)
+- next: T-013 interpreter (reuse caps::covers for R003); T-014 examples runner
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T15:05 T-012 review fixes done
+- builtins: tests pin effectful-without-capability to {eprint, print} and `path_arg < arity` for every builtin
+- caps: missing `path_arg` in a call is now a `debug_assert!` (parsed calls cannot have wrong arity); empty `use` prefix is C003; C003 carries `found` (prefix or `""`) and distinct messages "invalid capability prefix" / "missing capability path" (code unchanged)
+- ADR-0020 clarifies that `covers` is the lexical C002 filter and R003 must canonicalize the prefix and path (parent for not-yet-existing write targets) before reusing the comparison; POSIX only, leading `//` is `/`
+- goldens: `cap_c003_dotdot`/`cap_c003_nopath` updated, `cap_c003_empty` added
+- tests: 171 passed (151 unit, 17 CLI, 3 golden)
+- decisions: ADR-0020 (Proposed, updated)
+- next: T-013 interpreter (R003 canonicalizes before `caps::covers`); T-014 examples runner
+- agent: opencode/deepseek-v4.1-flash

@@ -16,7 +16,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-009 Canonical check F001 with `canonical` field in diagnostic — SPEC §10
 - [x] T-010 Type checker: primitives, lists, opt/res, records, bidirectional ok/err/none, T001/T005/T010 — SPEC §4–5
 - [x] T-011 Builtin table (types, arity, effect, capability) shared by parser, checker, interpreter — SPEC §5.1
-- [ ] T-012 Capability checker C001/C002 — SPEC §8, ADR-0008
+- [x] T-012 Capability checker C001/C002/C003 — SPEC §8, ADR-0008, ADR-0020
 - [ ] T-013 Interpreter: all expressions and builtins, traps R001–R003 with JSON + exit 70 — SPEC §6, ADR-0009
 - [ ] T-014 Examples runner: E001/E002, `aleph test`, run inside `aleph check` — ADR-0010
 - [ ] T-015 Golden test harness: every `tests/aph/*.aph` with `.out` or `.diag`; add the SPEC §12 examples + 15 more programs

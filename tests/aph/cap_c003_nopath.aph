@@ -1,0 +1,3 @@
+use fs.write
+fn main -> unit
+ nil

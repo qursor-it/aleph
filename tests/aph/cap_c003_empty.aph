@@ -1,0 +1,3 @@
+use fs.read ""
+fn main -> unit
+ nil

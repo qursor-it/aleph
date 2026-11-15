@@ -1,0 +1,3 @@
+fn main -> res unit str
+ let text read "data/in.txt"
+ ok nil

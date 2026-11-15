@@ -1,0 +1,4 @@
+use fs.read "data"
+fn main -> res unit str
+ let r write "data/out.txt" "x"
+ ok nil

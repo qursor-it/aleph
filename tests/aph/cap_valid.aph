@@ -1,0 +1,5 @@
+use fs.read "data"
+fn main -> res unit str
+ let text try read "data/in.txt"
+ do print text
+ ok nil

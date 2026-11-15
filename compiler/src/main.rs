@@ -3,6 +3,7 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use alephc::ast;
+use alephc::caps;
 use alephc::check as type_check;
 use alephc::cli;
 use alephc::diag::Diagnostic;
@@ -73,10 +74,15 @@ fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
     }
 
     let checked = type_check::check(&cli.file, &file);
-    if checked.diagnostics.is_empty() {
+    if !checked.diagnostics.is_empty() {
+        return checked.diagnostics;
+    }
+
+    let capabilities = caps::check_caps(&cli.file, &file);
+    if capabilities.is_empty() {
         vec![Diagnostic::not_implemented(&cli.file)]
     } else {
-        checked.diagnostics
+        capabilities
     }
 }
 

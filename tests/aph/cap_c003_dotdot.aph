@@ -1,0 +1,3 @@
+use fs.read "../x"
+fn main -> unit
+ nil

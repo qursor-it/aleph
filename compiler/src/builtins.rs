@@ -419,6 +419,33 @@ mod tests {
     }
 
     #[test]
+    fn effectful_builtins_without_capability_are_only_print_and_eprint() {
+        use std::collections::BTreeSet;
+
+        let names: BTreeSet<&str> = BUILTINS
+            .iter()
+            .filter(|spec| spec.effect == Effect::Effectful && spec.capability.is_none())
+            .map(|spec| spec.name)
+            .collect();
+        assert_eq!(names.into_iter().collect::<Vec<_>>(), ["eprint", "print"]);
+    }
+
+    #[test]
+    fn path_args_are_within_arity() {
+        for spec in BUILTINS {
+            if let Some(index) = spec.path_arg {
+                assert!(
+                    index < spec.arity(),
+                    "`{}` path_arg {} >= arity {}",
+                    spec.name,
+                    index,
+                    spec.arity()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn effects_and_capabilities_match_spec_5_1() {
         let read = lookup("read").unwrap();
         assert_eq!(read.effect, Effect::Effectful);
