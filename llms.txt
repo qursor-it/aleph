@@ -1,0 +1,202 @@
+# Aleph v0.1
+
+Aleph is a programming language whose primary authors and readers are AI agents. Goals: few tokens, native speed, correctness on the first attempt, safe by default. Human readability is NOT a goal of the source text; humans read the generated explanation (`aleph explain`).
+
+## 1. Source files
+`.aph`; UTF-8; outside strings only printable ASCII and LF. LF only; no tabs, trailing spaces or empty lines; exactly one final LF. One file = one module (imports v0.2).
+
+## 2. Lexical structure
+One space between tokens. Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg`.
+
+## 3. Top-level items and canonical order
+Order: `use` sorted by full canonical line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`* (unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`).
+
+## 4. Types
+`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. v0.2: `dict`, JSON, sums, generics.
+
+## 5. Expressions
+Prefix, fixed arity, no parentheses; call arity from signatures, constructors and builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool. `@f` is a function value, only as a higher-order argument.
+
+### 5.1 Builtins (v0.1)
+`e`: p pure, E effectful; `cap`: - none or capability name.
+
+|name|signature|e|cap|
+|---|---|---|---|
+|args|()->list str|p|-|
+|at|list T,i64->opt T|p|-|
+|cat|str,str->str|p|-|
+|contains|str,str->bool|p|-|
+|count|str->i64|p|-|
+|eprint|str->unit|E|-|
+|filter|(A->bool),list A->list A|p|-|
+|float|str->res f64 str|p|-|
+|fold|(B,A->B),B,list A->B|p|-|
+|int|str->res i64 str|p|-|
+|join|list str,str->str|p|-|
+|len|list T->i64|p|-|
+|lower|str->str|p|-|
+|map|(A->B),list A->list B|p|-|
+|print|str->unit|E|-|
+|push|list T,T->list T|p|-|
+|range|i64,i64->list i64|p|-|
+|read|str->res str str|E|fs.read|
+|rev|list T->list T|p|-|
+|show|T->str (T primitive or list of primitive)|p|-|
+|slice|list T,i64,i64->list T|p|-|
+|sort|list T->list T (T primitive)|p|-|
+|split|str,str->list str|p|-|
+|sum|list i64->i64|p|-|
+|trim|str->str|p|-|
+|upper|str->str|p|-|
+|write|str,str->res unit str|E|fs.write|
+
+## 8. Capabilities (ADR-0008)
+Deny by default. `use fs.read "PREFIX"` / `use fs.write "PREFIX"`. `net.host`/`env`/`time` parse in v0.1 but have no builtins until v0.2. Relative/absolute POSIX prefixes, normalized (empty/`.` dropped), `..` never covered. Empty prefix, `..`, or a filesystem capability without a path -> C003. Literals checked statically (C001/C002); computed paths at run time (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 division by zero, R003 capability, R004 stack, R005 allocation.
+
+## Semantics
+T005: params/lets may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples run hermetically (fs denied -> R003, empty args, discarded output). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (`a>=b` empty, >10,000,000 elements -> R005); `sort` ascending; `count` bytes; `split s ""` -> Unicode chars (`split "" ""` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err "invalid int"`; `float` `-?[0-9]+\.[0-9]+` else `err "invalid float"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.
+
+## 9. Diagnostics (ADR-0011)
+JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` is `{"op":"replace","node":"n42","with":"..."}`, only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: L001 L002 P001 P002 P003 F001 T001 T002 T003 T004 T005 T006 T007 T008 T010 E001 E002 C001 C002 C003 R001 R002 R003 R004 R005 X001 X002 X003 X004 X005 X006.
+
+## 10. Canonical form (ADR-0003)
+AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` rejects different text (F001) with `canonical`. Invariant: `print(parse(t)) == t`; `parse(print(ast)) == ast`.
+
+## 11. Command line (`aleph`)
+`llms` prints this text; `check FILE [--json]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE` (v0.2). Exit 0 ok, 1 error, 2 usage, 70 trap.
+
+## Examples
+Canonical, check-clean programs (verbatim from `tests/aph/`):
+
+```
+fn demo -> unit
+ ex sort [3 1 2] = [1 2 3]
+ ex else at [10 20] 1 0 = 20
+ ex at [10] 2 = none i64
+ ex slice [1 2 3 4] 1 3 = [2 3]
+ ex push [1 2] 3 = [1 2 3]
+ ex rev [1 2 3] = [3 2 1]
+ ex sum [1 2 3] = 6
+ ex float "1.5" = ok 1.5
+ ex else float "x" 0.0 = 0.0
+ ex and true false = false
+ ex or false true = true
+ ex not false = true
+ ex neg 5 = -5
+ ex == 2 2 = true
+ ex != 2 3 = true
+ nil
+fn main -> unit
+ print show sort [3 1 2]
+```
+
+```
+fn main -> unit
+ do print cat "a" "b"
+ do print show count "abc"
+ do print show split "a,b,c" ","
+ do print join ["a" "b"] "-"
+ do print trim "  hi  "
+ do print upper "aBc"
+ do print lower "aBc"
+ do print show contains "abc" "b"
+ nil
+```
+
+```
+use fs.read "data"
+use fs.write "out"
+fn up text:str -> str
+ ex up "aB c" = "AB C"
+ upper text
+fn main -> res unit str
+ let text try read "data/in.txt"
+ let saved try write "out/up.txt" up text
+ ok nil
+```
+
+```
+fn pick o:opt i64 -> i64
+ ex pick some 5 = 5
+ ex pick none i64 = 0
+ else o 0
+fn plus r:res i64 str -> res i64 str
+ ex plus ok 41 = ok 42
+ ex plus err "x" = err "x"
+ let n try r
+ ok + n 1
+fn main -> res unit str
+ do print show pick some 5
+ do print show pick none i64
+ do print show else ok 7 0
+ do print show else err "x" 9
+ do print show has some 1
+ do print show isok plus ok 41
+ do print show isok plus err "x"
+ let n try plus ok 41
+ do print show n
+ ok nil
+```
+
+```
+fn add a:i64 b:i64 -> i64
+ ex add 2 3 = 5
+ + a b
+fn inc n:i64 -> i64
+ ex inc 1 = 2
+ + n 1
+fn positive n:i64 -> bool
+ ex positive 1 = true
+ > n 0
+fn main -> unit
+ do print show map @inc [1 2 3]
+ do print show filter @positive [-1 0 2]
+ do print show fold @add 0 [1 2 3 4]
+ nil
+```
+
+```
+type point x:i64 y:i64
+fn shift p:point d:i64 -> point
+ ex shift point 1 2 10 = point 11 2
+ point + .x p d .y p
+fn main -> unit
+ let p shift point 1 2 10
+ do print show .x p
+ do print show .y p
+ nil
+```
+
+```
+fn fib n:i64 -> i64
+ ex fib 0 = 0
+ ex fib 1 = 1
+ ex fib 10 = 55
+ if < n 2 n + fib - n 1 fib - n 2
+fn main -> unit
+ print show fib 30
+```
+
+```
+fn main -> unit
+ do print "out1"
+ do eprint "err1"
+ do print "out2"
+ do eprint "err2"
+ nil
+```
+
+```
+fn main -> unit
+ print show len args
+```
+
+```
+fn main -> unit
+ do print show [1 2 3]
+ do print show [1.0 2.5]
+ do print show ["a b" "c"]
+ do print show empty i64
+ do print show 1.0
+ nil
+```

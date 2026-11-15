@@ -12,6 +12,7 @@ use alephc::diag::Diagnostic;
 use alephc::examples;
 use alephc::explain;
 use alephc::interp;
+use alephc::llms;
 use alephc::parser;
 use alephc::printer;
 
@@ -33,6 +34,7 @@ fn main() -> ExitCode {
         "build" => build_command(&cli),
         "explain" => explain_command(&cli),
         "ast" => ast_command(&cli),
+        "llms" => llms_command(),
         // Later phases are still stubbed.
         _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
     }
@@ -502,6 +504,18 @@ fn create_temp_file(target: &Path) -> std::io::Result<(PathBuf, fs::File)> {
             Err(err) => return Err(err),
         }
     }
+}
+
+/// `aleph llms`: print the compact spec for LLM context (ADR-0026).
+fn llms_command() -> ExitCode {
+    let text = llms::render();
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = out.write_all(text.as_bytes()) {
+        eprintln!("aleph: failed to write llms output: {err}");
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
 }
 
 /// `aleph ast`: parse and print the AST as JSON.

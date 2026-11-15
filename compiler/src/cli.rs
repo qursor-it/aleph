@@ -1,11 +1,16 @@
 use std::ffi::OsString;
 
 pub const USAGE: &str =
-    "usage: aleph <check|fmt|test|run|build|explain|ast|tokens> [OPTIONS] FILE [ARGS..]";
+    "usage: aleph <check|fmt|test|run|build|explain|ast|tokens|llms> [OPTIONS] [FILE] [ARGS..]";
 
 const COMMANDS: &[&str] = &[
-    "check", "fmt", "test", "run", "build", "explain", "ast", "tokens",
+    "check", "fmt", "test", "run", "build", "explain", "ast", "tokens", "llms",
 ];
+
+/// Whether `command` needs a source `FILE` argument.
+pub fn requires_file(command: &str) -> bool {
+    command != "llms"
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cli {
@@ -29,6 +34,20 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
     }
 
     let tokens: Vec<String> = args.collect();
+    if !requires_file(&command) {
+        if let Some(extra) = tokens.first() {
+            return Err(format!("unexpected argument: {extra}"));
+        }
+        return Ok(Cli {
+            command,
+            file: String::new(),
+            json: false,
+            write: false,
+            out: None,
+            args: Vec::new(),
+        });
+    }
+
     let mut file = None;
     let mut json = false;
     let mut write = false;
@@ -121,6 +140,20 @@ mod tests {
     #[test]
     fn missing_file_is_an_error() {
         assert!(parse_args(&["check", "--json"]).is_err());
+    }
+
+    #[test]
+    fn llms_does_not_require_a_file() {
+        let cli = parse_args(&["llms"]).unwrap();
+        assert_eq!(cli.command, "llms");
+        assert!(cli.file.is_empty());
+    }
+
+    #[test]
+    fn llms_rejects_a_file_or_flags() {
+        assert!(parse_args(&["llms", "foo.aph"]).is_err());
+        assert!(parse_args(&["llms", "--json"]).is_err());
+        assert!(parse_args(&["llms", "-w"]).is_err());
     }
 
     #[cfg(unix)]

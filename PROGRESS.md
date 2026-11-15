@@ -402,3 +402,36 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: none (harness only)
 - next: M3 tasks (T-022 llms.txt first).
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T21:35 T-022 done
+- new `compiler/src/llms.rs`: deterministic `render()` built from `include_str!` sources (SPEC purpose paragraph and headings by number, `spec/diagnostics.md` code list, ten verbatim `tests/aph` examples), generated builtin table from `builtins::BUILTINS` (name/signature/effect/capability) and keywords from `lexicon`; estimated tokens = `ceil(chars/4)`
+- `aleph llms` (no FILE) prints `render()`; `cli::requires_file` marks file-less commands and keeps existing commands/tests unchanged
+- root `llms.txt` checked in: 6792 chars, ~1698 estimated tokens (<= 1750); exactly 10 fenced examples: run_show, run_records, bench_fib, bench_fizzbuzz, run_higher_order, cap_valid, ex_spec12_words, run_eprint, bench_total, run_opt_res
+- `compiler/tests/llms.rs`: root byte-equal to render (with regenerate hint), deterministic, CLI no-file, token bound, exactly 10 fenced examples verbatim, and every example parses/canonical/type/capability/example-clean via library calls
+- decisions: ADR-0026 proposed (generation, sources, estimate, regenerate with `cargo run --quiet --bin aleph -- llms > llms.txt`)
+- tests: 282 passed (219 unit, 2 bench_refs, 43 CLI, 1 differential, 8 golden, 6 llms, 3 tlon)
+- next: T-023 `fix` suggestions for the most common diagnostics.
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T21:51 T-022 review fixes done
+- drift detection: `llms.rs` pins hand-written FNV-1a 64 hashes for `spec/SPEC.md`, `spec/grammar.ebnf`, ADR-0018/0020/0021/0022; `compiler/tests/llms.rs` recomputes them and fails with `source X changed: review llms.rs digest, then update hash`; ADR-0026 documents the review step
+- builtin bounds: `sort` now renders `list T->list T (T primitive)`, `show` renders `T->str (T primitive or list of primitive)`; unit test covers every `BuiltinSpec::bounds` entry
+- added compact `## Semantics` block: T005 name reuse, hermetic/global-only examples, print/eprint LF, `show` spellings, `at`/`slice`/`range`/`sort`/`count`/`split`/`int`/`float`, `main` err -> stderr + exit 1
+- capabilities text now covers relative/absolute POSIX prefixes, C003 for empty/`..`/missing fs path, and `..` never covered
+- keywords come from `lexicon::keyword_names()` with an exact-equality test; canonical order rules spell out use/type/fn sorting, `main` last, doc/ex/stmt/result order
+- examples rebalanced (10): `llms_ops` (new golden, 426 bytes), run_strings, bench_upper, run_opt_res, run_higher_order, run_records, bench_fib, run_eprint, run_args, run_show; covers sort, at/else, slice, push, rev, sum, cat, count, upper, contains, float, fs.write, and/or/not/neg, ==/!=
+- `aleph llms` now rejects FILE and flags with usage exit 2; builtin capability column has exhaustive Capability arms (no `?`)
+- root `llms.txt` regenerated: 7674 chars, ~1919 estimated tokens (test bound raised to 1950, still < 2000 target)
+- tests: 286 passed (221 unit, 2 bench_refs, 43 CLI, 1 differential, 8 golden, 8 llms, 3 tlon)
+- next: T-023 `fix` suggestions for the most common diagnostics.
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T22:05 T-022 cycle-2 review fixes done
+- capabilities: `use net.host "x"`, `use env`, `use time` parse in v0.1 but have no builtins until v0.2
+- semantics: added `range` > 10,000,000 elements -> R005 and > 10,000 calls or deep evaluation -> R004; `upper`/`lower` ASCII-only; `ok`/`err` require an expected `res` type else T010
+- canonical order now says `use` sorted by full canonical line text
+- drift detection: added `spec/diagnostics.md` to `SOURCE_DIGESTS` (FNV-1a 64 `0x4af2f95d694ee464`); test asserts the exact seven-path digest set as well as each hash
+- root `llms.txt` regenerated: 7757 chars, ~1940 estimated tokens (<= 1950)
+- tests: 286 passed (221 unit, 2 bench_refs, 43 CLI, 1 differential, 8 golden, 8 llms, 3 tlon)
+- next: T-023 `fix` suggestions for the most common diagnostics.
+- agent: opencode/deepseek-v4.1-flash
