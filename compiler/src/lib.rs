@@ -1,6 +1,7 @@
 pub mod ast;
 pub mod builtins;
 pub mod caps;
+pub mod cgen;
 pub mod check;
 pub mod cli;
 pub mod diag;

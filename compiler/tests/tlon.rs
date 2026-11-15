@@ -36,8 +36,17 @@ fn temp_dir(name: &str) -> TempDir {
     TempDir(path)
 }
 
+/// The compiler to probe: `$CC` when set, otherwise `cc`.
+///
+/// `CC` must be a bare executable path, not a command line with arguments.
+fn cc_program() -> std::ffi::OsString {
+    std::env::var_os("CC")
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "cc".into())
+}
+
 fn cc_is_missing() -> bool {
-    match Command::new("cc").arg("--version").output() {
+    match Command::new(cc_program()).arg("--version").output() {
         Ok(_) => false,
         Err(error) => error.kind() == std::io::ErrorKind::NotFound,
     }
@@ -64,9 +73,9 @@ fn build_driver(directory: &Path) -> PathBuf {
     let driver_source = repo.join("tlon/test_tlon.c");
     let driver = directory.join("test_tlon");
     let output = Command::new("nice")
-        .args([
-            "-n", "15", "cc", "-std=c99", "-O1", "-Wall", "-Wextra", "-Werror", "-pthread",
-        ])
+        .args(["-n", "15"])
+        .arg(cc_program())
+        .args(["-std=c99", "-O1", "-Wall", "-Wextra", "-Werror", "-pthread"])
         .arg(&runtime)
         .arg(&driver_source)
         .arg("-o")
@@ -101,6 +110,7 @@ fn tlon_runtime_self_tests_pass() {
 }
 
 /// Edge-case doubles plus deterministic LCG bit patterns.
+#[allow(clippy::excessive_precision)]
 fn f64_cases() -> Vec<u64> {
     let mut values = vec![
         0.0f64.to_bits(),
@@ -128,6 +138,8 @@ fn f64_cases() -> Vec<u64> {
         9.999e-5f64.to_bits(),
         1.234567890123456e15f64.to_bits(),
         123000.0f64.to_bits(),
+        137839762462415.625f64.to_bits(),
+        (-137839762462415.625f64).to_bits(),
     ];
     let mut state: u64 = 0x1234_5678_9abc_def0;
     while values.len() < 2000 {

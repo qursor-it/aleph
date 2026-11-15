@@ -85,6 +85,8 @@ pub struct CheckOutput {
     pub records: BTreeMap<String, Vec<(String, Type)>>,
     /// Function name to its parameter types and return type.
     pub signatures: BTreeMap<String, (Vec<Type>, Type)>,
+    /// The resolved type of every expression node, keyed by node id.
+    pub expr_types: BTreeMap<NodeId, Type>,
 }
 
 /// Check a parsed file (SPEC §4-5).
@@ -123,6 +125,7 @@ struct TypeChecker<'a> {
     deferred: Vec<DeferredBound>,
     /// Nodes that already carry a diagnostic, used to avoid a second `T001`.
     reported: BTreeSet<NodeId>,
+    expr_types: BTreeMap<NodeId, Type>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -139,6 +142,7 @@ impl<'a> TypeChecker<'a> {
             current_ret: None,
             deferred: Vec::new(),
             reported: BTreeSet::new(),
+            expr_types: BTreeMap::new(),
         }
     }
 
@@ -178,10 +182,18 @@ impl<'a> TypeChecker<'a> {
         self.diagnostics
             .sort_by_key(|diagnostic| (diagnostic.line, diagnostic.col));
 
+        // Bounds are flushed per function, so resolve every recorded type once
+        // more with the final substitution before handing it to codegen.
+        let expr_types = std::mem::take(&mut self.expr_types)
+            .into_iter()
+            .map(|(id, ty)| (id, self.resolve(&ty)))
+            .collect();
+
         CheckOutput {
             diagnostics: self.diagnostics,
             records: self.records,
             signatures: self.signatures,
+            expr_types,
         }
     }
 
@@ -402,6 +414,13 @@ impl<'a> TypeChecker<'a> {
     // -- Expressions --------------------------------------------------------
 
     fn check_expr(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
+        let ty = self.check_expr_inner(expr, expected);
+        let ty = self.resolve(&ty);
+        self.expr_types.insert(expr.id, ty.clone());
+        ty
+    }
+
+    fn check_expr_inner(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
         let inferred = self.infer(expr, expected);
         if let Some(expected) = expected {
             let expected = self.resolve(expected);

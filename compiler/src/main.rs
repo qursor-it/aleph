@@ -1,10 +1,11 @@
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 
 use alephc::ast;
 use alephc::caps;
+use alephc::cgen;
 use alephc::check as type_check;
 use alephc::cli;
 use alephc::diag::Diagnostic;
@@ -29,6 +30,7 @@ fn main() -> ExitCode {
         "fmt" => fmt_command(&cli),
         "test" => test_command(&cli),
         "run" => run_command(&cli),
+        "build" => build_command(&cli),
         "explain" => explain_command(&cli),
         "ast" => ast_command(&cli),
         // Later phases are still stubbed.
@@ -172,6 +174,152 @@ fn run_command(cli: &cli::Cli) -> ExitCode {
             ExitCode::from(70)
         }
     }
+}
+
+/// `aleph build`: check (no F001, no examples), generate C99, and compile it
+/// together with the embedded Tlön runtime using the system C compiler.
+fn build_command(cli: &cli::Cli) -> ExitCode {
+    let Some(out) = cli.out.as_deref() else {
+        eprintln!("aleph: build requires -o OUT");
+        eprintln!("{}", cli::USAGE);
+        return ExitCode::from(2);
+    };
+
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let output = parser::parse(&cli.file, &source);
+    if !output.diagnostics.is_empty() {
+        return emit_diagnostics(&output.diagnostics);
+    }
+
+    let Some(file) = output.file else {
+        return emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]);
+    };
+
+    let checked = type_check::check(&cli.file, &file);
+    if !checked.diagnostics.is_empty() {
+        return emit_diagnostics(&checked.diagnostics);
+    }
+
+    let capabilities = caps::check_caps(&cli.file, &file);
+    if !capabilities.is_empty() {
+        return emit_diagnostics(&capabilities);
+    }
+
+    if !file.fns.iter().any(|function| function.name == "main") {
+        return emit_diagnostics(&[Diagnostic::error(
+            "X003",
+            cli.file.as_str(),
+            0,
+            0,
+            "no main function",
+        )]);
+    }
+
+    let generated = match cgen::emit(&cli.file, &file, &checked) {
+        Ok(generated) => generated,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let directory = match TempDir::new() {
+        Ok(directory) => directory,
+        Err(error) => {
+            eprintln!("aleph: cannot create temporary directory: {error}");
+            return ExitCode::from(2);
+        }
+    };
+    let gen_c = directory.path.join("gen.c");
+    let tlon_c = directory.path.join("tlon.c");
+    let tlon_h = directory.path.join("tlon.h");
+    for (path, contents) in [
+        (&gen_c, generated.as_str()),
+        (&tlon_c, TLON_C),
+        (&tlon_h, TLON_H),
+    ] {
+        if let Err(error) = fs::write(path, contents) {
+            eprintln!("aleph: cannot write {}: {error}", path.display());
+            return ExitCode::from(2);
+        }
+    }
+
+    let compiler = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
+    let result = Command::new(&compiler)
+        .args(["-std=c99", "-O2", "-pthread", "-o"])
+        .arg(out)
+        .arg(&gen_c)
+        .arg(&tlon_c)
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => ExitCode::SUCCESS,
+        Ok(output) => {
+            let stderr = std::io::stderr();
+            let mut err = stderr.lock();
+            let _ = err.write_all(&output.stderr);
+            let _ = err.flush();
+            emit_diagnostics(&[Diagnostic::error(
+                "X004",
+                cli.file.as_str(),
+                0,
+                0,
+                "c compiler failed",
+            )])
+        }
+        Err(error) => {
+            eprintln!("aleph: cannot run the C compiler: {error}");
+            emit_diagnostics(&[Diagnostic::error(
+                "X004",
+                cli.file.as_str(),
+                0,
+                0,
+                "c compiler failed",
+            )])
+        }
+    }
+}
+
+const TLON_C: &str = include_str!("../../tlon/tlon.c");
+const TLON_H: &str = include_str!("../../tlon/tlon.h");
+
+/// A fresh directory under the system temporary directory, removed on drop.
+struct TempDir {
+    path: PathBuf,
+}
+
+impl TempDir {
+    fn new() -> std::io::Result<Self> {
+        let pid = std::process::id();
+        let mut counter = 0u32;
+        loop {
+            let path = std::env::temp_dir().join(format!("aleph-build-{pid}-{counter}"));
+            match create_private_dir(&path) {
+                Ok(()) => return Ok(Self { path }),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => counter += 1,
+                Err(error) => return Err(error),
+            }
+        }
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
+}
+
+#[cfg(unix)]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+
+    std::fs::DirBuilder::new().mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    fs::create_dir(path)
 }
 
 /// `aleph explain`: lex, parse, type check and capability check (no F001, no

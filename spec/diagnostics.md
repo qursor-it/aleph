@@ -34,3 +34,6 @@ must match this table exactly.
 | X001 | command not implemented |
 | X002 | cannot read file |
 | X003 | no main function |
+| X004 | c compiler failed |
+| X005 | reserved (no longer emitted) |
+| X006 | internal compiler error |

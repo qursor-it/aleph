@@ -78,6 +78,7 @@ struct AlBox {
     AlValue value;
 };
 
+/* `name` must have static storage duration (generated code uses literals). */
 struct AlRecordInfo {
     const char *name;
     size_t field_count;
@@ -97,6 +98,7 @@ typedef enum {
 
 struct AlFn {
     AlValue (*code)(AlValue *, size_t);
+    /* `name` must have static storage duration (generated code uses literals). */
     const char *name;
     AlFnKind kind;
 };
@@ -104,8 +106,13 @@ struct AlFn {
 /*
  * Source location attached to evaluation frames and traps.
  *
- * Pointers passed to aleph_eval_enter/aleph_call_enter must have static
- * storage duration: generated code emits `static const AlLoc` values.
+ * aleph_eval_enter stores the pointer on the location stack, so it must point
+ * to an AlLoc with static storage duration (generated code emits
+ * `static const AlLoc` values) and stay valid until the matching leave.
+ * aleph_call_enter does not store it: the pointer is only passed to the trap
+ * writer if the call-depth or native stack guard fires.  A NULL location to
+ * aleph_call_enter means "use the current location" (used by generated
+ * map/filter/fold callbacks).
  */
 typedef struct AlLoc {
     uint32_t node;
@@ -138,7 +145,11 @@ void aleph_set_args(int argc, const char *const *argv);
 /* Arena allocation (ADR-0007): 16-byte aligned, never freed. */
 void *aleph_alloc(size_t size);
 
-/* Evaluation depth accounting and the current source location (R004). */
+/*
+ * Evaluation depth accounting and the current source location (R004).
+ * aleph_call_enter also checks the native stack guard installed by
+ * aleph_main_run; outside the main thread the guard is disabled.
+ */
 void aleph_eval_enter(const AlLoc *loc);
 void aleph_eval_leave(void);
 void aleph_call_enter(const AlLoc *loc);
@@ -153,6 +164,8 @@ void aleph_trap_at(const char *code, const char *msg, const AlLoc *loc)
 AlValue aleph_unit(void);
 AlValue aleph_i64(int64_t value);
 AlValue aleph_f64(double value);
+/* Exact bit-pattern constructor used for generated float literals. */
+AlValue aleph_f64_bits(uint64_t bits);
 AlValue aleph_bool(bool value);
 AlValue aleph_str(const char *text);
 AlValue aleph_str_n(const char *text, size_t len);
@@ -166,6 +179,8 @@ AlValue aleph_record(const AlRecordInfo *info, const AlValue *fields, size_t cou
 AlValue aleph_fn(AlValue (*code)(AlValue *, size_t), const char *name);
 AlValue aleph_fn_kind(AlValue (*code)(AlValue *, size_t), const char *name,
                       AlFnKind kind);
+/* Wrap a generated static const AlFn without copying it. */
+AlValue aleph_fn_static(const AlFn *fn);
 
 /* Checked i64 arithmetic (R001/R002). */
 AlValue aleph_add_i64(AlValue left, AlValue right);
@@ -195,6 +210,9 @@ AlValue aleph_b_rev(AlValue xs);
 AlValue aleph_b_sort(AlValue xs);
 AlValue aleph_b_range(AlValue start, AlValue end);
 AlValue aleph_b_sum(AlValue xs);
+AlValue aleph_b_map(AlValue function, AlValue xs);
+AlValue aleph_b_filter(AlValue function, AlValue xs);
+AlValue aleph_b_fold(AlValue function, AlValue init, AlValue xs);
 AlValue aleph_b_cat(AlValue left, AlValue right);
 AlValue aleph_b_count(AlValue text);
 AlValue aleph_b_split(AlValue text, AlValue separator);

@@ -34,6 +34,11 @@ static const char *const *g_argv;
 static size_t g_eval_depth;
 static size_t g_call_depth;
 
+/* Native stack guard for the big main thread (set in main_thread). */
+#define AL_STACK_GUARD (1024u * 1024u)
+static uintptr_t g_stack_base;
+static bool g_stack_base_set;
+
 static const AlLoc g_default_loc = {0, 0, 0};
 static const AlLoc *g_locs[AL_MAX_EVAL_DEPTH + 1];
 static size_t g_loc_depth;
@@ -199,7 +204,21 @@ void aleph_eval_leave(void) {
     }
 }
 
+static void native_stack_guard(const AlLoc *loc) {
+    uintptr_t here;
+    uintptr_t used;
+    if (!g_stack_base_set) {
+        return;
+    }
+    here = (uintptr_t)&here;
+    used = here <= g_stack_base ? g_stack_base - here : here - g_stack_base;
+    if (used > (uintptr_t)(AL_MAIN_STACK_SIZE - AL_STACK_GUARD)) {
+        aleph_trap_at("R004", "stack overflow", loc);
+    }
+}
+
 void aleph_call_enter(const AlLoc *loc) {
+    native_stack_guard(loc);
     if (g_call_depth >= AL_MAX_CALL_DEPTH || g_eval_depth >= AL_MAX_EVAL_DEPTH) {
         aleph_trap_at("R004", "stack overflow", loc);
     }
@@ -239,6 +258,12 @@ AlValue aleph_f64(double number) {
     value.tag = AL_F64;
     value.u.f64 = number;
     return value;
+}
+
+AlValue aleph_f64_bits(uint64_t bits) {
+    double number;
+    memcpy(&number, &bits, sizeof(number));
+    return aleph_f64(number);
 }
 
 AlValue aleph_bool(bool flag) {
@@ -360,6 +385,13 @@ AlValue aleph_fn_kind(AlValue (*code)(AlValue *, size_t), const char *name,
 
 AlValue aleph_fn(AlValue (*code)(AlValue *, size_t), const char *name) {
     return aleph_fn_kind(code, name, AL_FN_USER);
+}
+
+AlValue aleph_fn_static(const AlFn *fn) {
+    AlValue value;
+    value.tag = AL_FN;
+    value.u.fn = fn;
+    return value;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1052,6 +1084,53 @@ AlValue aleph_b_sum(AlValue xs) {
         }
     }
     return aleph_i64(total);
+}
+
+AlValue aleph_b_map(AlValue function, AlValue xs) {
+    const AlFn *fn = function.u.fn;
+    const AlList *list = xs.u.list;
+    AlValue result = aleph_list_new(list->len);
+    size_t index;
+    for (index = 0; index < list->len; index += 1) {
+        AlValue args[1];
+        args[0] = list->items[index];
+        result.u.list->items[index] = fn->code(args, 1);
+    }
+    return result;
+}
+
+AlValue aleph_b_filter(AlValue function, AlValue xs) {
+    const AlFn *fn = function.u.fn;
+    const AlList *list = xs.u.list;
+    AlValue result = aleph_list_new(list->len);
+    size_t index;
+    size_t kept = 0;
+    for (index = 0; index < list->len; index += 1) {
+        AlValue args[1];
+        AlValue keep;
+        args[0] = list->items[index];
+        keep = fn->code(args, 1);
+        if (keep.u.b) {
+            result.u.list->items[kept] = list->items[index];
+            kept += 1;
+        }
+    }
+    result.u.list->len = kept;
+    return result;
+}
+
+AlValue aleph_b_fold(AlValue function, AlValue init, AlValue xs) {
+    const AlFn *fn = function.u.fn;
+    const AlList *list = xs.u.list;
+    AlValue accumulator = init;
+    size_t index;
+    for (index = 0; index < list->len; index += 1) {
+        AlValue args[2];
+        args[0] = accumulator;
+        args[1] = list->items[index];
+        accumulator = fn->code(args, 2);
+    }
+    return accumulator;
 }
 
 AlValue aleph_b_cat(AlValue left, AlValue right) {
@@ -2030,6 +2109,10 @@ typedef struct MainContext {
 
 static void *main_thread(void *argument) {
     MainContext *context = (MainContext *)argument;
+    unsigned char stack_base;
+
+    g_stack_base = (uintptr_t)&stack_base;
+    g_stack_base_set = true;
     context->value = context->code(NULL, 0);
     return NULL;
 }

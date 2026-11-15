@@ -14,8 +14,11 @@ Reserve the `X` prefix for tool and internal diagnostics. Codes remain stable an
 | X001 | command not implemented |
 | X002 | cannot read file |
 | X003 | no main function |
+| X004 | c compiler failed |
+| X005 | reserved (no longer emitted) |
+| X006 | internal compiler error |
 
-`X001` is emitted as a normal SPEC §9 JSON diagnostic with `severity` `error` and a location of `line` 0, `col` 0 when no source location applies. `X002` uses the same shape when a file cannot be read, and `X003` when `aleph run` has no `main` function to execute.
+`X001` is emitted as a normal SPEC §9 JSON diagnostic with `severity` `error` and a location of `line` 0, `col` 0 when no source location applies. `X002` uses the same shape when a file cannot be read, and `X003` when `aleph run`/`aleph build` has no `main` function to execute. `X004` reports a failed C compiler invocation (its stderr is forwarded to stderr), `X005` is retained as a reserved code: it was used for native-backend constructs that were not implemented yet, and T-019 removed its last emitter. It must not be reused for a different meaning. `X006` reports an internal compiler inconsistency, such as an expression type that is still an inference variable after checking; it is a bug, not a user error.
 
 ## Consequences
 - Language diagnostics keep their existing prefixes; tooling conditions cannot collide with them.

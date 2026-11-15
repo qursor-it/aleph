@@ -60,7 +60,10 @@ stack is maintained by the generated code through
 `aleph_call_leave()` account for user calls. Entering counts exactly like
 `interp.rs`: evaluation traps when `eval_depth >= 20_000`; a call traps when
 `call_depth >= 10_000` or `eval_depth >= 20_000`, then increments both
-counters. Both traps are `R004` "stack overflow".
+counters. Both traps are `R004` "stack overflow". `aleph_call_enter` also
+checks a native stack guard based on the main thread's stack base and traps
+`R004` when less than 1 MiB of the 256 MiB stack remains; this can fire earlier
+than the interpreter only for pathological native frames.
 
 `aleph_trap(code, msg)` flushes stdout, writes exactly one JSON line to stderr
 with fields in the order `code`, `severity`, `file`, `line`, `col`, `node`,
@@ -128,7 +131,8 @@ appending `.0` when the value is integral.
   builtins directly; no printing or allocation logic lives in generated code.
 - Output, traps, `show`, and `literal` are byte-identical between the
   interpreter and the native backend for the covered operations.
-- Higher-order builtins (`map`, `filter`, `fold`) are implemented in generated C
-  on top of `AlFn` in T-019.
+- Higher-order builtins (`map`, `filter`, `fold`) are implemented in the runtime
+  (`aleph_b_*`) on top of `AlFn`; generated C supplies one static wrapper per
+  referenced callable (T-019).
 - The runtime keeps a single arena per process (ADR-0007); long-running
   programs grow memory until exit, which v0.1 accepts.

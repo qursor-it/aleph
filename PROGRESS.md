@@ -324,3 +324,40 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 250 passed (210 unit, 29 CLI, 8 golden, 3 tlon)
 - next: T-018 C codegen for expressions/functions and `aleph build`
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T21:30 T-018 partial
+- `check`: `CheckOutput::expr_types` records the resolved type of every expression node (used for record field indexes in codegen)
+- `cgen`: deterministic C99 emitter for literals, variables, calls, constructors, lists, `if`, `and`/`or`, `try` (epilogue goto with depth restore), records/field access, opt/res helpers and all non-higher-order builtins; per-function temps and arrays declared at the top; static `AlRecordInfo`/`AlLoc` tables and forward declarations; R004 depth mirrors `eval`/`call_user`
+- `build`: read -> parse -> type/capability check -> cgen -> embedded `tlon.c`/`tlon.h` in a fresh temp dir -> `$CC -std=c99 -O2 -pthread`; X004 on cc failure (stderr forwarded), X005 for unsupported constructs, usage exit 2 when `-o` is missing; generated `main` sets file/uses/args and calls `aleph_main_run`
+- runtime: `aleph_f64_bits` for exact literal bit patterns; `AlFn.name`/`AlRecordInfo.name` documented as requiring static storage
+- diagnostics: X004/X005 added to `diag.rs`, `spec/diagnostics.md` and ADR-0015
+- tests: cgen determinism/literal/unsupported unit tests; CLI build+run tests for SPEC §12 fib (6765), records/opt/res/try, R001 trap parity, main `err`, args, missing `-o` and X005 for higher-order builtins; `tlon.rs` f64 tie case `137839762462415.625` (+ negative); `scripts/check.sh` exports `ALEPH_REQUIRE_CC=1`
+- decisions: ADR-0025 (Proposed)
+- tests: 260 passed (213 unit, 36 CLI, 8 golden, 3 tlon)
+- next: T-019 must implement `map`/`filter`/`fold` through `AlFn` function pointers (and function values), then T-018 can be marked done and differential tests (T-020) can cover the remaining benchmark programs.
+- agent: opencode/deepseek-v4.1-flash
+
+
+## 2026-11-15T22:20 T-018/T-019 done
+- `cgen`: every `@f` (user function, record constructor, pure builtin) now gets one `static AlValue aleph_ref_<kind>_<name>(AlValue *args, size_t n)` wrapper and one `static const AlFn aleph_fnref_<kind>_<name>` value; `FnRef` emits `aleph_fn_static(&...)`
+- user-function wrappers do `aleph_call_enter(NULL)`/`aleph_call_leave()` around the generated call, so R004 depth and trap locations match `interp::call_target` (current location is the enclosing higher-order call); constructor/builtin wrappers add no call frame, also matching the interpreter
+- `tlon`: `aleph_fn_static` plus `aleph_b_map`, `aleph_b_filter` and `aleph_b_fold` loop left to right and call `fn->code`; `aleph_call_enter(NULL)` documented as "use current location"
+- X005 is no longer emitted anywhere; it stays in `diag.rs`, `spec/diagnostics.md` and ADR-0015 as a reserved code
+- tests: build+run parity for map/filter/fold with user functions, constructor/builtin refs (`@box`, `@show`, `@len`), fold with a `res` accumulator, and an R002 trap inside a mapped function; every `tests/aph/bench_*.aph` builds natively and matches its `.out` (with `.args`, `data/` and cwd like the golden harness)
+- decisions: ADR-0025 updated with the function-value/wrapper design and reserved X005
+- tests: 264 passed (213 unit, 40 CLI, 8 golden, 3 tlon)
+- next: T-020 differential tests can now cover all golden/benchmark programs; T-021 benchmark harness is unblocked.
+- agent: opencode/deepseek-v4.1-flash
+
+
+## 2026-11-15T23:10 T-018/T-019 review fixes done
+- generated names: function return slot is `aleph_ret_`, entry-wrapper locals are `aleph_args`/`aleph_count`/`aleph_value`, wrapper parameters are `aleph_args`/`aleph_n`; every non-user generated name now has an underscore pattern Aleph identifiers cannot form, so `let result`, params named `result` and similar bindings cannot collide
+- list literals and record-constructor field arrays are built with `aleph_list_new` + `u.list->items[i]` on the arena; no generated C stack arrays remain
+- `tlon`: `main_thread` records the stack base and `aleph_call_enter` traps `R004` when less than 1 MiB of the nominal 256 MiB remains; guard disabled outside the main thread; ADR-0025 documents that native may trap R004 earlier only for pathological frames
+- docs: corrected `aleph_call_enter` location-stack wording in ADR-0025/ADR-0024/tlon.h (only `aleph_eval_enter` pushes the location; `call_enter` uses `loc` for a trap, NULL = current)
+- `check`: `expr_types` is resolved once more with the final substitution after all functions are checked; cgen rejects a top-level `Var`/`Error` with `X006` "internal compiler error" instead of guessing (nested inference variables, e.g. an unconstrained `res` error type, are allowed)
+- build temporary directories are created with mode 0700 on Unix
+- tests: c_string escaping (quote, backslash, newline, tab, `??=`, UTF-8 é, NUL), reserved-name builds, X004 with `CC=/bin/false`, X003 without `main`, and a 3000-element list literal recursing 5000 deep with no SIGSEGV; `CC` probe in CLI/Tlön tests uses `$CC` when set (bare executable path)
+- tests: 271 passed (216 unit, 44 CLI, 8 golden, 3 tlon)
+- next: T-020 differential tests over all golden/benchmark programs; T-021 benchmark harness.
+- agent: opencode/deepseek-v4.1-flash
