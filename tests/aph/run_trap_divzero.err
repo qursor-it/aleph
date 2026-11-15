@@ -1,0 +1,1 @@
+{"code":"R002","severity":"error","file":"tests/aph/run_trap_divzero.aph","line":2,"col":13,"node":"n5","msg":"division by zero"}

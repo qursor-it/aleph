@@ -4,6 +4,7 @@ pub mod caps;
 pub mod check;
 pub mod cli;
 pub mod diag;
+pub mod interp;
 pub mod lexer;
 pub mod lexicon;
 pub mod parser;

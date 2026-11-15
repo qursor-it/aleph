@@ -1,0 +1,11 @@
+fn add a:i64 b:i64 -> i64
+ + a b
+fn inc n:i64 -> i64
+ + n 1
+fn positive n:i64 -> bool
+ > n 0
+fn main -> unit
+ do print show map @inc [1 2 3]
+ do print show filter @positive [-1 0 2]
+ do print show fold @add 0 [1 2 3 4]
+ nil

@@ -1,0 +1,2 @@
+fn main -> unit
+ print show len args

@@ -116,18 +116,80 @@ fn unknown_option_is_usage_error() {
 
 #[test]
 fn run_program_args_after_file_are_not_interpreted() {
-    let out = run(&["run", "foo.aph", "--json", "-w", "-o", "out"]);
+    let file = temp_source("run_args.aph", "fn main -> unit\n print show args\n");
+    let out = run(&["run", file.as_str(), "--json", "-w", "-o", "out"]);
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8(out.stdout).unwrap(),
+        "[\"--json\" \"-w\" \"-o\" \"out\"]\n"
+    );
+    assert!(out.stderr.is_empty());
+}
+
+#[test]
+fn run_executes_main_and_streams_output() {
+    let file = temp_source(
+        "run_ok.aph",
+        "fn main -> unit\n do print \"out\"\n do eprint \"err\"\n nil\n",
+    );
+    let out = run(&["run", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(String::from_utf8(out.stdout).unwrap(), "out\n");
+    assert_eq!(String::from_utf8(out.stderr).unwrap(), "err\n");
+}
+
+#[test]
+fn run_without_main_reports_x003() {
+    let file = temp_source("run_no_main.aph", "fn helper -> i64\n 1\n");
+    let out = run(&["run", file.as_str()]);
     assert_eq!(out.status.code(), Some(1));
+    assert!(out.stderr.is_empty());
 
     let value: serde_json::Value =
         serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
-    assert_eq!(value["code"], "X001");
-    assert_eq!(value["file"], "foo.aph");
+    assert_eq!(value["code"], "X003");
+    assert_eq!(value["msg"], "no main function");
+    assert_eq!(value["file"], file.as_str());
+}
+
+#[test]
+fn run_does_not_require_canonical_source() {
+    let file = temp_source("run_noncanonical.aph", "fn  main -> unit\n\n nil   \n");
+    let out = run(&["run", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stdout.is_empty());
+    assert!(out.stderr.is_empty());
+}
+
+#[test]
+fn run_main_returning_err_exits_one() {
+    let file = temp_source(
+        "run_main_err.aph",
+        "fn main -> res unit str\n err \"bad\"\n",
+    );
+    let out = run(&["run", file.as_str()]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    assert_eq!(String::from_utf8(out.stderr).unwrap(), "bad\n");
+}
+
+#[test]
+fn run_trap_is_json_on_stderr_and_exits_seventy() {
+    let file = temp_source("run_trap.aph", "fn main -> unit\n print show / 1 0\n");
+    let out = run(&["run", file.as_str()]);
+    assert_eq!(out.status.code(), Some(70));
+    assert!(out.stdout.is_empty());
+
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stderr).expect("stderr must be valid JSON");
+    assert_eq!(value["code"], "R002");
+    assert_eq!(value["msg"], "division by zero");
+    assert_eq!(value["file"], file.as_str());
 }
 
 #[test]
 fn every_stubbed_subcommand_reports_not_implemented() {
-    for command in ["check", "test", "run", "build", "explain", "tokens"] {
+    for command in ["check", "test", "build", "explain", "tokens"] {
         let file = if command == "check" {
             temp_source("check_all.aph", LEXABLE_SOURCE)
         } else {

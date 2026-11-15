@@ -20,11 +20,12 @@ line open. The interpreter needs the same rule for its runtime check (R003).
   path; an absolute path is covered only by an absolute prefix (`/` covers all
   absolute paths).
 - `covers` is a lexical early filter for C002 only. The interpreter's runtime
-  check (R003, T-013) MUST resolve symlinks before comparing: canonicalize the
-  prefix and the path (for a write target that does not exist yet,
-  canonicalize its parent directory and append the final component), then
-  apply the same leading-segments comparison. Compile-time C002 can therefore
-  accept a path that R003 rejects after symlink resolution.
+  check (R003, T-013) MUST resolve symlinks before comparing: `resolve_lenient`
+  rejects `..`, canonicalizes the longest existing ancestor (or the whole path
+  when it exists, including symlinks) and appends any missing components, then
+  compares the resolved absolute paths component-wise with
+  `Path::starts_with` (ADR-0021). Compile-time C002 can therefore accept a path
+  that R003 rejects after symlink resolution.
 - An empty prefix, a prefix with a `..` segment, or a filesystem capability
   without a path is C003 "invalid capability" at the `use` node. The whole
   working directory must be declared explicitly as `"."`. A bad prefix uses
@@ -38,8 +39,8 @@ line open. The interpreter needs the same rule for its runtime check (R003).
   produce C002.
 
 ## Consequences
-- The interpreter reuses `caps::covers` for the comparison step of R003 after
-  canonicalizing both sides, so compile-time and runtime normalization cannot
-  diverge.
+- C002 and R003 share the same lexical prefix notion, but R003 resolves both
+  sides to absolute canonical paths before `Path::starts_with`; the two checks
+  can therefore differ only where symlinks change the resolved path.
 - `aleph explain` lists capabilities via `caps::capabilities`, sorted and
   deduplicated.

@@ -1,0 +1,8 @@
+type point x:i64 y:i64
+fn shift p:point d:i64 -> point
+ point + .x p d .y p
+fn main -> unit
+ let p shift point 1 2 10
+ do print show .x p
+ do print show .y p
+ nil

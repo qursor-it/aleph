@@ -1,0 +1,10 @@
+fn main -> unit
+ do print cat "a" "b"
+ do print show count "abc"
+ do print show split "a,b,c" ","
+ do print join ["a" "b"] "-"
+ do print trim "  hi  "
+ do print upper "aBc"
+ do print lower "aBc"
+ do print show contains "abc" "b"
+ nil

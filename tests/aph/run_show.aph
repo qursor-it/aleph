@@ -1,0 +1,7 @@
+fn main -> unit
+ do print show [1 2 3]
+ do print show [1.0 2.5]
+ do print show ["a b" "c"]
+ do print show empty i64
+ do print show 1.0
+ nil

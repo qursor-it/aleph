@@ -196,3 +196,26 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0020 (Proposed, updated)
 - next: T-013 interpreter (R003 canonicalizes before `caps::covers`); T-014 examples runner
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T15:20 T-013 done
+- `compiler/src/interp.rs`: values, structural equality, all SPEC §5 expressions (strict/left-to-right, short-circuit `and`/`or`, branch-only `if`, `try` early return through nested expressions) and all §5.1 builtins; checked i64 arithmetic (R001/R002), canonical-path capability checks with symlink resolution (R003), 10 000-call depth limit (R004), `show`/`int`/`float` semantics per ADR-0021
+- `run_main` streams through locked `BufWriter` stdout/stderr on a 256 MiB thread; `run_main_with` keeps explicit writers for tests
+- `aleph run FILE [ARGS..]` wired: X002 -> lex/parse -> T -> C (no F001), X003 when `main` is missing, trap JSON on stderr with exit 70, `err e` on stderr with exit 1
+- goldens: `tests/aph/run_*.aph` with `.out`, `.err` and `.exit` for SPEC §12 fib, records, map/filter/fold, strings, show, opt/res/try, main-err and R001/R002 traps; `compiler/tests/run_golden.rs` also verifies each run golden is canonical and type/cap-clean
+- diagnostics: X003 added to `diag::CODES`, `spec/diagnostics.md` and ADR-0015; R004 added in part 1
+- tests: 206 passed (179 unit, 22 CLI, 3 lexer/diag goldens, 2 run goldens)
+- decisions: ADR-0021 (Proposed); ADR-0015 updated with X003
+- next: T-014 examples runner (`aleph test`, examples inside `aleph check`)
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T15:45 T-013 review fixes done
+- R003: replaced the parent-only fallback with `resolve_lenient` (rejects `..`, canonicalizes the longest existing ancestor and appends the missing suffix) for both prefix and target; existing symlinks must canonicalize (dangling → R003); compare with `Path::starts_with`. Added tests for dangling-symlink writes (nothing created outside), nested missing reads (`err "not found"`), directory reads, and `use fs.write "out.txt"` on first write
+- R005: `range` traps "allocation limit exceeded" when `b - a > 10_000_000` or the subtraction overflows; added to `diag::CODES` and `spec/diagnostics.md`
+- R004: added an evaluation-depth budget alongside the 10 000-call limit. Measured 64 000 unsafe (native overflow) and 12 000 too low for the 5 000-recursion test; 20 000 passes both that test and a 250-deep nested `+` recursion stress test on the 256 MiB thread
+- io errors: explicit `is a directory`, `not a directory`, `directory not empty`, `read-only filesystem`; fallback is now `io error`
+- stderr ordering: stdout is flushed before every stderr write and stderr immediately after; covered by a shared-sink unit test
+- ADR-0021 documents the resolver, R005, the measured depth budget, flush ordering, io texts, and TOCTOU/hard-link v0.1 limitations (no libc/openat2)
+- tests: 213 passed (186 unit, 22 CLI, 3 lexer/diag goldens, 2 run goldens)
+- decisions: ADR-0021 (Proposed, updated)
+- next: T-014 examples runner (`aleph test`, examples inside `aleph check`)
+- agent: opencode/deepseek-v4.1-flash

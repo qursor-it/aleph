@@ -1,0 +1,3 @@
+fn main -> res unit str
+ do print "before"
+ err "boom"

@@ -1,0 +1,16 @@
+fn pick o:opt i64 -> i64
+ else o 0
+fn plus r:res i64 str -> res i64 str
+ let n try r
+ ok + n 1
+fn main -> res unit str
+ do print show pick some 5
+ do print show pick none i64
+ do print show else ok 7 0
+ do print show else err "x" 9
+ do print show has some 1
+ do print show isok plus ok 41
+ do print show isok plus err "x"
+ let n try plus ok 41
+ do print show n
+ ok nil

@@ -1,0 +1,14 @@
+fn add a:i64 b:i64 -> i64
+ ex add 2 3 = 5
+ + a b
+fn fib n:i64 -> i64
+ doc "nth fibonacci number"
+ ex fib 0 = 0
+ ex fib 10 = 55
+ if < n 2 n + fib - n 1 fib - n 2
+fn total xs:list i64 -> i64
+ ex total [1 2 3] = 6
+ ex total empty i64 = 0
+ fold @add 0 xs
+fn main -> unit
+ print show fib 20

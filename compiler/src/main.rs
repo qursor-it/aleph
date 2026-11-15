@@ -7,6 +7,7 @@ use alephc::caps;
 use alephc::check as type_check;
 use alephc::cli;
 use alephc::diag::Diagnostic;
+use alephc::interp;
 use alephc::parser;
 use alephc::printer;
 
@@ -23,6 +24,7 @@ fn main() -> ExitCode {
     match cli.command.as_str() {
         "check" => emit_diagnostics(&check(&cli)),
         "fmt" => fmt_command(&cli),
+        "run" => run_command(&cli),
         "ast" => ast_command(&cli),
         // Later phases are still stubbed.
         _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
@@ -83,6 +85,57 @@ fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
         vec![Diagnostic::not_implemented(&cli.file)]
     } else {
         capabilities
+    }
+}
+
+/// `aleph run`: lex, parse, type check and capability check (no F001), then
+/// execute `main` with the trailing program arguments.
+fn run_command(cli: &cli::Cli) -> ExitCode {
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let output = parser::parse(&cli.file, &source);
+    if !output.diagnostics.is_empty() {
+        return emit_diagnostics(&output.diagnostics);
+    }
+
+    let Some(file) = output.file else {
+        return emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]);
+    };
+
+    let checked = type_check::check(&cli.file, &file);
+    if !checked.diagnostics.is_empty() {
+        return emit_diagnostics(&checked.diagnostics);
+    }
+
+    let capabilities = caps::check_caps(&cli.file, &file);
+    if !capabilities.is_empty() {
+        return emit_diagnostics(&capabilities);
+    }
+
+    if !file.fns.iter().any(|function| function.name == "main") {
+        return emit_diagnostics(&[Diagnostic::error(
+            "X003",
+            cli.file.as_str(),
+            0,
+            0,
+            "no main function",
+        )]);
+    }
+
+    match interp::run_main(&file, cli.args.clone()) {
+        Ok(0) => ExitCode::SUCCESS,
+        Ok(_) => ExitCode::from(1),
+        Err(trap) => {
+            let _ = std::io::stdout().flush();
+            let stderr = std::io::stderr();
+            let mut err = stderr.lock();
+            let _ = writeln!(err, "{}", trap.to_diagnostic(&cli.file).to_json_line());
+            let _ = err.flush();
+            ExitCode::from(70)
+        }
     }
 }
 

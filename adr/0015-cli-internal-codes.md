@@ -13,8 +13,9 @@ Reserve the `X` prefix for tool and internal diagnostics. Codes remain stable an
 |---|---|
 | X001 | command not implemented |
 | X002 | cannot read file |
+| X003 | no main function |
 
-`X001` is emitted as a normal SPEC §9 JSON diagnostic with `severity` `error` and a location of `line` 0, `col` 0 when no source location applies. `X002` uses the same shape when a file cannot be read.
+`X001` is emitted as a normal SPEC §9 JSON diagnostic with `severity` `error` and a location of `line` 0, `col` 0 when no source location applies. `X002` uses the same shape when a file cannot be read, and `X003` when `aleph run` has no `main` function to execute.
 
 ## Consequences
 - Language diagnostics keep their existing prefixes; tooling conditions cannot collide with them.
