@@ -1,4 +1,4 @@
 loop/logs/
 compiler/target/
-target/
+/target
 *.o

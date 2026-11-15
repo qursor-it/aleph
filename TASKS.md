@@ -5,7 +5,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 
 ## M1 — Core (lexer → parser → printer → checker → interpreter)
 
-- [ ] T-001 Cargo crate `compiler/` (alephc, bin `aleph`), CLI skeleton with subcommands from SPEC §11 returning "not implemented" diagnostics; CI script `scripts/check.sh` running fmt, clippy, test — SPEC §11, ADR-0002
+- [x] T-001 Cargo crate `compiler/` (alephc, bin `aleph`), CLI skeleton with subcommands from SPEC §11 returning "not implemented" diagnostics; CI script `scripts/check.sh` running fmt, clippy, test — SPEC §11, ADR-0002
 - [ ] T-002 Diagnostics module: struct + JSON output per SPEC §9; `spec/diagnostics.md` table — ADR-0011
 - [ ] T-003 Lexicon module mirroring `spec/lexicon.toml` + test that they match — ADR-0005
 - [ ] T-004 Lexer: line structure, token classes, L001/L002, golden tests — SPEC §1–2
