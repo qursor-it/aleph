@@ -1,0 +1,2 @@
+before
+{"code":"R001","severity":"error","file":"run_trap_overflow.aph","line":3,"col":13,"node":"n8","msg":"integer overflow"}

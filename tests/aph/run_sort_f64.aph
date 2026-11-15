@@ -1,0 +1,6 @@
+fn main -> unit
+ let nan / 0.0 0.0
+ let pinf / 1.0 0.0
+ let ninf / -1.0 0.0
+ do print show sort [nan pinf ninf 0.0 -0.0 1.0 -1.0]
+ nil

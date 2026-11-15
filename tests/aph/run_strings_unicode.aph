@@ -1,0 +1,8 @@
+fn main -> unit
+ do print show split "héllo" ""
+ do print show trim " hi "
+ do print show count "héllo"
+ do print show split "" ""
+ do print show split "a,,b" ","
+ do print cat "hé" "llo"
+ nil

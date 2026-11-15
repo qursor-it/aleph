@@ -28,8 +28,10 @@ static AlValue aleph_fn_f(AlValue l_a, AlValue l_b) { ... }
 ```
 
 Record constructors call `aleph_record(&RI_<name>, fields, n)` where `fields`
-is a function-local `AlValue` array. Lists are built the same way with
-`aleph_list`. Every builtin call is a direct `aleph_b_<name>(...)` call; no
+is an arena list built with `aleph_list_new(n)` (its `u.list->items` array is
+passed to `aleph_record`, which copies the fields). List literals use the same
+`aleph_list_new`/`u.list->items` construction, so no generated local array
+lives on the C stack. Every builtin call is a direct `aleph_b_<name>(...)` call; no
 builtin is reimplemented in generated code.
 
 ### Function values and higher-order builtins
@@ -86,9 +88,9 @@ user binding named `result`, `args`, or similar harmless.
 
 ### `try` and the function epilogue
 Each generated function has a single `L_epilogue:` label and a local
-`AlValue l_result`. The function result is evaluated last, assigned to
-`l_result`, and then the label returns it. A `try` whose operand is `AL_ERR`
-assigns the operand value (already `err` with the same payload) to `l_result`
+`AlValue aleph_ret_`. The function result is evaluated last, assigned to
+`aleph_ret_`, and then the label returns it. A `try` whose operand is `AL_ERR`
+assigns the operand value (already `err` with the same payload) to `aleph_ret_`
 and jumps to `L_epilogue`.
 
 Before the jump, the generator emits one `aleph_eval_leave()` for every
@@ -174,12 +176,24 @@ compiler error" instead of guessing a C operation.
 A missing `-o` is a usage error (exit 2).
 
 ### Generated `main`
-`int main(int argc, char **argv)` calls `aleph_set_file(FILE)`,
-`aleph_set_uses` with a static `AlUse` table (filesystem capabilities only;
-other v0.2 capabilities are ignored until they have builtins),
-`aleph_set_args`, and then `aleph_main_run(aleph_entry, argc - 1, argv + 1)`.
+The generated entry point sets the file name and capabilities, then hands the
+guarded argument pointer to `aleph_main_run` (which records the arguments
+itself, so no separate `aleph_set_args` call is emitted):
+
+```c
+int main(int argc, char **argv)
+{
+    aleph_set_file(FILE);
+    aleph_set_uses(aleph_uses, N); /* or (NULL, 0) */
+    return aleph_main_run(
+        aleph_entry, argc > 0 ? argc - 1 : 0,
+        argc > 0 ? (const char *const *)(argv + 1) : NULL);
+}
+```
+
 `FILE` is exactly the path passed to `aleph build`, so trap JSON matches
-`aleph run` on the same path.
+`aleph run` on the same path. The `argc > 0` guards keep `argv + 1` and
+`argc - 1` well defined for a pathological `argc == 0`.
 
 ## Consequences
 - All v0.1 expressions, including `map`/`filter`/`fold` and function values,

@@ -55,34 +55,6 @@ fn run_built(path: &Path, args: &[&str]) -> Output {
         .expect("failed to run the built program")
 }
 
-fn run_built_in(directory: &Path, path: &Path, args: &[&str]) -> Output {
-    Command::new(path)
-        .current_dir(directory)
-        .args(args)
-        .output()
-        .expect("failed to run the built program")
-}
-
-fn temp_directory(name: &str) -> PathBuf {
-    let path = std::env::temp_dir().join(format!("aleph-test-{}-{name}-dir", std::process::id()));
-    let _ = std::fs::remove_dir_all(&path);
-    std::fs::create_dir(&path).expect("create temporary directory");
-    path
-}
-
-fn copy_tree(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).expect("create copy destination");
-    for entry in std::fs::read_dir(from).expect("read source directory") {
-        let entry = entry.expect("directory entry");
-        let target = to.join(entry.file_name());
-        if entry.path().is_dir() {
-            copy_tree(&entry.path(), &target);
-        } else {
-            std::fs::copy(entry.path(), target).expect("copy file");
-        }
-    }
-}
-
 fn build_program(source: &str, name: &str) -> PathBuf {
     let binary = temp_output(name);
     let out = run(&["build", source, "-o", binary.to_str().unwrap()]);
@@ -787,81 +759,6 @@ fn build_trap_inside_mapped_function_matches_the_interpreter() {
         serde_json::from_slice(&native.stderr).expect("stderr must be valid JSON");
     assert_eq!(value["code"], "R002");
     assert_eq!(value["file"], source.as_str());
-}
-
-#[test]
-fn build_all_bench_programs_match_expected_stdout() {
-    if skip_without_cc("bench programs") {
-        return;
-    }
-    let repo = repo_root();
-    let aph = repo.join("tests/aph");
-    let data = aph.join("data");
-    let mut sources: Vec<PathBuf> = std::fs::read_dir(&aph)
-        .expect("read tests/aph")
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.extension().and_then(|ext| ext.to_str()) == Some("aph")
-                && path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| name.starts_with("bench_"))
-        })
-        .collect();
-    sources.sort();
-    assert!(!sources.is_empty(), "no bench programs found");
-
-    let mut failures = Vec::new();
-    for source in sources {
-        let stem = source
-            .file_stem()
-            .and_then(|name| name.to_str())
-            .expect("source stem");
-        let expected = std::fs::read(source.with_extension("out"))
-            .unwrap_or_else(|error| panic!("read expected output for {stem}: {error}"));
-        let directory = temp_directory(&format!("bench-{stem}"));
-        std::fs::create_dir_all(directory.join("out")).expect("create out directory");
-        if data.is_dir() {
-            copy_tree(&data, &directory.join("data"));
-        }
-        let local_source = directory.join(format!("{stem}.aph"));
-        std::fs::copy(&source, &local_source).expect("copy bench source");
-        let binary = directory.join(stem);
-        let built = run(&[
-            "build",
-            local_source.to_str().unwrap(),
-            "-o",
-            binary.to_str().unwrap(),
-        ]);
-        if built.status.code() != Some(0) {
-            failures.push(format!(
-                "{stem}: build failed: stdout {} stderr {}",
-                String::from_utf8_lossy(&built.stdout),
-                String::from_utf8_lossy(&built.stderr)
-            ));
-            let _ = std::fs::remove_dir_all(&directory);
-            continue;
-        }
-
-        let args: Vec<String> = match std::fs::read_to_string(aph.join(format!("{stem}.args"))) {
-            Ok(text) => text.lines().map(str::to_string).collect(),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-            Err(error) => panic!("read args for {stem}: {error}"),
-        };
-        let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-        let executed = run_built_in(&directory, &binary, &arg_refs);
-        if executed.stdout != expected {
-            failures.push(format!(
-                "{stem}: stdout differs\nexpected:\n{}\nactual:\n{}",
-                String::from_utf8_lossy(&expected),
-                String::from_utf8_lossy(&executed.stdout)
-            ));
-        }
-        let _ = std::fs::remove_dir_all(&directory);
-    }
-
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 #[test]

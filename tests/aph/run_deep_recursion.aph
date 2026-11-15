@@ -1,0 +1,5 @@
+fn down n:i64 -> i64
+ ex down 2 = 2
+ if == n 0 0 + 1 down - n 1
+fn main -> unit
+ print show down 4000

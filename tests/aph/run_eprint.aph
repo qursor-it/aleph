@@ -1,0 +1,6 @@
+fn main -> unit
+ do print "out1"
+ do eprint "err1"
+ do print "out2"
+ do eprint "err2"
+ nil

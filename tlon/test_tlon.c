@@ -95,6 +95,25 @@ static AlValue dummy_fn(AlValue *args, size_t count) {
     return aleph_unit();
 }
 
+static AlValue hof_inc(AlValue *args, size_t count) {
+    (void)count;
+    return aleph_i64(args[0].u.i64 + 1);
+}
+
+static AlValue hof_positive(AlValue *args, size_t count) {
+    (void)count;
+    return aleph_bool(args[0].u.i64 > 0);
+}
+
+static AlValue hof_add(AlValue *args, size_t count) {
+    (void)count;
+    return aleph_i64(args[0].u.i64 + args[1].u.i64);
+}
+
+/* The static AlFn values used through aleph_fn_static. */
+static const AlFn hof_inc_fn = {hof_inc, "hof_inc", AL_FN_USER};
+static const AlFn hof_add_fn = {hof_add, "hof_add", AL_FN_USER};
+
 /* ------------------------------------------------------------------ */
 /* show / literal                                                      */
 /* ------------------------------------------------------------------ */
@@ -302,6 +321,39 @@ static void test_builtins(void) {
         check_show(aleph_b_args(), "[\"a\" \"b\"]", "args");
         aleph_set_args(0, NULL);
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Higher-order builtins and function values                           */
+/* ------------------------------------------------------------------ */
+
+static void test_higher_order(void) {
+    AlValue xs = list3(i64v(1), i64v(2), i64v(3));
+    AlValue static_inc = aleph_fn_static(&hof_inc_fn);
+
+    check(static_inc.tag == AL_FN, "fn_static tag");
+    check(static_inc.u.fn == &hof_inc_fn,
+          "fn_static points at the static AlFn");
+    check(aleph_values_equal(static_inc, aleph_fn(hof_inc, "hof_inc")),
+          "fn_static equality with equal AlFn");
+    check_show(aleph_b_map(static_inc, xs), "[2 3 4]", "map via fn_static");
+    check_show(aleph_b_map(aleph_fn(hof_inc, "hof_inc"), xs), "[2 3 4]",
+               "map via aleph_fn");
+    check_show(aleph_b_filter(aleph_fn(hof_positive, "hof_positive"),
+                              list3(i64v(-1), i64v(0), i64v(2))),
+               "[2]", "filter");
+    check_show(aleph_b_fold(aleph_fn_static(&hof_add_fn), i64v(0), xs), "6",
+               "fold via fn_static");
+    check_show(aleph_b_fold(aleph_fn(hof_add, "hof_add"), i64v(10), xs), "16",
+               "fold via aleph_fn");
+    check_show(aleph_b_map(static_inc, aleph_list_new(0)), "[]",
+               "map empty");
+    check_show(aleph_b_filter(aleph_fn(hof_positive, "hof_positive"),
+                              aleph_list_new(0)),
+               "[]", "filter empty");
+    check_show(aleph_b_fold(aleph_fn_static(&hof_add_fn), i64v(7),
+                            aleph_list_new(0)),
+               "7", "fold empty");
 }
 
 /* ------------------------------------------------------------------ */
@@ -924,6 +976,7 @@ int main(int argc, char **argv) {
 
     test_show();
     test_builtins();
+    test_higher_order();
     test_filesystem();
     test_effects();
     test_main_results();

@@ -1,0 +1,5 @@
+use fs.read "data"
+fn main -> res unit str
+ let p cat "data/" "../x"
+ let text try read p
+ ok nil

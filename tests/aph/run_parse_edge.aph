@@ -1,0 +1,22 @@
+fn main -> unit
+ do print show isok int "007"
+ do print show else int "007" -1
+ do print show isok int "-9223372036854775808"
+ do print show else int "-9223372036854775808" 0
+ do print show isok int "9223372036854775808"
+ do print show isok int "+1"
+ do print show isok int "-0"
+ do print show else int "-0" -1
+ do print show isok int "1.0"
+ do print show isok int ""
+ do print show isok float "1.50"
+ do print show else float "1.50" 0.0
+ do print show isok float "-0.50"
+ do print show else float "-0.50" 0.0
+ do print show isok float "1e3"
+ do print show isok float ".5"
+ do print show isok float "1."
+ do print show isok float "1.2.3"
+ do print show isok float "-0.0"
+ do print show else float "-0.0" 1.0
+ nil

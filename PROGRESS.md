@@ -361,3 +361,22 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 271 passed (216 unit, 44 CLI, 8 golden, 3 tlon)
 - next: T-020 differential tests over all golden/benchmark programs; T-021 benchmark harness.
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T23:40 T-020 done
+- new `compiler/tests/differential.rs`: every `tests/aph/NAME.aph` with `NAME.out` runs the interpreter (`aleph run`) and the C backend (`aleph build` + `./prog`) in independent hermetic temp dirs (source, `data/`, `.args`, 30 s timeout, RAII cleanup); it compares stdout/stderr/exit byte for byte between engines and against `.out`/`.err`/`.exit`, and compares every `.files` output across both runs and `tests/aph/expect/`; builds are sequential and all failures are collected into one assertion
+- new run goldens: `run_show_floats` (0.1, 1e20, 1e-7, -0.0, 0.0001, inf/-inf/NaN via division), `run_strings_unicode` (`split ""` on héllo, NBSP/EM-SPACE trim, byte count, empty split), `run_sort_f64` (NaN, ±inf, ±0), `run_parse_edge` (i64 min/max/overflow, +1, -0, invalid ints/floats, -0.0), `run_trap_map` (R002 in a map callback, node n9), `run_trap_cap` (R003 on a computed path outside the prefix, node n12), `run_eprint` (stdout/stderr interleaving), `run_deep_recursion` (4000 successful calls)
+- divergences found between interpreter and native for these probes: none; `tlon`/`cgen` semantics already matched
+- removed the redundant stdout-only `build_all_bench_programs_match_expected_stdout` CLI test (differential.rs now covers every `.out` case, including all benchmarks)
+- review MINORs: ADR-0021 notes native may trap R004 earlier via the stack guard; ADR-0024 documents the IEC 60559 f64-division assumption and forbids `-ffast-math`; ADR-0025 records arena-list record fields and the `aleph_ret_` slot; generated `main` guards `argc == 0`; `aleph_main_run` clears the stack-guard state after join; `test_tlon.c` directly tests `aleph_b_map`/`filter`/`fold` and `aleph_fn_static`
+- tests: 271 passed (216 unit, 43 CLI, 1 differential, 8 golden, 3 tlon)
+- next: T-021 benchmark harness `bench/run.sh`.
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T23:55 T-020 review fixes done
+- extracted the integration-test harness into `compiler/tests/common/mod.rs` (repo root, hermetic temp dirs, source/data/args setup, sidecar readers), shared by `golden.rs` and `differential.rs`; the process runner now drains stdout/stderr on reader threads while polling `try_wait`, avoiding pipe-buffer deadlocks; `run_big_output` prints 262 144 bytes and passes in both harnesses
+- merged-stream ordering: `common::run_merged` opens one file and passes `try_clone()`s to both `Stdio` handles; differential runs cases with `.merged` a second time and compares the combined stream between engines and against the golden; added `run_eprint.merged`, `run_trap_overflow.merged` (print then trap) and `run_main_err.merged`, plus interpreter-only merged checks in `golden.rs`
+- extended `run_show_floats` with 137839762462415.625, 123456789012345680.0, 1e16, 1e15, 1e-5, 1e-7 and -1e-7 (all match natively); `run_trap_cap` now uses a relative computed path (`cat "da" "ta2/x"`) and new `run_trap_cap_dotdot` exercises a runtime `..` path (`cat "data/" "../x"`) -> R003 without touching `/etc`
+- `cgen`: generated `main` no longer emits the redundant `aleph_set_args` (`aleph_main_run` records the arguments); ADR-0025 shows the guarded `argc > 0 ? ... : NULL` form
+- tests: 271 passed (216 unit, 43 CLI, 1 differential, 8 golden, 3 tlon)
+- next: T-021 benchmark harness `bench/run.sh`.
+- agent: opencode/deepseek-v4.1-flash

@@ -1,0 +1,16 @@
+fn main -> unit
+ do print show 0.1
+ do print show 137839762462415.625
+ do print show 100000000000000000000.0
+ do print show 123456789012345680.0
+ do print show 10000000000000000.0
+ do print show 1000000000000000.0
+ do print show 0.00001
+ do print show 0.0000001
+ do print show -0.0000001
+ do print show 0.0001
+ do print show -0.0
+ do print show / 1.0 0.0
+ do print show / -1.0 0.0
+ do print show / 0.0 0.0
+ nil

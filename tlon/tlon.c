@@ -2152,6 +2152,9 @@ int aleph_main_run(AlValue (*main_code)(AlValue *, size_t), int argc,
     if (pthread_join(thread, NULL) != 0) {
         main_thread_failure();
     }
+    /* The main thread has exited; do not guard against a stale stack base. */
+    g_stack_base = 0;
+    g_stack_base_set = false;
 
     fflush(stdout);
     fflush(stderr);

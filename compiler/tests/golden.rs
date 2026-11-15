@@ -16,86 +16,44 @@
 //!   `aleph explain` and `aleph explain --json`.
 //! - `NAME.out` is the stdout of `aleph run`. Optional companions are
 //!   `NAME.args` (one argument per line), `NAME.exit` (expected exit code,
-//!   default 0), `NAME.err` (expected stderr) and `NAME.files` (safe relative
-//!   paths that must exist afterwards, compared with
-//!   `tests/aph/expect/<path>`).
+//!   default 0), `NAME.err` (expected stderr), `NAME.merged` (stdout and
+//!   stderr redirected to the same file, so interleaving is observable) and
+//!   `NAME.files` (safe relative paths that must exist afterwards, compared
+//!   with `tests/aph/expect/<path>`).
 //! - `bench_maxmin.aph` and `bench_maxmin_none.aph` are intentional twins:
 //!   the latter exercises the no-arguments error path (stderr `no numbers`,
 //!   exit 1) while keeping the same helpers and examples.
 //!
 //! Failures are collected so one run reports every mismatch.
 
+mod common;
+
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
-use std::path::{Component, Path, PathBuf};
-use std::process::{Command, Output, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use std::path::{Path, PathBuf};
+
+use common::{
+    checked_relative, file_name, prepare_case, read_lines, repo_root, show_bytes, TempDir,
+};
 
 /// Sidecar extensions that belong to a `NAME.aph` source.
-const SIDECARS: [&str; 9] = [
-    "out", "diag", "ast", "fmt", "explain", "args", "exit", "err", "files",
+const SIDECARS: [&str; 10] = [
+    "out", "diag", "ast", "fmt", "explain", "args", "exit", "err", "files", "merged",
 ];
 /// Extensions that only make sense next to a `NAME.out` run golden.
-const RUN_MODIFIERS: [&str; 4] = ["args", "exit", "err", "files"];
+const RUN_MODIFIERS: [&str; 5] = ["args", "exit", "err", "files", "merged"];
 /// At least one of these makes a source file a golden case.
 const COMPANIONS: [&str; 5] = ["out", "diag", "ast", "fmt", "explain"];
 /// A `NAME.explain.json` sidecar has a two-part extension.
 const EXPLAIN_JSON_SUFFIX: &str = ".explain.json";
-/// A spawned `aleph` process that runs longer than this is killed.
-const PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("compiler/ has a parent")
-        .to_path_buf()
+/// Run `aleph` in `directory` with a timeout and drained pipes.
+fn aleph_in<S: AsRef<OsStr>>(directory: &Path, args: &[S]) -> Result<common::Output, String> {
+    common::run_separate(directory, env!("CARGO_BIN_EXE_aleph"), args)
 }
 
-/// Run `aleph` in `directory`, waiting at most [`PROCESS_TIMEOUT`].
-///
-/// The child is polled with `try_wait`; on timeout it is killed and an error is
-/// returned. The caller records that error as a test failure.
-fn aleph_in<S: AsRef<OsStr>>(directory: &Path, args: &[S]) -> Result<Output, String> {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_aleph"))
-        .current_dir(directory)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("failed to spawn aleph: {error}"))?;
-
-    let start = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(_)) => break,
-            Ok(None) => {
-                if start.elapsed() >= PROCESS_TIMEOUT {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(format!(
-                        "aleph did not finish within {} s",
-                        PROCESS_TIMEOUT.as_secs()
-                    ));
-                }
-                std::thread::sleep(Duration::from_millis(20));
-            }
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(format!("failed to wait for aleph: {error}"));
-            }
-        }
-    }
-
-    child
-        .wait_with_output()
-        .map_err(|error| format!("failed to collect aleph output: {error}"))
-}
-
-fn aleph(args: &[&str]) -> Result<Output, String> {
+fn aleph(args: &[&str]) -> Result<common::Output, String> {
     aleph_in(&repo_root(), args)
 }
 
@@ -120,94 +78,6 @@ fn relative<'a>(repo: &'a Path, path: &'a Path) -> &'a str {
         .expect("case is inside the repo")
         .to_str()
         .expect("case path is UTF-8")
-}
-
-fn file_name(path: &Path) -> String {
-    path.file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.display().to_string())
-}
-
-fn show_bytes(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).into_owned()
-}
-
-/// Read a golden sidecar. A missing file is empty; any other error is a test
-/// failure.
-fn read_lines(path: &Path) -> Result<Vec<String>, String> {
-    match fs::read_to_string(path) {
-        Ok(text) => Ok(text.lines().map(str::to_string).collect()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
-        Err(error) => Err(format!("cannot read {}: {error}", path.display())),
-    }
-}
-
-/// Validate a `.files` entry: only plain relative components are allowed, so
-/// joining it to the temporary directory can never escape that directory.
-fn checked_relative(file: &str) -> Result<PathBuf, String> {
-    if file.is_empty() {
-        return Err(".files entry is empty".to_string());
-    }
-    let path = Path::new(file);
-    if path.is_absolute() {
-        return Err(format!(".files entry `{file}` is absolute"));
-    }
-    if !path
-        .components()
-        .all(|component| matches!(component, Component::Normal(_)))
-    {
-        return Err(format!(
-            ".files entry `{file}` must be a plain relative path without `.`/`..`, root or prefix components"
-        ));
-    }
-    Ok(path.to_path_buf())
-}
-
-/// A temporary directory removed by [`Drop`], including on test failure.
-struct TempDir {
-    path: PathBuf,
-}
-
-impl TempDir {
-    /// Create a unique directory with `fs::create_dir`. An existing name
-    /// (EEXIST) simply advances the counter.
-    fn new() -> io::Result<Self> {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        loop {
-            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-            let path =
-                std::env::temp_dir().join(format!("aleph-golden-{}-{id}", std::process::id()));
-            match fs::create_dir(&path) {
-                Ok(()) => return Ok(Self { path }),
-                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
-                Err(error) => return Err(error),
-            }
-        }
-    }
-
-    fn path(&self) -> &Path {
-        &self.path
-    }
-}
-
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.path);
-    }
-}
-
-fn copy_dir(source: &Path, destination: &Path) {
-    fs::create_dir_all(destination).expect("create copied directory");
-    for entry in fs::read_dir(source).expect("read source directory") {
-        let entry = entry.expect("readable directory entry");
-        let target = destination.join(entry.file_name());
-        let file_type = entry.file_type().expect("read file type");
-        if file_type.is_dir() {
-            copy_dir(&entry.path(), &target);
-        } else {
-            fs::copy(entry.path(), &target).expect("copy file");
-        }
-    }
 }
 
 /// Whether a `NAME.aph` source has at least one golden companion.
@@ -596,17 +466,9 @@ fn run_golden_files_match() {
                 continue;
             }
         };
-        fs::copy(&aph, temp.path().join(&name)).expect("copy case source");
-        let data = golden_dir.join("data");
-        if data.is_dir() {
-            copy_dir(&data, &temp.path().join("data"));
-        }
-        for file in &expected_files {
-            if let Some(parent) = file.parent() {
-                if !parent.as_os_str().is_empty() {
-                    fs::create_dir_all(temp.path().join(parent)).expect("create output directory");
-                }
-            }
+        if let Err(error) = prepare_case(&temp, &aph, &expected_files) {
+            failures.push(format!("{relative}: {error}"));
+            continue;
         }
 
         // 4. Run with the optional program arguments.
@@ -693,6 +555,60 @@ fn run_golden_files_match() {
                     "{relative}: expected file {} was not written: {error}",
                     file.display()
                 )),
+            }
+        }
+
+        // 6. Merged stdout+stderr ordering, when a `.merged` sidecar exists.
+        let merged_path = aph.with_extension("merged");
+        if merged_path.is_file() {
+            let merged_temp = match TempDir::new() {
+                Ok(temp) => temp,
+                Err(error) => {
+                    failures.push(format!(
+                        "{relative}: cannot create temporary directory: {error}"
+                    ));
+                    continue;
+                }
+            };
+            if let Err(error) = prepare_case(&merged_temp, &aph, &expected_files) {
+                failures.push(format!("{relative}: {error}"));
+                continue;
+            }
+            let stream = merged_temp.path().join("_merged_stream");
+            let merged = match common::run_merged(
+                merged_temp.path(),
+                env!("CARGO_BIN_EXE_aleph"),
+                &command,
+                &stream,
+            ) {
+                Ok(output) => output,
+                Err(error) => {
+                    failures.push(format!("{relative}: merged: {error}"));
+                    continue;
+                }
+            };
+            let expected = match fs::read(&merged_path) {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    failures.push(format!(
+                        "{relative}: cannot read {}: {error}",
+                        merged_path.display()
+                    ));
+                    continue;
+                }
+            };
+            if merged.status.code() != Some(expected_code) {
+                failures.push(format!(
+                    "{relative}: merged expected exit {expected_code}, got {:?}",
+                    merged.status.code()
+                ));
+            }
+            if merged.bytes != expected {
+                failures.push(format!(
+                    "{relative}: merged stdout/stderr mismatch\nexpected:\n{}\nactual:\n{}",
+                    show_bytes(&expected),
+                    show_bytes(&merged.bytes)
+                ));
             }
         }
     }

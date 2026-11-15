@@ -1,0 +1,6 @@
+fn div n:i64 -> i64
+ ex div 2 = 5
+ / 10 n
+fn main -> unit
+ do print "before"
+ print show map @div [2 0 5]

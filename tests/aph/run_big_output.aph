@@ -1,0 +1,5 @@
+fn grow text:str n:i64 -> str
+ ex grow "x" 3 = "xxxxxxxx"
+ if == n 0 text grow cat text text - n 1
+fn main -> unit
+ print grow "x" 18

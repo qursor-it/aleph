@@ -704,11 +704,7 @@ impl<'a> Generator<'a> {
         }
         self.line(
             1,
-            "aleph_set_args(argc - 1, (const char *const *)(argv + 1));",
-        );
-        self.line(
-            1,
-            "return aleph_main_run(aleph_entry, argc - 1, (const char *const *)(argv + 1));",
+            "return aleph_main_run(aleph_entry, argc > 0 ? argc - 1 : 0, argc > 0 ? (const char *const *)(argv + 1) : NULL);",
         );
         self.line(0, "}");
     }

@@ -48,7 +48,10 @@ C backend.
   [`crate::interp::run_main`] executes on a thread with a 256 MiB stack; the
   evaluation budget was chosen so a function whose body is a 250-deep `+`
   chain recursing at its innermost node traps cleanly without a native stack
-  overflow.
+  overflow. The native backend mirrors both counters, but additionally checks
+  a stack guard (ADR-0025); for pathological native frame sizes it may
+  therefore report `R004` earlier than the interpreter. It never reports it
+  later and never crashes with a native stack overflow.
 - **Capability paths.** A path and a declared prefix are both resolved with
   `resolve_lenient`: `..` components are rejected; an existing path (including
   a symlink) must canonicalize successfully, so a dangling symlink is a

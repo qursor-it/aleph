@@ -85,8 +85,13 @@ NUL then returns `err "invalid input"` (matching Rust's filesystem calls).
 i64 `+ - *` and `sum` use `__builtin_*_overflow` -> `R001` "integer overflow".
 `/` and `%` trap `R002` "division by zero" for a zero divisor and `R001` for
 `INT64_MIN / -1` and `INT64_MIN % -1`; `neg INT64_MIN` is `R001`. C division
-truncates toward zero, like Rust. f64 uses IEEE arithmetic. Equality is
-structural (`NaN != NaN`); `< <= > >=` are IEEE for f64 (all false when NaN).
+truncates toward zero, like Rust. f64 uses IEEE arithmetic, including division
+by zero (which yields `inf`/`-inf`/`NaN`). The runtime assumes IEC 60559
+semantics for `double` and must not be compiled with `-ffast-math` (or
+`-ffinite-math-only`/`-funsafe-math-optimizations`): those options let the
+compiler assume finite results and would make `1.0 / 0.0` and `0.0 / 0.0`
+diverge from the interpreter. Equality is structural (`NaN != NaN`);
+`< <= > >=` are IEEE for f64 (all false when NaN).
 
 ### Builtins
 All non-higher-order SPEC §5.1 builtins are `aleph_b_<name>` and follow
