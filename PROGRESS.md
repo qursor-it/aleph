@@ -81,3 +81,37 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0017 (Proposed)
 - next: T-006 parser pass 1; float parsing must keep raw token text
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T11:42 T-006 done
+- `compiler/src/parser.rs`: `parse(file, source) -> ParseOutput` lexes first (any L diagnostic returns no AST) and `parse_lines(file, &[Line])` for tests; `File::finish` canonicalizes and assigns ids
+- pass 1 dispatches top-level lines on lexicon keywords: `use` (capability + optional decoded path), `type` (fields with prefix fixed-arity types), `fn` (params + return type, no trailing tokens); types support `i64/f64/bool/str/unit`, `list`/`opt` (1), `res` (2), other idents as `Named`
+- per-file `Signatures` stores fn arity and record ctor arity; raw body lines are kept per fn name in `bodies` for pass 2 (T-007). Fn results are placeholder `nil` expressions until T-007 replaces them (documented)
+- header errors emit one P001/P002 per line, skip the item and its body lines, and parsing continues; body lines before a fn or after use/type are P001; duplicate fn/type names are P001 "duplicate definition"
+- `ast::Capability::from_spelling` added for the parser
+- tests: 82 passed (71 unit, 10 CLI, 1 golden); 20 new parser tests incl. nested types `res list i64 str`, `list opt str`, records, each P001/P002 case and SPEC §12 signatures
+- decisions: none (implements ADR-0004)
+- next: T-007 pass 2 consumes `Signatures` + `bodies`, parses expressions, replaces the placeholder result, and wires `aleph ast`
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T11:53 T-007 done
+- `compiler/src/parser.rs`: pass 2 parses each fn body by first token (`doc`, `ex`, `let`, `do`, or the result), fills `doc`/`examples`/`stmts`/`result`, and replaces the pass-1 placeholder; expressions are arity-directed from pass-1 signatures and `builtins::lookup`
+- all SPEC §5 expression forms: literals (int range checked, float text preserved), vars, fnrefs, calls (fn/ctor/builtin), binops/unops, if/else, some/ok/err/try/has/isok, empty/none with types, field, lists and nesting; line-level leftovers are P002 at fixed-arity roots and P001 at 0-arity roots; missing args are P002 with expected/found
+- body rules: single `= ` split for `ex`, globals-only example environments, `let` value before binding, result then no further lines, missing result at end of line, duplicate/malformed doc; expression depth capped at 256 (P001 "expression too deep")
+- shadowing per ADR-0018: param/let collisions with params/locals or callables are T005; the binding is not inserted, so callable arity stays available
+- fn and type names share one namespace: a collision is P001 "duplicate definition"
+- `aleph ast FILE` wired: X002 on read failure, parser diagnostics on stdout with exit 1, else pretty JSON and exit 0; `aleph check` now runs lex+parse before the X001 stub
+- golden: `tests/aph/parse_p001|p002|p003|t005` with `.diag`, and `ast_add.aph`/`ast_add.ast` compared by the extended harness
+- tests: 113 passed (97 unit, 14 CLI, 2 golden)
+- decisions: ADR-0018 (Proposed, shadowing callables)
+- next: T-008 printer/canonical form; T-009 F001; the parser now produces complete `File`s for both SPEC §12 programs
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T12:23 T-006/T-007 review fixes done
+- parser: type parsing now carries a nesting depth and reports P001 "type too deep" past 256 (6000 nested `list` test); expression leftover handling distinguishes non-expression tokens (P001 at the leftover), fixed-arity roots (P002 at head, found = arity + greedily parseable extras) and zero-arity roots (P002 for 0-arity calls, P001 at the first extra for vars/literals)
+- names: `fn`/`type` names matching a builtin or lexicon type are P001 "reserved name"; duplicate record fields are P001 "duplicate field"
+- shadowing: ADR-0018 updated; T005 now inserts the colliding param/let into the environment after reporting (one T005 per declaration) so later uses resolve as variables instead of cascading P002
+- parser recovery: `result_seen` is set only after a successful result line; a failed result line no longer makes the rest of the fn "line after result", and missing result is only reported when the last body line parsed cleanly
+- dedupe: one `p002` helper; one `body_keyword` predicate; expression head arity comes from a single `head_arity`/`resolve_name` pair used by parsing and leftover checks
+- tests: 118 passed (102 unit, 14 CLI, 2 golden); new tests for type depth, leftovers, reserved names, duplicate fields, T005 insertion/multiple params and failed-result recovery
+- next: T-008 printer/canonical form; T-009 F001
+- agent: opencode/deepseek-v4.1-flash

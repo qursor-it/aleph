@@ -1,9 +1,11 @@
 use std::fs;
+use std::io::Write;
 use std::process::ExitCode;
 
+use alephc::ast;
 use alephc::cli;
 use alephc::diag::Diagnostic;
-use alephc::lexer;
+use alephc::parser;
 
 fn main() -> ExitCode {
     let cli = match cli::parse(std::env::args_os().skip(1)) {
@@ -15,41 +17,73 @@ fn main() -> ExitCode {
         }
     };
 
-    let diagnostics = match cli.command.as_str() {
-        "check" => check(&cli),
+    match cli.command.as_str() {
+        "check" => emit_diagnostics(&check(&cli)),
+        "ast" => ast_command(&cli),
         // Later phases are still stubbed.
-        _ => vec![Diagnostic::not_implemented(&cli.file)],
-    };
+        _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
+    }
+}
 
+fn emit_diagnostics(diagnostics: &[Diagnostic]) -> ExitCode {
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    if let Err(err) = Diagnostic::emit_all(&diagnostics, &mut out) {
+    if let Err(err) = Diagnostic::emit_all(diagnostics, &mut out) {
         eprintln!("aleph: failed to write diagnostic: {err}");
         return ExitCode::from(2);
     }
     ExitCode::from(if diagnostics.is_empty() { 0 } else { 1 })
 }
 
-/// Minimal `aleph check`: read the file, lex it, and stop at the first phase
-/// that is not implemented yet (ADR-0015).
+fn read_source(cli: &cli::Cli) -> Result<String, Box<Diagnostic>> {
+    fs::read_to_string(&cli.file).map_err(|_| {
+        Box::new(Diagnostic::error(
+            "X002",
+            cli.file.as_str(),
+            0,
+            0,
+            "cannot read file",
+        ))
+    })
+}
+
+/// `aleph check`: lex and parse, then stop at the first phase that is not
+/// implemented yet (ADR-0015).
 fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
-    let source = match fs::read_to_string(&cli.file) {
+    let source = match read_source(cli) {
         Ok(source) => source,
-        Err(_) => {
-            return vec![Diagnostic::error(
-                "X002",
-                cli.file.as_str(),
-                0,
-                0,
-                "cannot read file",
-            )]
-        }
+        Err(diagnostic) => return vec![*diagnostic],
     };
 
-    let (_lines, diagnostics) = lexer::lex(&cli.file, &source);
-    if diagnostics.is_empty() {
+    let output = parser::parse(&cli.file, &source);
+    if output.diagnostics.is_empty() {
         vec![Diagnostic::not_implemented(&cli.file)]
     } else {
-        diagnostics
+        output.diagnostics
     }
+}
+
+/// `aleph ast`: parse and print the AST as JSON.
+fn ast_command(cli: &cli::Cli) -> ExitCode {
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let output = parser::parse(&cli.file, &source);
+    if !output.diagnostics.is_empty() {
+        return emit_diagnostics(&output.diagnostics);
+    }
+
+    let Some(file) = output.file else {
+        return emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]);
+    };
+
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = out.write_all(ast::to_json(&file).as_bytes()) {
+        eprintln!("aleph: failed to write AST: {err}");
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
 }

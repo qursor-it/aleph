@@ -9,9 +9,9 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-002 Diagnostics module: struct + JSON output per SPEC §9; `spec/diagnostics.md` table — ADR-0011
 - [x] T-003 Lexicon module mirroring `spec/lexicon.toml` + test that they match — ADR-0005
 - [x] T-004 Lexer: line structure, token classes, L001/L002, golden tests — SPEC §1–2
-- [x] T-005 AST types with node ids (pre-order), `aleph ast` JSON output — ADR-0003 (`aleph ast` CLI wiring lands with parser T-007)
-- [ ] T-006 Parser pass 1: collect use/type/fn headers and signatures (types parsed prefix) — SPEC §3–4
-- [ ] T-007 Parser pass 2: arity-directed expressions, body lines (doc/ex/let/do/result), P001–P003 — SPEC §5, ADR-0004
+- [x] T-005 AST types with node ids (pre-order), `aleph ast` JSON output — ADR-0003 (`aleph ast` wired in T-007)
+- [x] T-006 Parser pass 1: collect use/type/fn headers and signatures (types parsed prefix) — SPEC §3–4
+- [x] T-007 Parser pass 2: arity-directed expressions, body lines (doc/ex/let/do/result), P001–P003 — SPEC §5, ADR-0004
 - [ ] T-008 Printer: canonical form; round-trip property tests; `aleph fmt` — SPEC §10
 - [ ] T-009 Canonical check F001 with `canonical` field in diagnostic — SPEC §10
 - [ ] T-010 Type checker: primitives, lists, opt/res, records, bidirectional ok/err/none, T001/T005/T010 — SPEC §4–5

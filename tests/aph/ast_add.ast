@@ -1,0 +1,108 @@
+{
+  "id": "n0",
+  "line": 1,
+  "col": 1,
+  "uses": [],
+  "types": [],
+  "fns": [
+    {
+      "id": "n1",
+      "line": 1,
+      "col": 1,
+      "name": "add",
+      "params": [
+        {
+          "id": "n2",
+          "line": 1,
+          "col": 8,
+          "name": "a",
+          "ty": {
+            "id": "n3",
+            "line": 1,
+            "col": 10,
+            "kind": "i64"
+          }
+        },
+        {
+          "id": "n4",
+          "line": 1,
+          "col": 14,
+          "name": "b",
+          "ty": {
+            "id": "n5",
+            "line": 1,
+            "col": 16,
+            "kind": "i64"
+          }
+        }
+      ],
+      "ret": {
+        "id": "n6",
+        "line": 1,
+        "col": 23,
+        "kind": "i64"
+      },
+      "doc": null,
+      "examples": [
+        {
+          "id": "n7",
+          "line": 2,
+          "col": 2,
+          "lhs": {
+            "id": "n8",
+            "line": 2,
+            "col": 5,
+            "kind": "call",
+            "callee": "add",
+            "callee_kind": "fn",
+            "args": [
+              {
+                "id": "n9",
+                "line": 2,
+                "col": 9,
+                "kind": "int",
+                "value": 2
+              },
+              {
+                "id": "n10",
+                "line": 2,
+                "col": 11,
+                "kind": "int",
+                "value": 3
+              }
+            ]
+          },
+          "rhs": {
+            "id": "n11",
+            "line": 2,
+            "col": 15,
+            "kind": "int",
+            "value": 5
+          }
+        }
+      ],
+      "stmts": [],
+      "result": {
+        "id": "n12",
+        "line": 3,
+        "col": 2,
+        "kind": "bin_op",
+        "op": "+",
+        "lhs": {
+          "id": "n13",
+          "line": 3,
+          "col": 4,
+          "kind": "var",
+          "name": "a"
+        },
+        "rhs": {
+          "id": "n14",
+          "line": 3,
+          "col": 6,
+          "kind": "var",
+          "name": "b"
+        }
+      }
+    }
+  ]
+}

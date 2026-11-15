@@ -65,6 +65,19 @@ impl Capability {
     pub fn spelling(self) -> &'static str {
         lexicon::CAPABILITIES[self.index()]
     }
+
+    /// Parse a capability name, e.g. `"fs.read"`.
+    pub fn from_spelling(spelling: &str) -> Option<Self> {
+        [
+            Self::FsRead,
+            Self::FsWrite,
+            Self::NetHost,
+            Self::Env,
+            Self::Time,
+        ]
+        .into_iter()
+        .find(|cap| cap.spelling() == spelling)
+    }
 }
 
 impl Serialize for Capability {
