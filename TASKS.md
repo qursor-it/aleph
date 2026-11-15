@@ -9,13 +9,13 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-002 Diagnostics module: struct + JSON output per SPEC §9; `spec/diagnostics.md` table — ADR-0011
 - [x] T-003 Lexicon module mirroring `spec/lexicon.toml` + test that they match — ADR-0005
 - [x] T-004 Lexer: line structure, token classes, L001/L002, golden tests — SPEC §1–2
-- [ ] T-005 AST types with node ids (pre-order), `aleph ast` JSON output — ADR-0003
+- [x] T-005 AST types with node ids (pre-order), `aleph ast` JSON output — ADR-0003 (`aleph ast` CLI wiring lands with parser T-007)
 - [ ] T-006 Parser pass 1: collect use/type/fn headers and signatures (types parsed prefix) — SPEC §3–4
 - [ ] T-007 Parser pass 2: arity-directed expressions, body lines (doc/ex/let/do/result), P001–P003 — SPEC §5, ADR-0004
 - [ ] T-008 Printer: canonical form; round-trip property tests; `aleph fmt` — SPEC §10
 - [ ] T-009 Canonical check F001 with `canonical` field in diagnostic — SPEC §10
 - [ ] T-010 Type checker: primitives, lists, opt/res, records, bidirectional ok/err/none, T001/T005/T010 — SPEC §4–5
-- [ ] T-011 Builtin table (types, arity, effect, capability) shared by parser, checker, interpreter — SPEC §5.1
+- [x] T-011 Builtin table (types, arity, effect, capability) shared by parser, checker, interpreter — SPEC §5.1
 - [ ] T-012 Capability checker C001/C002 — SPEC §8, ADR-0008
 - [ ] T-013 Interpreter: all expressions and builtins, traps R001–R003 with JSON + exit 70 — SPEC §6, ADR-0009
 - [ ] T-014 Examples runner: E001/E002, `aleph test`, run inside `aleph check` — ADR-0010

@@ -51,3 +51,33 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0015/0016 updated (no status change)
 - next: T-005 AST with node ids
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T11:35 T-005 done
+- `compiler/src/ast.rs`: node structs (`File`, `Use`, `TypeDef`, `Field`, `Fn`, `Param`, `Example`, `Stmt`, `Type`, `Expr`) with `NodeId`/`Span`; kind enums for statements, types, expressions, binops, unops, capabilities and callee kinds
+- `assign_ids(&mut File)` assigns deterministic pre-order ids (`n0..`) across uses, typedefs/fields/types, fn params/ret/examples/stmts/result; `File::canonicalize` sorts uses by canonical line text, types by name and fns by name with `main` last; `File::same_ids` plus hand-written `PartialEq` ignoring ids/spans
+- JSON via typed `Serialize` only: span flattened as `line`/`col`, kind enums tagged `kind` + flattened fields, `doc` always present; `to_json` is pretty JSON plus trailing newline
+- operator and capability spellings come from `lexicon` (no hard-coded keyword strings); struct-like expression/type variants are used because internally tagged enums have no tuple-variant representation
+- tests: 5 AST tests, including SPEC §12 `add` ids n0..n14, an exact JSON golden, and a nested `do` statement; `aleph ast` CLI wiring is left for T-007
+- decisions: none (implements ADR-0003); noted struct-variant JSON choice above
+- next: T-006 parser pass 1 can build the AST directly
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T11:40 T-011 done
+- `compiler/src/builtins.rs`: `Ty`, `TyVar`, `Effect`, `BuiltinSpec` (`name`, `params`, `ret`, `effect`, `capability`, `path_arg`, `arity()`), `BUILTINS` sorted by name and `lookup(name)`
+- all 27 SPEC §5.1 builtins, pure and effectful; `read`/`write` are effectful with `FsRead`/`FsWrite` and `path_arg: Some(0)`; `print`/`eprint` are effectful with no capability; `sort` encodes its restriction as `list Primitive`
+- tests: names match `lexicon::builtin_names` exactly (and are sorted), every arity from SPEC §5.1, effects/capabilities for read/write/print/eprint; `nil`/`empty`/`none` are not builtins
+- tests: 59 passed (48 unit, 10 CLI, 1 golden)
+- decisions: none
+- next: T-006 parser pass 1; use `builtins::lookup` for call arity
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T11:55 T-005/T-011 review fixes done
+- `builtins`: `BuiltinSpec.bounds: &[(TyVar, Bound)]` with `Bound::{Primitive,Showable}`; removed `Ty::Primitive`/`Ty::Showable`. `sort` is now `list T -> list T` with `[(T, Primitive)]`, `show` is `T -> str` with `[(T, Showable)]`; test checks both share `TyVar::T` and have the right bound
+- `ast`: public `escape_str` (only `\n`, `\t`, `"`, `\`); `Use::canonical_text` escapes the quoted path before sorting; test covers a path with quote, newline, tab and backslash
+- `ast`: `File::finish` runs `canonicalize` then `assign_ids` (documented on all three); `to_json` debug-asserts no `NodeId::UNASSIGNED`; test checks finish produces ids 0..n in collect order
+- `ast`: comment above every manual `PartialEq` impl reminding to update it when adding node fields
+- ADR-0017 (Proposed): float literals preserve token text verbatim, so `1.0` and `1.00` are distinct canonical texts; normalization deferred until an Aleph-native format exists
+- tests: 62 passed (51 unit, 10 CLI, 1 golden)
+- decisions: ADR-0017 (Proposed)
+- next: T-006 parser pass 1; float parsing must keep raw token text
+- agent: opencode/deepseek-v4.1-flash
