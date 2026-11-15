@@ -135,6 +135,7 @@ pub const CODES: &[(&str, &str)] = &[
     ("R002", "division by zero"),
     ("R003", "capability violation at run time"),
     ("X001", "command not implemented"),
+    ("X002", "cannot read file"),
 ];
 
 #[cfg(test)]

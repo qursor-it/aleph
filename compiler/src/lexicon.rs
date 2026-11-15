@@ -83,6 +83,9 @@ pub const BINARY_OPERATORS: &[(&str, &str)] = &[
 /// Punctuation spellings that are not operators.
 pub const PUNCTUATION: &[(&str, &str)] = &[("arrow", "->"), ("fnref", "@"), ("field", ".")];
 
+/// Capability names accepted after `use` (SPEC §3.1, grammar `capname`).
+pub const CAPABILITIES: &[&str] = &["fs.read", "fs.write", "net.host", "env", "time"];
+
 /// Builtin function names.
 pub const BUILTINS: &[&str] = &[
     "len", "at", "push", "slice", "rev", "sort", "range", "sum", "map", "filter", "fold", "cat",
@@ -146,6 +149,24 @@ pub fn is_operator(spelling: &str) -> bool {
 /// Whether `spelling` is a binary operator (arity 2, SPEC §5).
 pub fn is_binary_operator(spelling: &str) -> bool {
     BINARY_OPERATORS.iter().any(|(_, value)| *value == spelling)
+}
+
+/// Whether `spelling` is a binary operator in grammar terms: the symbolic
+/// operators from [`BINARY_OPERATORS`] plus the keyword spellings `and`/`or`.
+pub fn is_binop(spelling: &str) -> bool {
+    is_binary_operator(spelling)
+        || Some(spelling) == keyword("land")
+        || Some(spelling) == keyword("lor")
+}
+
+/// Whether `spelling` is a unary operator: the keyword spellings `not`/`neg`.
+pub fn is_unop(spelling: &str) -> bool {
+    Some(spelling) == keyword("lnot") || Some(spelling) == keyword("negate")
+}
+
+/// Whether `name` is a capability name from [`CAPABILITIES`].
+pub fn is_capability(name: &str) -> bool {
+    CAPABILITIES.contains(&name)
 }
 
 /// Whether `spelling` is punctuation (`->`, `@`, `.`).
@@ -388,5 +409,35 @@ mod tests {
         }
         assert_eq!(binary_operator_names().count(), BINARY_OPERATORS.len());
         assert_eq!(punctuation_names().count(), PUNCTUATION.len());
+    }
+
+    #[test]
+    fn binops_and_unops_cover_grammar() {
+        // `binop` / `unop` from spec/grammar.ebnf.
+        let binops = [
+            "+", "-", "*", "/", "%", "==", "!=", "<", "<=", ">", ">=", "and", "or",
+        ];
+        let unops = ["not", "neg"];
+
+        for spelling in binops {
+            assert!(is_binop(spelling), "not a binop: {spelling}");
+            assert!(!is_unop(spelling), "binop as unop: {spelling}");
+        }
+        for spelling in unops {
+            assert!(is_unop(spelling), "not a unop: {spelling}");
+            assert!(!is_binop(spelling), "unop as binop: {spelling}");
+        }
+        for (_, spelling) in BINARY_OPERATORS {
+            assert!(is_binop(spelling), "not a binop: {spelling}");
+        }
+    }
+
+    #[test]
+    fn capabilities_match_grammar() {
+        for name in ["fs.read", "fs.write", "net.host", "env", "time"] {
+            assert!(is_capability(name), "not a capability: {name}");
+        }
+        assert!(!is_capability("fs.exec"));
+        assert_eq!(CAPABILITIES.len(), 5);
     }
 }

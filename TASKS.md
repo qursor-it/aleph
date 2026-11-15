@@ -8,7 +8,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-001 Cargo crate `compiler/` (alephc, bin `aleph`), CLI skeleton with subcommands from SPEC §11 returning "not implemented" diagnostics; CI script `scripts/check.sh` running fmt, clippy, test — SPEC §11, ADR-0002
 - [x] T-002 Diagnostics module: struct + JSON output per SPEC §9; `spec/diagnostics.md` table — ADR-0011
 - [x] T-003 Lexicon module mirroring `spec/lexicon.toml` + test that they match — ADR-0005
-- [ ] T-004 Lexer: line structure, token classes, L001/L002, golden tests — SPEC §1–2
+- [x] T-004 Lexer: line structure, token classes, L001/L002, golden tests — SPEC §1–2
 - [ ] T-005 AST types with node ids (pre-order), `aleph ast` JSON output — ADR-0003
 - [ ] T-006 Parser pass 1: collect use/type/fn headers and signatures (types parsed prefix) — SPEC §3–4
 - [ ] T-007 Parser pass 2: arity-directed expressions, body lines (doc/ex/let/do/result), P001–P003 — SPEC §5, ADR-0004
