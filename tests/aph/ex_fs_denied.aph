@@ -1,0 +1,6 @@
+use fs.write "tests/aph"
+fn save -> res unit str
+ ex write "tests/aph/out-hermetic.txt" "x" = ok nil
+ ok nil
+fn main -> unit
+ nil

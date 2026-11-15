@@ -1,0 +1,5 @@
+fn shout text:str -> unit
+ do print text
+ nil
+fn main -> unit
+ nil

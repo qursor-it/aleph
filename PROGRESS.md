@@ -219,3 +219,24 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0021 (Proposed, updated)
 - next: T-014 examples runner (`aleph test`, examples inside `aleph check`)
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T16:20 T-014 done
+- `compiler/src/examples.rs`: `aleph check` reports E001 at the fn header for pure non-`main` functions without examples and E002 at the example node for mismatches/traps; effectfulness is a deterministic fixpoint over direct calls, user-fn calls and `@fnref` arguments (`print`, `eprint`, `read`, `write`); all examples run even when some fail, diagnostics sorted by `(line, col)`
+- `interp::literal` renders values in canonical Aleph literal syntax (quoted strings, prefix constructors, records as `NAME f1 f2`); E002 `expected`/`found` use it, traps become `found = "trap R00x"` and `expected = "?"` when the rhs did not evaluate; `try` at example top level yields its `err e`
+- `aleph test FILE` wired: L/P -> T -> C -> examples only (no F001, no E001), JSON lines on failure, silent exit 0 when clean; `aleph check` pipeline is now read -> L/P -> F001 -> T -> C -> E001+E002 and no longer returns X001
+- goldens: `ex_e001_missing`, `ex_e002_wrong`, `ex_e002_trap`, effectful-without-ex clean, SPEC §12 fib/words clean; `cap_valid.diag` is now empty; `.diag` harness treats an empty file as exit 0/empty stdout; run_* goldens gained missing pure-function examples and the run harness now requires `aleph check` to be silent
+- decisions: ADR-0022 (Proposed)
+- tests: 226 passed (197 unit, 24 CLI, 3 lexer/diag goldens, 2 run goldens)
+- next: T-015 golden harness expansion (SPEC §12 + 15 more programs)
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T16:50 T-014 review fixes done
+- examples are hermetic: `Interp::with_deny_fs` makes every `read`/`write` trap R003 before path resolution; examples always enable it, so an fs example yields `E002 found "trap R003"` and never writes a file
+- effectfulness now walks only fn statements and result, never examples; a pure body with an effectful example no longer exempts an unexampled pure caller from E001
+- trap reporting: lhs-only trap -> `expected` = rhs value, `found` = lhs trap; rhs-only trap -> `expected` = rhs trap, `found` = lhs value; both -> lhs trap found, rhs trap expected
+- ADR-0022 updated with hermetic evaluation, body-only effectfulness, trap direction and "value notation" (not guaranteed re-parseable: `none`, `[]`, non-finite floats)
+- goldens/tests: `ex_fs_denied` (E002 R003) plus a CLI test asserting `tests/aph/out-hermetic.txt` is not created; unit tests for example-independent effectfulness, rhs-only trap and both-trap cases
+- tests: 231 passed (201 unit, 25 CLI, 3 lexer/diag goldens, 2 run goldens)
+- decisions: ADR-0022 (Proposed, updated)
+- next: T-015 golden harness expansion (SPEC §12 + 15 more programs)
+- agent: opencode/deepseek-v4.1-flash

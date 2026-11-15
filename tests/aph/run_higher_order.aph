@@ -1,8 +1,11 @@
 fn add a:i64 b:i64 -> i64
+ ex add 2 3 = 5
  + a b
 fn inc n:i64 -> i64
+ ex inc 1 = 2
  + n 1
 fn positive n:i64 -> bool
+ ex positive 1 = true
  > n 0
 fn main -> unit
  do print show map @inc [1 2 3]

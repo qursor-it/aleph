@@ -7,6 +7,7 @@ use alephc::caps;
 use alephc::check as type_check;
 use alephc::cli;
 use alephc::diag::Diagnostic;
+use alephc::examples;
 use alephc::interp;
 use alephc::parser;
 use alephc::printer;
@@ -24,6 +25,7 @@ fn main() -> ExitCode {
     match cli.command.as_str() {
         "check" => emit_diagnostics(&check(&cli)),
         "fmt" => fmt_command(&cli),
+        "test" => test_command(&cli),
         "run" => run_command(&cli),
         "ast" => ast_command(&cli),
         // Later phases are still stubbed.
@@ -53,8 +55,8 @@ fn read_source(cli: &cli::Cli) -> Result<String, Box<Diagnostic>> {
     })
 }
 
-/// `aleph check`: lex and parse, reject non-canonical text (F001), then stop at
-/// the first phase that is not implemented yet (ADR-0015).
+/// `aleph check`: lex and parse, reject non-canonical text (F001), type check,
+/// capability check, then run inline examples (E001/E002).
 fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
     let source = match read_source(cli) {
         Ok(source) => source,
@@ -81,11 +83,41 @@ fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
     }
 
     let capabilities = caps::check_caps(&cli.file, &file);
-    if capabilities.is_empty() {
-        vec![Diagnostic::not_implemented(&cli.file)]
-    } else {
-        capabilities
+    if !capabilities.is_empty() {
+        return capabilities;
     }
+
+    examples::check(&cli.file, &file)
+}
+
+/// `aleph test`: lex, parse, type check and capability check (no F001), then
+/// run the inline examples only (E002).
+fn test_command(cli: &cli::Cli) -> ExitCode {
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let output = parser::parse(&cli.file, &source);
+    if !output.diagnostics.is_empty() {
+        return emit_diagnostics(&output.diagnostics);
+    }
+
+    let Some(file) = output.file else {
+        return emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]);
+    };
+
+    let checked = type_check::check(&cli.file, &file);
+    if !checked.diagnostics.is_empty() {
+        return emit_diagnostics(&checked.diagnostics);
+    }
+
+    let capabilities = caps::check_caps(&cli.file, &file);
+    if !capabilities.is_empty() {
+        return emit_diagnostics(&capabilities);
+    }
+
+    emit_diagnostics(&examples::test(&cli.file, &file))
 }
 
 /// `aleph run`: lex, parse, type check and capability check (no F001), then

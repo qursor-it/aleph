@@ -1,4 +1,12 @@
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler/ has a parent")
+        .to_path_buf()
+}
 
 fn run(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_aleph"))
@@ -41,31 +49,90 @@ fn missing_file_is_usage_error() {
 }
 
 #[test]
-fn check_reports_not_implemented() {
-    let file = temp_source("check_x001.aph", LEXABLE_SOURCE);
+fn check_accepts_a_clean_file() {
+    let file = temp_source("check_clean.aph", LEXABLE_SOURCE);
     let out = run(&["check", file.as_str()]);
-    assert_eq!(out.status.code(), Some(1));
-
-    let value: serde_json::Value =
-        serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
-    assert_eq!(value["code"], "X001");
-    assert_eq!(value["severity"], "error");
-    assert_eq!(value["file"], file.as_str());
-    assert_eq!(value["line"], 0);
-    assert_eq!(value["col"], 0);
-    assert_eq!(value["msg"], "not implemented");
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stdout.is_empty());
+    assert!(out.stderr.is_empty());
 }
 
 #[test]
 fn check_accepts_json_option_before_file() {
     let file = temp_source("check_json.aph", LEXABLE_SOURCE);
     let out = run(&["check", "--json", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stdout.is_empty());
+    assert!(out.stderr.is_empty());
+}
+
+#[test]
+fn check_reports_e002_for_a_failing_example() {
+    let file = temp_source(
+        "check_e002.aph",
+        "fn twice n:i64 -> i64\n ex twice 2 = 5\n * n 2\nfn main -> unit\n nil\n",
+    );
+    let out = run(&["check", file.as_str()]);
     assert_eq!(out.status.code(), Some(1));
+    assert!(out.stderr.is_empty());
 
     let value: serde_json::Value =
         serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
-    assert_eq!(value["code"], "X001");
-    assert_eq!(value["file"], file.as_str());
+    assert_eq!(value["code"], "E002");
+    assert_eq!(value["expected"], "5");
+    assert_eq!(value["found"], "4");
+}
+
+#[test]
+fn examples_deny_filesystem_access() {
+    let repo = repo_root();
+    let target = repo.join("tests/aph/out-hermetic.txt");
+    let _ = std::fs::remove_file(&target);
+
+    let out = Command::new(env!("CARGO_BIN_EXE_aleph"))
+        .current_dir(&repo)
+        .args(["check", "tests/aph/ex_fs_denied.aph"])
+        .output()
+        .expect("failed to run aleph");
+
+    let created = target.exists();
+    let _ = std::fs::remove_file(&target);
+
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stderr.is_empty());
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
+    assert_eq!(value["code"], "E002");
+    assert_eq!(value["found"], "trap R003");
+    assert!(
+        !created,
+        "example wrote {} despite deny_fs",
+        target.display()
+    );
+}
+
+#[test]
+fn test_runs_examples_without_requiring_them() {
+    let file = temp_source(
+        "test_clean.aph",
+        "fn identity n:i64 -> i64\n n\nfn main -> unit\n nil\n",
+    );
+    let out = run(&["test", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stdout.is_empty());
+    assert!(out.stderr.is_empty());
+
+    let file = temp_source(
+        "test_e002.aph",
+        "fn twice n:i64 -> i64\n ex twice 2 = 5\n * n 2\nfn main -> unit\n nil\n",
+    );
+    let out = run(&["test", file.as_str()]);
+    assert_eq!(out.status.code(), Some(1));
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
+    assert_eq!(value["code"], "E002");
+    assert_eq!(value["expected"], "5");
+    assert_eq!(value["found"], "4");
 }
 
 #[test]
@@ -189,12 +256,8 @@ fn run_trap_is_json_on_stderr_and_exits_seventy() {
 
 #[test]
 fn every_stubbed_subcommand_reports_not_implemented() {
-    for command in ["check", "test", "build", "explain", "tokens"] {
-        let file = if command == "check" {
-            temp_source("check_all.aph", LEXABLE_SOURCE)
-        } else {
-            "foo.aph".to_string()
-        };
+    for command in ["build", "explain", "tokens"] {
+        let file = "foo.aph".to_string();
         let out = run(&[command, file.as_str()]);
         assert_eq!(out.status.code(), Some(1), "command {command}");
 

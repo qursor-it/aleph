@@ -1,5 +1,6 @@
 type point x:i64 y:i64
 fn shift p:point d:i64 -> point
+ ex shift point 1 2 10 = point 11 2
  point + .x p d .y p
 fn main -> unit
  let p shift point 1 2 10

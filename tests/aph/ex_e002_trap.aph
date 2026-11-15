@@ -1,0 +1,5 @@
+fn div n:i64 -> i64
+ ex div 0 = 1
+ / 1 n
+fn main -> unit
+ nil

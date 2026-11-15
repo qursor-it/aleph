@@ -158,6 +158,9 @@ pub struct Interp<'a> {
     records: BTreeMap<&'a str, &'a ast::TypeDef>,
     call_depth: usize,
     eval_depth: usize,
+    /// When set, every `read`/`write` call traps with R003 without touching
+    /// the filesystem (used for hermetic inline examples, ADR-0022).
+    deny_fs: bool,
 }
 
 impl<'a> Interp<'a> {
@@ -187,7 +190,15 @@ impl<'a> Interp<'a> {
             records,
             call_depth: 0,
             eval_depth: 0,
+            deny_fs: false,
         }
+    }
+
+    /// Deny all filesystem builtins: `read` and `write` trap with R003 without
+    /// resolving paths or touching the filesystem (ADR-0022).
+    pub fn with_deny_fs(mut self, deny_fs: bool) -> Self {
+        self.deny_fs = deny_fs;
+        self
     }
 
     /// Call a user function with `args`. `main` is just another function here.
@@ -692,6 +703,9 @@ impl<'a> Interp<'a> {
                 Value::Unit
             }
             "read" => {
+                if self.deny_fs {
+                    return Err(Trap::new("R003", "capability violation", node, span));
+                }
                 let path = as_str(&args[0]);
                 if !self.path_allowed(Capability::FsRead, path) {
                     return Err(Trap::new("R003", "capability violation", node, span));
@@ -702,6 +716,9 @@ impl<'a> Interp<'a> {
                 }
             }
             "write" => {
+                if self.deny_fs {
+                    return Err(Trap::new("R003", "capability violation", node, span));
+                }
                 let path = as_str(&args[0]);
                 if !self.path_allowed(Capability::FsWrite, path) {
                     return Err(Trap::new("R003", "capability violation", node, span));
@@ -834,6 +851,14 @@ pub fn show(value: &Value) -> String {
             FnTarget::Builtin(name) => format!("@{name}"),
         },
     }
+}
+
+/// Deterministic Aleph literal text for `value` (ADR-0022).
+///
+/// Unlike [`show`], a top-level string is quoted. Nested values use prefix
+/// syntax without parentheses, which is unambiguous in Aleph.
+pub fn literal(value: &Value) -> String {
+    show_literal(value)
 }
 
 fn show_literal(value: &Value) -> String {

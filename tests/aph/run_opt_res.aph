@@ -1,6 +1,10 @@
 fn pick o:opt i64 -> i64
+ ex pick some 5 = 5
+ ex pick none i64 = 0
  else o 0
 fn plus r:res i64 str -> res i64 str
+ ex plus ok 41 = ok 42
+ ex plus err "x" = err "x"
  let n try r
  ok + n 1
 fn main -> res unit str

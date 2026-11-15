@@ -91,7 +91,7 @@ fn run_golden_files_match() {
 }
 
 #[test]
-fn run_goldens_are_canonical_and_diagnostic_clean() {
+fn run_goldens_are_canonical_and_check_clean() {
     let repo = repo_root();
     for aph in run_cases() {
         let relative = aph.strip_prefix(&repo).expect("case is inside the repo");
@@ -114,24 +114,24 @@ fn run_goldens_are_canonical_and_diagnostic_clean() {
         );
 
         let check = aleph(&["check", relative_text]);
-        assert_eq!(check.status.code(), Some(1), "{} check exit", relative);
+        assert_eq!(
+            check.status.code(),
+            Some(0),
+            "{} check exit (stdout: {})",
+            relative,
+            String::from_utf8_lossy(&check.stdout)
+        );
+        assert!(
+            check.stdout.is_empty(),
+            "{} check produced diagnostics: {}",
+            relative,
+            String::from_utf8_lossy(&check.stdout)
+        );
         assert!(
             check.stderr.is_empty(),
             "{} check wrote stderr: {}",
             relative,
             String::from_utf8_lossy(&check.stderr)
         );
-        let stdout = String::from_utf8(check.stdout).expect("diagnostics are UTF-8");
-        let lines: Vec<&str> = stdout.lines().collect();
-        assert!(!lines.is_empty(), "{} produces no diagnostics", relative);
-        for line in lines {
-            let value: serde_json::Value =
-                serde_json::from_str(line).expect("diagnostic is valid JSON");
-            assert_eq!(
-                value["code"], "X001",
-                "{} has a language diagnostic: {line}",
-                relative
-            );
-        }
     }
 }

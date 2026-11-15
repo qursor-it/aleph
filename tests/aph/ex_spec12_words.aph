@@ -1,0 +1,8 @@
+use fs.read "data"
+fn words s:str -> i64
+ ex words "a b c" = 3
+ len split trim s " "
+fn main -> res unit str
+ let text try read "data/in.txt"
+ do print show words text
+ ok nil

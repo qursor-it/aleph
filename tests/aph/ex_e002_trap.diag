@@ -1,0 +1,1 @@
+{"code":"E002","severity":"error","file":"tests/aph/ex_e002_trap.aph","line":2,"col":2,"node":"n5","msg":"example failed","expected":"1","found":"trap R002"}

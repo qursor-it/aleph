@@ -36,10 +36,12 @@ fn lexer_diagnostics_match_golden_files() {
             .output()
             .expect("failed to run aleph");
 
+        let expected = fs::read(aph.with_extension("diag")).expect("read .diag");
+        let expected_code = if expected.is_empty() { 0 } else { 1 };
         assert_eq!(
             output.status.code(),
-            Some(1),
-            "{} should exit 1",
+            Some(expected_code),
+            "{} should exit {expected_code}",
             relative.display()
         );
         assert!(
@@ -49,7 +51,6 @@ fn lexer_diagnostics_match_golden_files() {
             String::from_utf8_lossy(&output.stderr)
         );
 
-        let expected = fs::read(aph.with_extension("diag")).expect("read .diag");
         if output.stdout != expected {
             panic!(
                 "stdout mismatch for {}\nexpected:\n{}\nactual:\n{}",
