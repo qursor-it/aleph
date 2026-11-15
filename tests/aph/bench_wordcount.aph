@@ -1,0 +1,18 @@
+use fs.read "data"
+fn linewords s:str -> i64
+ ex linewords "a b" = 2
+ ex linewords "" = 0
+ len filter @nonempty split trim s " "
+fn nonempty s:str -> bool
+ ex nonempty "" = false
+ ex nonempty " " = false
+ ex nonempty "x" = true
+ > count trim s 0
+fn words text:str -> i64
+ ex words "a b c" = 3
+ ex words "" = 0
+ sum map @linewords split text "\n"
+fn main -> res unit str
+ let text try read "data/in.txt"
+ do print show words text
+ ok nil

@@ -1,0 +1,6 @@
+fn reverse s:str -> str
+ ex reverse "a b c" = "c b a"
+ join rev split trim s " " " "
+fn main -> unit
+ do print join map @reverse args "\n"
+ nil

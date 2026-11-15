@@ -1,0 +1,35 @@
+type point x:f64 y:f64
+fn addf a:f64 b:f64 -> f64
+ ex addf 1.0 2.5 = 3.5
+ + a b
+fn dist a:point b:point -> f64
+ ex dist point 0.0 0.0 point 3.0 4.0 = 5.0
+ let dx - .x a .x b
+ let dy - .y a .y b
+ sqrt + * dx dx * dy dy
+fn edge xs:list point i:i64 -> f64
+ ex edge [point 0.0 0.0 point 3.0 4.0] 0 = 5.0
+ ex edge [point 0.0 0.0 point 3.0 4.0] 1 = 5.0
+ dist pointat xs i pointat xs % + i 1 len xs
+fn perimeter xs:list point -> f64
+ ex perimeter [point 0.0 0.0 point 3.0 0.0 point 3.0 4.0] = 12.0
+ perimloop xs 0.0 0
+fn perimloop xs:list point acc:f64 i:i64 -> f64
+ ex perimloop [point 0.0 0.0 point 3.0 0.0] 0.0 2 = 0.0
+ ex perimloop [point 0.0 0.0 point 3.0 0.0] 0.0 1 = 3.0
+ if == i len xs acc perimloop xs + acc edge xs i + i 1
+fn pointat xs:list point i:i64 -> point
+ ex pointat [point 0.0 0.0 point 1.0 1.0] 1 = point 1.0 1.0
+ else at xs i point 0.0 0.0
+fn sqrt x:f64 -> f64
+ ex sqrt 0.0 = 0.0
+ ex sqrt 4.0 = 2.0
+ ex sqrt 9.0 = 3.0
+ if <= x 0.0 0.0 sqrtloop x x 0
+fn sqrtloop x:f64 guess:f64 i:i64 -> f64
+ ex sqrtloop 4.0 4.0 0 = 2.0
+ ex sqrtloop 4.0 4.0 40 = 4.0
+ if == i 40 guess sqrtloop x / + guess / x guess 2.0 + i 1
+fn main -> unit
+ let polygon [point 0.0 0.0 point 3.0 0.0 point 3.0 4.0]
+ print show perimeter polygon

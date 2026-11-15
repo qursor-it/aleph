@@ -1,0 +1,7 @@
+fn fib n:i64 -> i64
+ ex fib 0 = 0
+ ex fib 1 = 1
+ ex fib 10 = 55
+ if < n 2 n + fib - n 1 fib - n 2
+fn main -> unit
+ print show fib 30

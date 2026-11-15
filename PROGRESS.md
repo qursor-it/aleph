@@ -240,3 +240,25 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0022 (Proposed, updated)
 - next: T-015 golden harness expansion (SPEC §12 + 15 more programs)
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T17:20 T-015 done
+- merged `compiler/tests/lexer_diag.rs` and `compiler/tests/run_golden.rs` into `compiler/tests/golden.rs`; kept every check (diag stdout/exit, fmt/ast goldens, run stdout/stderr/exit, canonical + silent check) and collect all failures before one assert
+- new orphan rule: every `tests/aph/NAME.aph` must have at least one of `.out`, `.diag`, `.ast`, `.fmt`
+- run goldens execute in a unique `std::env::temp_dir()` directory containing a copy of the source and `tests/aph/data/`, with cwd set there; `.args` is one arg per line, optional `.exit`/`.err`, and `.files` entries are compared with `tests/aph/expect/<relpath>` (parent directories are created before the run)
+- added the 15 `bench/tasks.md` programs as `bench_*.aph` with goldens: fib, total, evens, primes, fizzbuzz, palindrome, wordcount, linecount, maxmin (+ `bench_maxmin_none` with stderr/exit 1), points, reverse, gcd, upper, histogram, collatz; added `tests/aph/data/in.txt` (5 words, 2 non-empty lines) and `expect/out/up.txt`
+- trap goldens now name the source by its basename because run goldens execute from the temporary directory (`file` field is `run_trap_*.aph`)
+- SPEC §12 examples remain covered by `ex_spec12_*` and `run_spec12_fib`
+- language friction: no string repetition/char access (`split s ""` + `join` + `map`), no `sum` over `f64`/`sqrt` (Newton loop in `bench_points`), `fold` requires accumulator type equal to the function result (res accumulators need a `res` parameter), and `mkdir` is absent so the harness creates `.files` parent directories
+- tests: 232 passed (201 unit, 25 CLI, 6 golden)
+- decisions: none
+- next: T-016 `aleph explain`
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T18:10 T-015 review fixes done
+- golden harness hardening: `.files` entries are validated as plain relative paths (absolute, `.`/`..`, root and prefix components are test failures) before any temp/expect path join; temp dirs are RAII (`Drop` removes them) and created with `fs::create_dir`, retrying on EEXIST; `read_lines` treats only `NotFound` as empty and reports other IO errors; sidecar consistency now catches sidecars without `.aph` and `.args`/`.exit`/`.err`/`.files` without `.out`; spawned `aleph` processes are polled for at most 30 s, then killed and reported as failures
+- documented harness path conventions and the `bench_maxmin`/`bench_maxmin_none` twin in `compiler/tests/golden.rs`
+- recorded benchmark formats: collatz prints the sequence length as the number of terms including 1 (`collatz 1 = 1`, `collatz 3 = 8`); gcd prints `gcd A lcm B`; histogram prints one `N <stars>` line per argument (e.g. `2 **`); maxmin prints `max M min N` and the no-args twin writes `no numbers` to stderr and exits 1; upper writes `out/up.txt` and prints nothing; points prints a decimal f64 perimeter
+- tests: 232 passed (201 unit, 25 CLI, 6 golden)
+- decisions: none
+- next: T-016 `aleph explain`
+- agent: opencode/deepseek-v4.1-flash

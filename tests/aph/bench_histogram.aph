@@ -1,0 +1,28 @@
+fn addnum acc:res list i64 str s:str -> res list i64 str
+ ex addnum ok [1] "2" = ok [1 2]
+ ex addnum err "x" "2" = err "x"
+ ex addnum ok [1] "x" = err "invalid int"
+ let base try acc
+ let n try int s
+ ok push base n
+fn bar n:i64 -> str
+ ex bar 2 = "2 **"
+ cat cat show n " " rep n
+fn nolist -> res list i64 str
+ ex nolist = ok empty i64
+ ok empty i64
+fn numbers xs:list str -> res list i64 str
+ ex numbers ["1" "2"] = ok [1 2]
+ ex numbers empty str = ok empty i64
+ fold @addnum nolist xs
+fn rep n:i64 -> str
+ ex rep 0 = ""
+ ex rep 3 = "***"
+ join map @star range 0 n ""
+fn star i:i64 -> str
+ ex star 0 = "*"
+ "*"
+fn main -> res unit str
+ let xs try numbers args
+ do print join map @bar xs "\n"
+ ok nil
