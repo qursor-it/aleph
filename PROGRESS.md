@@ -15,3 +15,19 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0015 (Proposed, `X` prefix for tool/internal diagnostics)
 - agent: opencode/deepseek-v4.1-flash
 - next: T-002 expands the diagnostic struct to the full SPEC §9 fields and adds `spec/diagnostics.md`
+
+## 2026-11-15T10:24 T-002 done
+- `compiler/src/diag.rs`: full SPEC §9 `Diagnostic` (required fields plus optional `node`, `expected`, `found`, `fix`, `canonical`), `Fix {op,node,with}`, `Diagnostic::error` + `with_node`/`with_expected_found`/`with_fix`/`with_canonical`, `to_json_line`, `emit_all`; X001 `not_implemented` unchanged
+- `spec/diagnostics.md`: stable code table (SPEC §9 codes + X001), checked against the Rust `CODES` table by an `include_str!` test
+- tests: 19 passed (5 new diag tests)
+- decisions: none (implements ADR-0011 and ADR-0015)
+- next: T-003 lexicon module
+- agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T10:24 T-003 done
+- `compiler/src/lexicon.rs`: constants `VERSION`, `KEYWORDS`, `TYPES`, `OPERATORS`, `BINARY_OPERATORS`, `PUNCTUATION`, `BUILTINS` mirroring `spec/lexicon.toml`; lookups `keyword`/`is_keyword`/`keyword_names`, `type_name`/`is_type_name`/`type_names`, `operator`/`is_operator`/`is_binary_operator`/`is_punctuation`/`operator_names`/`binary_operator_names`/`punctuation_names`, `builtin_names`/`is_builtin`
+- test parses `spec/lexicon.toml` with a tiny line-based parser, rejects duplicate keys, checks exact key sets for every section, and checks every section both ways; SPEC §2 keyword list must all be reserved; `->`/`@`/`.` are punctuation, not operators
+- tests: 23 passed (4 new lexicon tests)
+- decisions: none
+- next: T-004 lexer
+- agent: opencode/deepseek-v4.1-flash

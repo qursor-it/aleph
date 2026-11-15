@@ -14,12 +14,11 @@ fn main() -> ExitCode {
     };
 
     let diagnostic = Diagnostic::not_implemented(&cli.file);
-    match serde_json::to_string(&diagnostic) {
-        Ok(line) => println!("{line}"),
-        Err(err) => {
-            eprintln!("aleph: failed to serialize diagnostic: {err}");
-            return ExitCode::from(2);
-        }
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = Diagnostic::emit_all(&[diagnostic], &mut out) {
+        eprintln!("aleph: failed to write diagnostic: {err}");
+        return ExitCode::from(2);
     }
     ExitCode::from(1)
 }
