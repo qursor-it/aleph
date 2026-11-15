@@ -201,7 +201,7 @@ pub fn is_builtin(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, BTreeSet};
 
     use super::*;
 
@@ -409,6 +409,20 @@ mod tests {
         }
         assert_eq!(binary_operator_names().count(), BINARY_OPERATORS.len());
         assert_eq!(punctuation_names().count(), PUNCTUATION.len());
+    }
+
+    #[test]
+    fn operators_are_binary_operators_plus_punctuation() {
+        let binary_and_punctuation: BTreeSet<&str> = BINARY_OPERATORS
+            .iter()
+            .chain(PUNCTUATION.iter())
+            .map(|(_, spelling)| *spelling)
+            .collect();
+        let operators: BTreeSet<&str> = OPERATORS.iter().map(|(_, spelling)| *spelling).collect();
+
+        assert!(binary_and_punctuation.is_subset(&operators));
+        assert!(operators.is_subset(&binary_and_punctuation));
+        assert_eq!(binary_and_punctuation, operators);
     }
 
     #[test]

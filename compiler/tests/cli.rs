@@ -319,6 +319,88 @@ fn fmt_prints_canonical_text_and_writes_in_place() {
     assert!(!std::path::Path::new(&format!("{file}.aleph-tmp")).exists());
 }
 
+/// Temp files created next to `file` by `aleph fmt -w`.
+fn temp_sibling_files(file: &str) -> Vec<PathBuf> {
+    let path = Path::new(file);
+    let directory = path.parent().unwrap_or_else(|| Path::new("."));
+    let prefix = format!("{}.aleph-tmp-", path.file_name().unwrap().to_string_lossy());
+    std::fs::read_dir(directory)
+        .expect("read temp directory")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(&prefix))
+        })
+        .collect()
+}
+
+#[test]
+fn fmt_write_leaves_no_temp_file() {
+    let file = temp_source("fmt_no_temp.aph", "fn  main -> unit\n\n nil   \n");
+    let out = run(&["fmt", "-w", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stderr.is_empty());
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "fn main -> unit\n nil\n"
+    );
+    assert_eq!(temp_sibling_files(&file), Vec::<PathBuf>::new());
+}
+
+#[cfg(unix)]
+#[test]
+fn fmt_write_preserves_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let file = temp_source("fmt_permissions.aph", "fn  main -> unit\n\n nil   \n");
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600))
+        .expect("set 0600 permissions");
+
+    let out = run(&["fmt", "-w", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stderr.is_empty());
+    assert_eq!(
+        std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "fn main -> unit\n nil\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn fmt_write_follows_a_symlink_and_preserves_it() {
+    use std::os::unix::fs::symlink;
+
+    let target = temp_source("fmt_symlink_target.aph", "fn  main -> unit\n\n nil   \n");
+    let link =
+        std::env::temp_dir().join(format!("aleph-test-{}-fmt_symlink.aph", std::process::id()));
+    let _ = std::fs::remove_file(&link);
+    symlink(&target, &link).expect("create symlink");
+    let link = link.to_string_lossy().into_owned();
+
+    let out = run(&["fmt", "-w", link.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stderr.is_empty());
+
+    assert!(std::fs::symlink_metadata(&link)
+        .unwrap()
+        .file_type()
+        .is_symlink());
+    assert_eq!(std::fs::read_link(&link).unwrap(), PathBuf::from(&target));
+    assert_eq!(
+        std::fs::read_to_string(&target).unwrap(),
+        "fn main -> unit\n nil\n"
+    );
+    assert_eq!(temp_sibling_files(&target), Vec::<PathBuf>::new());
+
+    std::fs::remove_file(&link).unwrap();
+}
+
 #[test]
 fn fmt_reports_parse_diagnostics() {
     let file = temp_source("fmt_error.aph", "fn main -> unit\n nope\n");

@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use alephc::ast;
@@ -283,16 +284,8 @@ fn fmt_command(cli: &cli::Cli) -> ExitCode {
     let canonical = printer::print_file(&file);
 
     if cli.write {
-        // Write a sibling temp file, then rename over the original so a failed
-        // write cannot leave a half-written source file.
-        let temp = format!("{}.aleph-tmp", cli.file);
-        if let Err(err) = fs::write(&temp, canonical) {
+        if let Err(err) = write_in_place(&cli.file, &canonical) {
             eprintln!("aleph: failed to write file: {err}");
-            return ExitCode::from(2);
-        }
-        if let Err(err) = fs::rename(&temp, &cli.file) {
-            let _ = fs::remove_file(&temp);
-            eprintln!("aleph: failed to replace file: {err}");
             return ExitCode::from(2);
         }
         return ExitCode::SUCCESS;
@@ -305,6 +298,62 @@ fn fmt_command(cli: &cli::Cli) -> ExitCode {
         return ExitCode::from(2);
     }
     ExitCode::SUCCESS
+}
+
+/// Replace `file` with `text` without ever leaving a half-written source.
+///
+/// The text goes to a unique sibling temp file that inherits the target's
+/// permissions, is synced, and is then renamed over the target. A symlink is
+/// resolved first so the link itself survives and its target is updated. The
+/// temp file is removed on every failure after it was created.
+fn write_in_place(file: &str, text: &str) -> std::io::Result<()> {
+    let target = match fs::symlink_metadata(file) {
+        Ok(metadata) if metadata.file_type().is_symlink() => fs::canonicalize(file)?,
+        _ => PathBuf::from(file),
+    };
+    let permissions = fs::metadata(&target)?.permissions();
+    let (temp, mut handle) = create_temp_file(&target)?;
+
+    if let Err(err) = fs::set_permissions(&temp, permissions) {
+        let _ = fs::remove_file(&temp);
+        return Err(err);
+    }
+
+    let written = handle
+        .write_all(text.as_bytes())
+        .and_then(|()| handle.sync_all());
+    drop(handle);
+    if let Err(err) = written {
+        let _ = fs::remove_file(&temp);
+        return Err(err);
+    }
+
+    if let Err(err) = fs::rename(&temp, &target) {
+        let _ = fs::remove_file(&temp);
+        return Err(err);
+    }
+    Ok(())
+}
+
+/// Create `<target>.aleph-tmp-<pid>-<n>` with `create_new`, retrying with the
+/// next `n` when the name already exists.
+fn create_temp_file(target: &Path) -> std::io::Result<(PathBuf, fs::File)> {
+    let pid = std::process::id();
+    let mut counter = 0u32;
+    loop {
+        let mut name = target.as_os_str().to_os_string();
+        name.push(format!(".aleph-tmp-{pid}-{counter}"));
+        let temp = PathBuf::from(name);
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)
+        {
+            Ok(handle) => return Ok((temp, handle)),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => counter += 1,
+            Err(err) => return Err(err),
+        }
+    }
 }
 
 /// `aleph ast`: parse and print the AST as JSON.

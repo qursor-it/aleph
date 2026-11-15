@@ -386,22 +386,16 @@ impl<'a> LineScanner<'a> {
                     }
                     index += 1 + escaped.len_utf8();
                 }
-                byte if byte.is_ascii_control() => {
-                    // Raw control characters are not allowed in strings; only
-                    // the `\n` and `\t` escapes are (SPEC §2).
-                    self.push_error("L001", index + 1, "invalid character");
-                    let ch = self.text[index..]
-                        .chars()
-                        .next()
-                        .expect("character is present");
-                    value.push(ch);
-                    index += ch.len_utf8();
-                }
                 _ => {
+                    // Raw control characters (C0, DEL, C1) are not allowed in
+                    // strings; only the `\n` and `\t` escapes are (SPEC §2).
                     let ch = self.text[index..]
                         .chars()
                         .next()
                         .expect("character is present");
+                    if ch.is_control() {
+                        self.push_error("L001", index + 1, "invalid character");
+                    }
                     value.push(ch);
                     index += ch.len_utf8();
                 }
@@ -770,6 +764,7 @@ mod tests {
             ("\"a\rb\"", 3),
             ("\"\u{1}\"", 2),
             ("\"\u{7f}\"", 2),
+            ("\"\u{85}\"", 2),
         ] {
             let found = diagnostics(source);
             assert_eq!(found.len(), 1, "source {source:?}");

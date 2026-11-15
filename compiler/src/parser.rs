@@ -503,12 +503,12 @@ fn parse_expr_all(
                 arity: 0,
                 zero_call: true,
             }) => {
-                let extras = ctx.count_extra_expressions(next, env);
+                let extras = ctx.count_extra_expressions(next, env)?;
                 Err(p002(file, &tokens[0], 0, extras))
             }
             Some(HeadArity { arity: 0, .. }) => Err(p001(file, leftover, "unexpected token")),
             Some(HeadArity { arity, .. }) => {
-                let extras = ctx.count_extra_expressions(next, env);
+                let extras = ctx.count_extra_expressions(next, env)?;
                 Err(p002(file, &tokens[0], arity, arity + extras))
             }
             None => Err(p001(file, leftover, "unexpected token")),
@@ -1020,7 +1020,7 @@ impl<'a> ExprCtx<'a> {
         }
     }
 
-    fn count_extra_expressions(&self, start: usize, env: &Env) -> usize {
+    fn count_extra_expressions(&self, start: usize, env: &Env) -> PResult<usize> {
         let mut count = 0;
         let mut index = start;
         while index < self.tokens.len() {
@@ -1029,10 +1029,12 @@ impl<'a> ExprCtx<'a> {
                     count += 1;
                     index = next;
                 }
-                _ => return self.tokens.len() - start,
+                // Stop at the first leftover that is not an expression: an
+                // inflated P002 `found` would hide the real syntax error.
+                _ => return Err(self.diagnostic_at(index, "unexpected token")),
             }
         }
-        count
+        Ok(count)
     }
 
     fn bool_expr(&self, value: bool, span: ast::Span) -> ast::Expr {
@@ -2138,6 +2140,13 @@ fn main -> res unit str
         assert_eq!(diagnostic.code, "P002");
         assert_eq!(diagnostic.expected.as_deref(), Some("2"));
         assert_eq!(diagnostic.found.as_deref(), Some("4"));
+
+        // An unparsable leftover stops the extra-expression count: report the
+        // real P001 at `]` instead of an inflated P002.
+        let diagnostic = one_error("fn f -> i64\n + 1 2 3 ]\n");
+        assert_eq!(diagnostic.code, "P001");
+        assert_eq!(diagnostic.msg, "unexpected token");
+        assert_eq!((diagnostic.line, diagnostic.col), (2, 10));
 
         let diagnostic = one_error("fn f -> i64\n 1 ]\n");
         assert_eq!(diagnostic.code, "P001");

@@ -1,0 +1,79 @@
+{
+  "id": "n0",
+  "line": 1,
+  "col": 1,
+  "uses": [],
+  "types": [],
+  "fns": [
+    {
+      "id": "n1",
+      "line": 1,
+      "col": 1,
+      "name": "pick",
+      "params": [
+        {
+          "id": "n2",
+          "line": 1,
+          "col": 9,
+          "name": "n",
+          "ty": {
+            "id": "n3",
+            "line": 1,
+            "col": 11,
+            "kind": "i64"
+          }
+        }
+      ],
+      "ret": {
+        "id": "n4",
+        "line": 1,
+        "col": 18,
+        "kind": "i64"
+      },
+      "doc": null,
+      "examples": [],
+      "stmts": [],
+      "result": {
+        "id": "n5",
+        "line": 2,
+        "col": 2,
+        "kind": "if",
+        "cond": {
+          "id": "n6",
+          "line": 2,
+          "col": 5,
+          "kind": "bin_op",
+          "op": "<",
+          "lhs": {
+            "id": "n7",
+            "line": 2,
+            "col": 7,
+            "kind": "var",
+            "name": "n"
+          },
+          "rhs": {
+            "id": "n8",
+            "line": 2,
+            "col": 9,
+            "kind": "int",
+            "value": 0
+          }
+        },
+        "then": {
+          "id": "n9",
+          "line": 2,
+          "col": 11,
+          "kind": "int",
+          "value": 0
+        },
+        "else": {
+          "id": "n10",
+          "line": 2,
+          "col": 13,
+          "kind": "var",
+          "name": "n"
+        }
+      }
+    }
+  ]
+}

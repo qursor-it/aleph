@@ -22,6 +22,10 @@ parameter. The declaration is then **inserted** into the environment anyway, so
 later expressions resolve the name as a variable and the parser does not
 continue with a misleading arity error.
 
+Files with a T005 are not formatted by `aleph fmt`: T005 is a parse-phase
+error, and `fmt` only formats a source that parses cleanly. Leaving such files
+untouched is intentional.
+
 For example:
 
 ```

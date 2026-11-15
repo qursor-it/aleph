@@ -285,3 +285,15 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0023 (Proposed)
 - next: T-017 Tlön runtime in C
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-15T19:10 M1 re-review fixes G1/G2
+- `fmt -w` now writes a unique sibling temp (`FILE.aleph-tmp-<pid>-<n>`, `create_new` with AlreadyExists retry), copies the target's permissions, writes + `sync_all`, then renames over the target; every post-create failure removes the temp. A symlinked source is resolved with `canonicalize` so the link survives and its target is updated
+- `ast`: `ExprKind::If` fields serialize as `then`/`else`; new canonical `tests/aph/ast_if.aph` + `.ast` golden
+- lexer: raw control characters in strings use `char::is_control()` (C0, DEL and C1) and report L001; U+0085 added to the test
+- lexicon test asserts BINARY_OPERATORS ∪ PUNCTUATION == OPERATORS as spelling sets in both directions
+- parser: `count_extra_expressions` stops at the first unparsable leftover and returns P001 at that token, so `+ 1 2 3 ]` no longer inflates P002
+- ADR-0018 records that files with T005 are intentionally not formatted by `aleph fmt`
+- tests: 247 passed (210 unit, 29 CLI, 8 golden)
+- decisions: ADR-0018 (Proposed, updated); ADR-0023 unchanged
+- next: T-017 Tlön runtime in C
+- agent: opencode/deepseek-v4.1-flash

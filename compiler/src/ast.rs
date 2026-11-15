@@ -420,7 +420,9 @@ pub enum ExprKind {
     },
     If {
         cond: Box<Expr>,
+        #[serde(rename = "then")]
         then_: Box<Expr>,
+        #[serde(rename = "else")]
         else_: Box<Expr>,
     },
     List {
