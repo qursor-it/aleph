@@ -54,7 +54,7 @@ fn quoted(value: &str) -> String {
     text
 }
 
-fn print_typedef(item: &ast::TypeDef) -> String {
+pub(crate) fn print_typedef(item: &ast::TypeDef) -> String {
     let mut text = format!("{} {}", keyword("record"), item.name);
     for field in &item.fields {
         text.push(' ');
@@ -65,7 +65,7 @@ fn print_typedef(item: &ast::TypeDef) -> String {
     text
 }
 
-fn print_fn(function: &ast::Fn) -> Vec<String> {
+pub(crate) fn print_fn(function: &ast::Fn) -> Vec<String> {
     let mut header = format!("{} {}", keyword("function"), function.name);
     for param in &function.params {
         header.push(' ');

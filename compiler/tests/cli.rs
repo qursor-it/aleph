@@ -852,3 +852,55 @@ fn build_deep_recursion_with_a_large_list_literal_does_not_segv() {
         ),
     }
 }
+
+#[test]
+fn edit_prints_the_edited_text_and_leaves_the_file() {
+    let source = "fn inc x:i64 -> i64\n ex inc 1 = 2\n + x 1\n";
+    let file = temp_source("edit_print.aph", source);
+    let edits = r#"[{"op":"replace","node":"n9","text":"+ x 2"},{"op":"replace","node":"n5","text":"ex inc 1 = 3"}]"#;
+    let out = run(&["edit", file.as_str(), "--json", edits]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "fn inc x:i64 -> i64\n ex inc 1 = 3\n + x 2\n"
+    );
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), source);
+}
+
+#[test]
+fn edit_write_applies_and_reports_check_diagnostics() {
+    let file = temp_source(
+        "edit_write.aph",
+        "fn inc x:i64 -> i64\n ex inc 1 = 2\n + x 1\n",
+    );
+    let out = run(&[
+        "edit",
+        file.as_str(),
+        "-w",
+        "--json",
+        r#"[{"op":"replace","node":"n9","text":"+ x 2"}]"#,
+    ]);
+    // The edit is written; the stale example then fails with E002.
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stdout).contains("\"code\":\"E002\""));
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "fn inc x:i64 -> i64\n ex inc 1 = 2\n + x 2\n"
+    );
+}
+
+#[test]
+fn edit_rejects_unparsable_results_without_writing() {
+    let source = "fn inc x:i64 -> i64\n ex inc 1 = 2\n + x 1\n";
+    let file = temp_source("edit_reject.aph", source);
+    let out = run(&[
+        "edit",
+        file.as_str(),
+        "-w",
+        "--json",
+        r#"[{"op":"replace","node":"n9","text":"+ x"}]"#,
+    ]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("\"code\":\"X010\""));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), source);
+}

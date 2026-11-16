@@ -9,6 +9,7 @@ use alephc::cgen;
 use alephc::check as type_check;
 use alephc::cli;
 use alephc::diag::Diagnostic;
+use alephc::edit;
 use alephc::examples;
 use alephc::explain;
 use alephc::interp;
@@ -34,6 +35,7 @@ fn main() -> ExitCode {
         "build" => build_command(&cli),
         "explain" => explain_command(&cli),
         "ast" => ast_command(&cli),
+        "edit" => edit_command(&cli),
         "llms" => llms_command(),
         // Later phases are still stubbed.
         _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
@@ -506,6 +508,37 @@ fn create_temp_file(target: &Path) -> std::io::Result<(PathBuf, fs::File)> {
             Err(err) => return Err(err),
         }
     }
+}
+
+/// `aleph edit FILE --json EDITS [-w]`: apply node-level edits (ADR-0029).
+///
+/// Prints the edited canonical text, or with `-w` writes it and then reports
+/// `aleph check` diagnostics for the new file (ids refer to the new AST).
+fn edit_command(cli: &cli::Cli) -> ExitCode {
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+    let text = match edit::apply(&cli.file, &source, cli.edits.as_deref().unwrap_or_default()) {
+        Ok(text) => text,
+        Err(diagnostics) => return emit_diagnostics(&diagnostics),
+    };
+
+    if cli.write {
+        if let Err(err) = write_in_place(&cli.file, &text) {
+            eprintln!("aleph: failed to write file: {err}");
+            return ExitCode::from(2);
+        }
+        return emit_diagnostics(&check(cli));
+    }
+
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = out.write_all(text.as_bytes()) {
+        eprintln!("aleph: failed to write edited text: {err}");
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
 }
 
 /// `aleph llms`: print the compact spec for LLM context (ADR-0026).

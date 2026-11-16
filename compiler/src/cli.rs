@@ -1,10 +1,10 @@
 use std::ffi::OsString;
 
 pub const USAGE: &str =
-    "usage: aleph <check|fmt|test|run|build|explain|ast|tokens|llms> [OPTIONS] [FILE] [ARGS..]";
+    "usage: aleph <check|fmt|test|run|build|explain|ast|edit|tokens|llms> [OPTIONS] [FILE] [ARGS..]";
 
 const COMMANDS: &[&str] = &[
-    "check", "fmt", "test", "run", "build", "explain", "ast", "tokens", "llms",
+    "check", "fmt", "test", "run", "build", "explain", "ast", "edit", "tokens", "llms",
 ];
 
 /// Whether `command` needs a source `FILE` argument.
@@ -20,6 +20,8 @@ pub struct Cli {
     pub write: bool,
     pub out: Option<String>,
     pub args: Vec<String>,
+    /// `aleph edit FILE --json EDITS`: the edits JSON array (ADR-0029).
+    pub edits: Option<String>,
 }
 
 /// Parse arguments after the program name.
@@ -45,6 +47,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
             write: false,
             out: None,
             args: Vec::new(),
+            edits: None,
         });
     }
 
@@ -53,11 +56,18 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
     let mut write = false;
     let mut out = None;
     let mut program_args = Vec::new();
+    let mut edits = None;
     let mut i = 0;
 
     while i < tokens.len() {
         let arg = &tokens[i];
-        if arg == "--json" {
+        if arg == "--json" && command == "edit" {
+            let value = tokens
+                .get(i + 1)
+                .ok_or_else(|| "--json requires EDITS".to_string())?;
+            edits = Some(value.clone());
+            i += 2;
+        } else if arg == "--json" {
             json = true;
             i += 1;
         } else if arg == "-w" {
@@ -84,6 +94,9 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
     }
 
     let file = file.ok_or_else(|| "missing file".to_string())?;
+    if command == "edit" && edits.is_none() {
+        return Err("edit requires --json EDITS".to_string());
+    }
 
     Ok(Cli {
         command,
@@ -92,6 +105,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
         write,
         out,
         args: program_args,
+        edits,
     })
 }
 
@@ -130,6 +144,17 @@ mod tests {
         assert!(!cli.json);
         assert!(!cli.write);
         assert_eq!(cli.out, None);
+    }
+
+    #[test]
+    fn edit_takes_its_edits_after_json() {
+        let cli = parse_args(&["edit", "foo.aph", "--json", "[]", "-w"]).unwrap();
+        assert_eq!(cli.file, "foo.aph");
+        assert_eq!(cli.edits.as_deref(), Some("[]"));
+        assert!(cli.write);
+        assert!(!cli.json);
+        assert!(parse_args(&["edit", "foo.aph"]).is_err());
+        assert!(parse_args(&["edit", "foo.aph", "--json"]).is_err());
     }
 
     #[test]

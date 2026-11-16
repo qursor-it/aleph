@@ -37,3 +37,8 @@ must match this table exactly.
 | X004 | c compiler failed |
 | X005 | reserved (no longer emitted) |
 | X006 | internal compiler error |
+| X007 | invalid edits json |
+| X008 | unknown node id |
+| X009 | edit not allowed for node kind |
+| X010 | edit does not parse |
+| X011 | conflicting edits |

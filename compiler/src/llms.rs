@@ -49,7 +49,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/diagnostics.md",
         contents: DIAGNOSTICS,
-        hash: 0x4af2f95d694ee464,
+        hash: 0x65ea0aaf5af44d02,
     },
     SourceDigest {
         path: "adr/0018-shadowing-callables.md",
@@ -322,12 +322,52 @@ fn diagnostics_section() -> String {
     }
     format!(
         "JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: {}.",
-        codes.join(" ")
+        collapse_codes(&codes)
     )
+}
+
+/// `L001 L002 P001` -> `L001-L002 P001`: runs of consecutive codes with the
+/// same prefix are written as ranges to save tokens.
+fn collapse_codes(codes: &[&str]) -> String {
+    let split = |code: &str| -> (String, Option<u32>) {
+        let (prefix, digits) = code.split_at(code.len().min(1));
+        (prefix.to_string(), digits.parse().ok())
+    };
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    for (index, code) in codes.iter().enumerate() {
+        let extends = runs.last().is_some_and(|&(_, end)| {
+            let (prev_prefix, prev) = split(codes[end]);
+            let (prefix, number) = split(code);
+            prefix == prev_prefix && prev.zip(number).is_some_and(|(a, b)| b == a + 1)
+        });
+        match runs.last_mut() {
+            Some(run) if extends => run.1 = index,
+            _ => runs.push((index, index)),
+        }
+    }
+    runs.iter()
+        .map(|&(start, end)| {
+            if start == end {
+                codes[start].to_string()
+            } else {
+                format!("{}-{}", codes[start], codes[end])
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn collapse_codes_writes_runs_as_ranges() {
+        assert_eq!(
+            super::collapse_codes(&["L001", "L002", "P001", "T007", "T008", "T010", "X001"]),
+            "L001-L002 P001 T007-T008 T010 X001"
+        );
+        assert_eq!(super::collapse_codes(&[]), "");
+    }
+
     use super::*;
 
     #[test]

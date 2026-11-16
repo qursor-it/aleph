@@ -652,7 +652,7 @@ fn assign_expr(expr: &mut Expr, next: &mut u32) {
     }
 }
 
-fn collect_ids(file: &File) -> Vec<NodeId> {
+pub(crate) fn collect_ids(file: &File) -> Vec<NodeId> {
     let mut ids = Vec::new();
     collect_file(file, &mut ids);
     ids
@@ -801,6 +801,55 @@ pub fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
         ExprKind::Else { value, default } => {
             walk_expr(value, visit);
             walk_expr(default, visit);
+        }
+        ExprKind::Int { .. }
+        | ExprKind::Float { .. }
+        | ExprKind::Str { .. }
+        | ExprKind::Bool { .. }
+        | ExprKind::Nil
+        | ExprKind::Var { .. }
+        | ExprKind::FnRef { .. }
+        | ExprKind::Empty { .. }
+        | ExprKind::None { .. } => {}
+    }
+}
+
+/// Like [`walk_expr`], but with mutable access. `visit` runs before the
+/// children are walked, so a node whose kind it replaces is walked in its new
+/// form.
+pub fn walk_expr_mut(expr: &mut Expr, visit: &mut impl FnMut(&mut Expr)) {
+    visit(expr);
+    match &mut expr.kind {
+        ExprKind::Call { args, .. } => {
+            for arg in args {
+                walk_expr_mut(arg, visit);
+            }
+        }
+        ExprKind::BinOp { lhs, rhs, .. } => {
+            walk_expr_mut(lhs, visit);
+            walk_expr_mut(rhs, visit);
+        }
+        ExprKind::UnOp { operand, .. } => walk_expr_mut(operand, visit),
+        ExprKind::If { cond, then_, else_ } => {
+            walk_expr_mut(cond, visit);
+            walk_expr_mut(then_, visit);
+            walk_expr_mut(else_, visit);
+        }
+        ExprKind::List { elems } => {
+            for elem in elems {
+                walk_expr_mut(elem, visit);
+            }
+        }
+        ExprKind::Field { value, .. }
+        | ExprKind::Some { value }
+        | ExprKind::Ok { value }
+        | ExprKind::Err { value }
+        | ExprKind::Try { value }
+        | ExprKind::Has { value }
+        | ExprKind::IsOk { value } => walk_expr_mut(value, visit),
+        ExprKind::Else { value, default } => {
+            walk_expr_mut(value, visit);
+            walk_expr_mut(default, visit);
         }
         ExprKind::Int { .. }
         | ExprKind::Float { .. }

@@ -5,6 +5,7 @@ pub mod cgen;
 pub mod check;
 pub mod cli;
 pub mod diag;
+pub mod edit;
 pub mod examples;
 pub mod explain;
 pub mod interp;

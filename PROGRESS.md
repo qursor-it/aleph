@@ -463,3 +463,15 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0028 proposed
 - next: T-024 `aleph edit`.
 - agent: opencode/deepseek-v4.1-flash (high); review + absolute-path guard by orchestrator (claude-opus-5.5), not an independent review
+
+## 2026-11-16T16:30 T-024 done
+- `aleph edit FILE --json EDITS [-w]` (new `edit.rs`, ADR-0029): EDITS is a JSON array of `{op,node,text?,position?}`; ids refer to the input AST; all edits are applied together, then the text is reparsed and printed canonically
+- replace: n0, use/type/fn items, ex/let/do lines, expressions; delete: items and body lines; insert: items at n0, body lines at a fn (`start`/`end`) or next to a line (`before`/`after`)
+- errors X007 invalid edits json, X008 unknown node id, X009 edit not allowed for node kind, X010 edit does not parse, X011 conflicting edits (pre-order id ranges); added to `spec/diagnostics.md` and `diag::CODES`
+- stdout gets the edited text; `-w` writes atomically (same path as `fmt -w`) and prints `aleph check` diagnostics of the new file
+- `ast::walk_expr_mut`, `printer::print_fn/print_typedef` and `ast::collect_ids` made crate-visible for edit
+- `llms.rs`: diagnostic codes written as ranges (`T001-T008 T010 ...`) to stay under the 1950-token budget; diagnostics.md digest updated; `llms.txt` regenerated (7722 chars)
+- tests: 307 passed (edit unit tests, cli edit print/-w/reject, cli parse test, collapse_codes test)
+- decisions: ADR-0029 proposed
+- next: T-025 MCP server (ADR-0030), T-026 tokens (ADR-0031)
+- agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed
