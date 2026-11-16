@@ -38,7 +38,7 @@ Options for the empty-dict expression (score 1-10):
   primitive; `show`, `sort` and equality on them are type errors.
 - Runtime cost: `put`/`del` copy the dict (O(n)); `get` is O(log n) in both
   engines. Tlön stores a sorted array of key/value pairs in the arena; the
-  interpreter uses a `BTreeMap`.
+  interpreter uses a sorted `Vec` of pairs searched by binary search.
 
 ## Consequences
 - Agents get a map without new syntax beyond one type name.
