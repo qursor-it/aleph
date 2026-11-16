@@ -7,6 +7,9 @@
 
 use std::fs;
 use std::io::{self, BufRead, Read, Write};
+use std::os::unix::fs::DirBuilderExt;
+#[cfg(target_os = "linux")]
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -17,7 +20,8 @@ use serde_json::{json, Value};
 
 use crate::{llms, parser};
 
-/// Protocol revision answered when the client does not name one.
+/// The only protocol revision this server speaks; answered whatever the
+/// client asks for, so the client can decide whether to continue.
 const PROTOCOL_VERSION: &str = "2025-06-18";
 /// Per-stream output cap for tool subprocesses.
 const OUTPUT_CAP: usize = 1 << 20;
@@ -28,18 +32,24 @@ const DEFAULT_FILE: &str = "main.aph";
 type RpcError = (i64, String);
 
 /// Serve requests from `input` until end of input.
-pub fn serve(input: impl BufRead, mut output: impl Write) -> io::Result<()> {
-    for line in input.lines() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
+pub fn serve(mut input: impl BufRead, mut output: impl Write) -> io::Result<()> {
+    let mut raw = Vec::new();
+    loop {
+        raw.clear();
+        if input.read_until(b'\n', &mut raw)? == 0 {
+            return Ok(());
         }
-        if let Some(response) = handle_line(&line) {
+        // A line that is not UTF-8 is a parse error, not the end of the session.
+        let response = match std::str::from_utf8(&raw) {
+            Ok(line) if line.trim().is_empty() => continue,
+            Ok(line) => handle_line(line),
+            Err(_) => Some(error_response(Value::Null, -32700, "parse error")),
+        };
+        if let Some(response) = response {
             writeln!(output, "{response}")?;
             output.flush()?;
         }
     }
-    Ok(())
 }
 
 /// The response to one input line, or `None` for notifications.
@@ -51,6 +61,19 @@ pub fn handle_line(line: &str) -> Option<Value> {
         return Some(error_response(Value::Null, -32600, "invalid request"));
     };
     let id = object.get("id").cloned();
+    if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+        || id
+            .as_ref()
+            .is_some_and(|id| !(id.is_string() || id.is_number()))
+    {
+        // MCP ids are strings or numbers, never null.
+        let id = id.filter(|id| id.is_string() || id.is_number());
+        return Some(error_response(
+            id.unwrap_or(Value::Null),
+            -32600,
+            "invalid request",
+        ));
+    }
     let method = object.get("method").and_then(Value::as_str);
     let (Some(id), Some(method)) = (id.clone(), method) else {
         // Notifications (no id) get no answer; an id without a method is
@@ -74,10 +97,7 @@ fn error_response(id: Value, code: i64, message: &str) -> Value {
 fn dispatch(method: &str, params: &Value) -> Result<Value, RpcError> {
     match method {
         "initialize" => Ok(json!({
-            "protocolVersion": params
-                .get("protocolVersion")
-                .and_then(Value::as_str)
-                .unwrap_or(PROTOCOL_VERSION),
+            "protocolVersion": PROTOCOL_VERSION,
             "capabilities": {"tools": {}, "resources": {}},
             "serverInfo": {"name": "aleph", "version": env!("CARGO_PKG_VERSION")},
         })),
@@ -225,6 +245,11 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
         ));
     }
 
+    if extra.iter().any(|arg| arg.len() > MAX_ARG_BYTES) {
+        return Err(invalid_params(format!(
+            "argument longer than {MAX_ARG_BYTES} bytes"
+        )));
+    }
     let outcome = run_sandboxed(name, &file, source, &extra, timeout)
         .map_err(|err| (-32603, format!("internal error: {err}")))?;
     let failed = outcome.timed_out || outcome.exit_code != Some(0);
@@ -337,7 +362,8 @@ impl TempDir {
         loop {
             let n = COUNTER.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!("aleph-mcp-{}-{n}", std::process::id()));
-            match fs::create_dir(&path) {
+            // Private to this user: other local users must not read sources.
+            match fs::DirBuilder::new().mode(0o700).create(&path) {
                 Ok(()) => return Ok(Self(path)),
                 Err(err) if err.kind() == io::ErrorKind::AlreadyExists => continue,
                 Err(err) => return Err(err),
@@ -352,11 +378,18 @@ impl Drop for TempDir {
     }
 }
 
+/// Address-space limit for tool subprocesses (the interpreter reserves a
+/// 256 MiB stack).
+const MEMORY_LIMIT: u64 = 1 << 30;
+/// Longest argument Linux accepts (`MAX_ARG_STRLEN` is 128 KiB).
+const MAX_ARG_BYTES: usize = 100 * 1024;
+
 /// Run `aleph COMMAND FILE EXTRA..` on `source` in a fresh temp directory.
-// shortcut: no disk quota for fs.write inside the temp dir; add one if the
-// server is ever exposed to untrusted clients.
+// shortcut: no disk quota for fs.write inside the temp dir, and the temp dir
+// is left behind if the server is killed mid-call; add both if the server is
+// ever exposed to untrusted clients.
 fn run_sandboxed(
-    command: &str,
+    tool: &str,
     file: &str,
     source: &str,
     extra: &[String],
@@ -364,16 +397,23 @@ fn run_sandboxed(
 ) -> io::Result<Outcome> {
     let dir = TempDir::new()?;
     fs::write(dir.0.join(file), source)?;
-    let mut child = Command::new(std::env::current_exe()?)
-        .arg(command)
+    let mut command = Command::new(std::env::current_exe()?);
+    command
+        .arg(tool)
         .arg(file)
         .args(extra)
         .current_dir(&dir.0)
         .env_clear()
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
+        .stderr(Stdio::piped());
+    // SAFETY: the closure runs in the forked child before exec and only makes
+    // two async-signal-safe system calls.
+    #[cfg(target_os = "linux")]
+    unsafe {
+        command.pre_exec(limit_child);
+    }
+    let mut child = command.spawn()?;
 
     let stdout = child
         .stdout
@@ -413,6 +453,40 @@ fn run_sandboxed(
         stdout: String::from_utf8_lossy(&out).into_owned(),
         stderr: String::from_utf8_lossy(&err).into_owned(),
     })
+}
+
+#[cfg(target_os = "linux")]
+#[repr(C)]
+struct RLimit {
+    current: u64,
+    max: u64,
+}
+
+#[cfg(target_os = "linux")]
+extern "C" {
+    fn prctl(option: i32, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> i32;
+    fn setrlimit(resource: i32, limit: *const RLimit) -> i32;
+}
+
+/// In the child: die with the server (no orphan outlives a killed server)
+/// and cap memory so one call cannot exhaust the machine.
+#[cfg(target_os = "linux")]
+fn limit_child() -> io::Result<()> {
+    const PR_SET_PDEATHSIG: i32 = 1;
+    const SIGKILL: u64 = 9;
+    const RLIMIT_AS: i32 = 9;
+    let limit = RLimit {
+        current: MEMORY_LIMIT,
+        max: MEMORY_LIMIT,
+    };
+    // SAFETY: plain system calls with valid arguments.
+    let failed = unsafe {
+        prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) != 0 || setrlimit(RLIMIT_AS, &limit) != 0
+    };
+    if failed {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 /// Read a stream to its end, keeping at most [`OUTPUT_CAP`] bytes.
@@ -455,10 +529,44 @@ mod tests {
     }
 
     #[test]
+    fn invalid_utf8_lines_do_not_end_the_session() {
+        let input: &[u8] = b"\xff\xfe\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n";
+        let mut output = Vec::new();
+        serve(input, &mut output).unwrap();
+        let replies: Vec<Value> = String::from_utf8(output)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(replies.len(), 2);
+        assert_eq!(replies[0]["error"]["code"], -32700);
+        assert_eq!(replies[1]["result"], json!({}));
+    }
+
+    #[test]
     fn protocol_errors() {
         assert_eq!(handle_line("{").unwrap()["error"]["code"], -32700);
         assert_eq!(handle_line("[1]").unwrap()["error"]["code"], -32600);
-        assert_eq!(handle_line(r#"{"id":3}"#).unwrap()["error"]["code"], -32600);
+        assert_eq!(
+            handle_line(r#"{"jsonrpc":"2.0","id":3}"#).unwrap()["error"]["code"],
+            -32600
+        );
+        // Missing jsonrpc, null id and object id are invalid requests.
+        for bad in [
+            r#"{"id":3,"method":"ping"}"#,
+            r#"{"jsonrpc":"2.0","id":null,"method":"ping"}"#,
+            r#"{"jsonrpc":"2.0","id":{"a":1},"method":"ping"}"#,
+        ] {
+            let response = handle_line(bad).unwrap();
+            assert_eq!(response["error"]["code"], -32600, "{bad}");
+        }
+        // The server answers only the revision it speaks.
+        let response = call(json!({"jsonrpc":"2.0","id":1,"method":"initialize",
+            "params":{"protocolVersion":"bogus"}}));
+        assert_eq!(response["result"]["protocolVersion"], PROTOCOL_VERSION);
+        let response = call(json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
+            "params":{"name":"edit","arguments":{"source":"","edits":"x".repeat(MAX_ARG_BYTES + 1)}}}));
+        assert_eq!(response["error"]["code"], -32602);
         let response = call(json!({"jsonrpc":"2.0","id":2,"method":"nope"}));
         assert_eq!(response["error"]["code"], -32601);
         let response =

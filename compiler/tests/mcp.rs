@@ -127,3 +127,30 @@ fn run_is_sandboxed() {
     assert_eq!(timed["timed_out"], true);
     assert_eq!(replies[3]["result"]["isError"], true);
 }
+
+#[test]
+fn run_output_is_capped_and_memory_is_limited() {
+    // 2^21 bytes of output, twice the 1 MiB cap.
+    let loud = "fn grow s:str n:i64 -> str
+ if == n 0 s grow cat s s - n 1
+fn main -> unit
+ print grow \"ab\" 20
+";
+    // A 2 GiB string: beyond the 1 GiB address-space limit.
+    let greedy = "fn grow s:str n:i64 -> str
+ if == n 0 s grow cat s s - n 1
+fn main -> unit
+ print show count grow \"ab\" 30
+";
+    let replies = session(&[
+        tool_call(1, "run", json!({"source": loud, "timeout_ms": 30000})),
+        tool_call(2, "run", json!({"source": greedy, "timeout_ms": 30000})),
+    ]);
+    let capped = outcome(&replies[0]);
+    assert_eq!(capped["truncated"], true);
+    assert_eq!(capped["stdout"].as_str().unwrap().len(), 1 << 20);
+    let limited = outcome(&replies[1]);
+    assert_eq!(limited["timed_out"], false);
+    assert_ne!(limited["exit_code"], 0, "{limited}");
+    assert_eq!(replies[1]["result"]["isError"], true);
+}
