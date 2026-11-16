@@ -14,6 +14,7 @@ use alephc::examples;
 use alephc::explain;
 use alephc::interp;
 use alephc::llms;
+use alephc::mcp;
 use alephc::parser;
 use alephc::printer;
 
@@ -37,6 +38,7 @@ fn main() -> ExitCode {
         "ast" => ast_command(&cli),
         "edit" => edit_command(&cli),
         "llms" => llms_command(),
+        "mcp" => mcp_command(),
         // Later phases are still stubbed.
         _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
     }
@@ -539,6 +541,19 @@ fn edit_command(cli: &cli::Cli) -> ExitCode {
         return ExitCode::from(2);
     }
     ExitCode::SUCCESS
+}
+
+/// `aleph mcp`: serve MCP over stdio until end of input (ADR-0030).
+fn mcp_command() -> ExitCode {
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    match mcp::serve(stdin.lock(), stdout.lock()) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("aleph: mcp i/o error: {err}");
+            ExitCode::from(2)
+        }
+    }
 }
 
 /// `aleph llms`: print the compact spec for LLM context (ADR-0026).

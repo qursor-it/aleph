@@ -12,5 +12,6 @@ pub mod interp;
 pub mod lexer;
 pub mod lexicon;
 pub mod llms;
+pub mod mcp;
 pub mod parser;
 pub mod printer;

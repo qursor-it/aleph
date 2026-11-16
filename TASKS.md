@@ -37,7 +37,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-022 `llms.txt` at repo root: compact spec (target < 2000 tokens) + 10 canonical examples, generated from SPEC
 - [x] T-023 `fix` suggestions in diagnostics for the 10 most common errors (arity, missing try, missing capability, non-canonical)
 - [x] T-024 Node-level edit command `aleph edit FILE --json EDITS` (replace/insert/delete by node id) — ADR-0003
-- [ ] T-025 MCP server (stdio) exposing spec, check, run, test, fmt, explain, edit — design doc §5.5. Write a Proposed ADR for crate choice first.
+- [x] T-025 MCP server (stdio) exposing spec, check, run, test, fmt, explain, edit — design doc §5.5. Write a Proposed ADR for crate choice first.
 - [ ] T-026 Token counter `aleph tokens` with pluggable tokenizers (start with a local BPE file if provided; otherwise stub + ADR)
 
 ## v0.2 language (do not start before M2 is done)

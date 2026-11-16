@@ -16,9 +16,9 @@ use crate::ast::Capability;
 use crate::builtins::{self, Bound, Effect, Ty, TyVar};
 use crate::lexicon;
 
-const SPEC: &str = include_str!("../../spec/SPEC.md");
-const GRAMMAR: &str = include_str!("../../spec/grammar.ebnf");
-const DIAGNOSTICS: &str = include_str!("../../spec/diagnostics.md");
+pub const SPEC: &str = include_str!("../../spec/SPEC.md");
+pub const GRAMMAR: &str = include_str!("../../spec/grammar.ebnf");
+pub const DIAGNOSTICS: &str = include_str!("../../spec/diagnostics.md");
 const ADR_0018: &str = include_str!("../../adr/0018-shadowing-callables.md");
 const ADR_0020: &str = include_str!("../../adr/0020-capability-path-rules.md");
 const ADR_0021: &str = include_str!("../../adr/0021-runtime-semantics-v01.md");

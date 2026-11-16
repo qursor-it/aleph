@@ -1,15 +1,15 @@
 use std::ffi::OsString;
 
 pub const USAGE: &str =
-    "usage: aleph <check|fmt|test|run|build|explain|ast|edit|tokens|llms> [OPTIONS] [FILE] [ARGS..]";
+    "usage: aleph <check|fmt|test|run|build|explain|ast|edit|tokens|llms|mcp> [OPTIONS] [FILE] [ARGS..]";
 
 const COMMANDS: &[&str] = &[
-    "check", "fmt", "test", "run", "build", "explain", "ast", "edit", "tokens", "llms",
+    "check", "fmt", "test", "run", "build", "explain", "ast", "edit", "tokens", "llms", "mcp",
 ];
 
 /// Whether `command` needs a source `FILE` argument.
 pub fn requires_file(command: &str) -> bool {
-    command != "llms"
+    !matches!(command, "llms" | "mcp")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

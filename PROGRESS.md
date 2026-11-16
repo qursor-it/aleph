@@ -475,3 +475,14 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0029 proposed
 - next: T-025 MCP server (ADR-0030), T-026 tokens (ADR-0031)
 - agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed
+
+## 2026-11-16T17:30 T-025 done
+- `aleph mcp` (new `mcp.rs`, ADR-0030): hand-written JSON-RPC 2.0, newline-delimited stdio, `serde_json` only (MCP SDK crate scored 3/10 vs 9/10)
+- methods initialize, ping, shutdown, tools/list, tools/call, resources/list, resources/read; notifications ignored; standard error codes
+- tools spec (compact/full), check, test, fmt, ast, explain, edit, run; source tools write inline `source` to a fresh temp dir and run the same binary there with empty env, null stdin, timeout (default 5 s, max 60 s), 1 MiB cap per stream; result JSON `{exit_code,timed_out,truncated,stdout,stderr}`
+- `run` rejects absolute `use` prefixes; `build` omitted (needs cc, binary output)
+- resources aleph://llms.txt and aleph://spec/{SPEC.md,grammar.ebnf,diagnostics.md}; `llms::SPEC/GRAMMAR/DIAGNOSTICS` now pub
+- tests: 317 passed (mcp unit tests; compiler/tests/mcp.rs handshake, tools, sandbox: absolute prefix, empty cwd, timeout)
+- decisions: ADR-0030 proposed
+- next: T-026 `aleph tokens` (ADR-0031)
+- agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed
