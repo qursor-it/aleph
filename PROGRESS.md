@@ -506,3 +506,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0032 proposed
 - next: T-028 JSON (Proposed ADR first)
 - agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed
+
+## 2026-11-16T21:40 T-023..T-027 review fixes
+- independent reviews by Claude Opus 5.5 subagents (read-only, fresh context): T-023 7/10, T-024 6/10, T-025 7/10, T-026 8/10, T-027 8/10
+- f53d03f (T-024): fn replace with multi-line text works (was always X010); U+0001 in text rejected; markers substituted left to right; expression fragments must be one expression (`[fragment]` probe + balanced brackets); `with` alias so fix objects are edits
+- 49e6c5c (T-025): non-UTF-8 line -> -32700, session continues; envelope checks (jsonrpc, null/object id); initialize answers only 2025-06-18; temp dir 0700; Linux child PR_SET_PDEATHSIG + RLIMIT_AS 1 GiB; args > 100 KiB -> -32602
+- c71af00 holds three fixes (the commit helper staged everything; its message names only T-023): T-023 no capability fix for paths normalizing to the whole dir (`.`, `./`); T-026 `tokens --tokenizer all` keeps other counts when the lexer fails (`-`/null); T-027 Tlön test_dict, golden run_dict_order, ADR-0032 notes (native O(n²) memory, display-only dict text in E002)
+- not changed (minor, noted): F001 carries the canonical text twice (needs a SPEC §9 decision); llms.txt fix example not restored (token budget 1949/1950); `show` spelled as a literal in check.rs like everywhere else builtin names are used
+- tests: 329 passed
+- next: second review round of the fixed commits; then T-028 JSON
