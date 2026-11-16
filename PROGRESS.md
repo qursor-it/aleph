@@ -515,3 +515,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - not changed (minor, noted): F001 carries the canonical text twice (needs a SPEC §9 decision); llms.txt fix example not restored (token budget 1949/1950); `show` spelled as a literal in check.rs like everywhere else builtin names are used
 - tests: 329 passed
 - next: second review round of the fixed commits; then T-028 JSON
+
+## 2026-11-16T22:30 T-023..T-027 review rounds 2-3
+- round 2 (fresh Opus reviewers): T-023 8, T-024 8, T-025 8, T-026 9, T-027 8, minors only -> 8b1420b (MCP: 64-bit Linux gate, variadic prctl, RLIMIT_FSIZE, total arg cap, NUL, no reply to responses), ffb2a6f (edit: canonical ids, probe found, fix objects via edit in tests/fixes.rs), 1e52eea (one fix per use line), bdac95f (dict value type errors with a bad key)
+- round 3: T-023 8 (IMPORTANT: has/isok fix on bool payload), T-024 8.5, T-025 8 (IMPORTANT: current_exe after rebuild), T-027 9 -> a1f4f21 (/proc/self/exe, `signal`, -32602 for bad timeout/file/absolute prefix), 3fd8369 (blank text X010, big ids X008), 8f04177 (no has/isok fix on bool payload)
+- passed (>=9, no CRITICAL/IMPORTANT): T-026, T-027. Review cap (3 cycles) reached for T-023/T-024/T-025; round-3 fixes not re-reviewed
+- tests: 330 passed
+- next: optional 4th review round (user decision); T-028 JSON
