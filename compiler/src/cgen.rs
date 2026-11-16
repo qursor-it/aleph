@@ -171,9 +171,46 @@ impl<'a> Generator<'a> {
 
     fn forward_declarations(&mut self) {
         for function in &self.file.fns {
-            self.line(0, &format!("{};", function_signature(function)));
+            let fast = self.signature(function, "fn", "l_");
+            let slow = self.signature(function, "slow", "p_");
+            self.line(0, &format!("{fast};"));
+            self.line(0, &format!("AL_COLD {slow};"));
         }
         self.out.push('\n');
+    }
+
+    /// `static R aleph_<prefix>_<name>(T l_a, ...)` with unboxed primitive
+    /// parameter and return types (ADR-0027).
+    fn signature(&self, function: &ast::Fn, prefix: &str, param_prefix: &str) -> String {
+        let (params, ret) = self.fn_types(&function.name);
+        let mut signature = format!(
+            "static {} aleph_{prefix}_{}(",
+            Repr::of(&ret).c_type(),
+            function.name
+        );
+        if function.params.is_empty() {
+            signature.push_str("void");
+        } else {
+            let list: Vec<String> = function
+                .params
+                .iter()
+                .zip(&params)
+                .map(|(param, ty)| {
+                    format!("{} {param_prefix}{}", Repr::of(ty).c_type(), param.name)
+                })
+                .collect();
+            signature.push_str(&list.join(", "));
+        }
+        signature.push(')');
+        signature
+    }
+
+    fn fn_types(&self, name: &str) -> (Vec<Type>, Type) {
+        self.checked
+            .signatures
+            .get(name)
+            .cloned()
+            .expect("checker records a signature for every function")
     }
 
     fn used_refs(&self) -> Vec<RefInfo> {
@@ -265,8 +302,16 @@ impl<'a> Generator<'a> {
             .join(", ");
         match reference.kind {
             RefKind::User => {
+                let (params, ret) = self.fn_types(name);
+                let args = params
+                    .iter()
+                    .enumerate()
+                    .map(|(index, ty)| Repr::of(ty).unbox(&format!("aleph_args[{index}]")))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let call = Repr::of(&ret).boxed(&format!("aleph_fn_{name}({args})"));
                 self.line(1, "aleph_call_enter(NULL);");
-                self.line(1, &format!("aleph_ret_ = aleph_fn_{name}({call_args});"));
+                self.line(1, &format!("aleph_ret_ = {call};"));
                 self.line(1, "aleph_call_leave();");
             }
             RefKind::Ctor => {
@@ -294,8 +339,21 @@ impl<'a> Generator<'a> {
     }
 
     fn function(&mut self, function: &ast::Fn) {
-        self.line(0, &function_signature(function));
+        self.slow_function(function);
+        self.fast_function(function);
+    }
+
+    /// Instrumented body mirroring `interp.rs` node by node (ADR-0025). Taken
+    /// only when the fast body could reach the evaluation-depth limit.
+    fn slow_function(&mut self, function: &ast::Fn) {
+        let (params, ret) = self.fn_types(&function.name);
+        let signature = self.signature(function, "slow", "p_");
+        self.line(0, &signature);
         self.line(0, "{");
+        for (param, ty) in function.params.iter().zip(&params) {
+            let value = Repr::of(ty).boxed(&format!("p_{}", param.name));
+            self.line(1, &format!("AlValue l_{} = {value};", param.name));
+        }
 
         let mut declarations = function_declarations(function);
         declarations.sort_unstable();
@@ -325,7 +383,10 @@ impl<'a> Generator<'a> {
         self.emit_expr(&function.result, 0, 1);
         self.line(1, &format!("aleph_ret_ = t_n{};", function.result.id.0));
         self.line(0, "L_epilogue:");
-        self.line(1, "return aleph_ret_;");
+        self.line(
+            1,
+            &format!("return {};", Repr::of(&ret).unbox("aleph_ret_")),
+        );
         self.line(0, "}");
         self.out.push('\n');
     }
@@ -382,12 +443,16 @@ impl<'a> Generator<'a> {
                 }
                 match callee_kind {
                     CalleeKind::Fn => {
+                        let (params, ret) = self.fn_types(callee);
+                        let call_args = args
+                            .iter()
+                            .zip(&params)
+                            .map(|(arg, ty)| Repr::of(ty).unbox(&format!("t_n{}", arg.id.0)))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let call = Repr::of(&ret).boxed(&format!("aleph_fn_{callee}({call_args})"));
                         self.line(indent, &format!("aleph_call_enter(&L_n{id});"));
-                        self.assign(
-                            indent,
-                            id,
-                            &format!("aleph_fn_{}({})", callee, arg_list(args)),
-                        );
+                        self.assign(indent, id, &call);
                         self.line(indent, "aleph_call_leave();");
                     }
                     CalleeKind::Ctor => {
@@ -666,7 +731,9 @@ impl<'a> Generator<'a> {
         self.line(1, "(void)aleph_args;");
         self.line(1, "(void)aleph_count;");
         self.line(1, &format!("aleph_call_enter(&L_n{});", main.id.0));
-        self.line(1, "aleph_value = aleph_fn_main();");
+        let (_, main_ret) = self.fn_types("main");
+        let call = Repr::of(&main_ret).boxed("aleph_fn_main()");
+        self.line(1, &format!("aleph_value = {call};"));
         self.line(1, "aleph_call_leave();");
         self.line(1, "return aleph_value;");
         self.line(0, "}");
@@ -710,20 +777,556 @@ impl<'a> Generator<'a> {
     }
 }
 
-fn function_signature(function: &ast::Fn) -> String {
-    let mut signature = format!("static AlValue aleph_fn_{}(", function.name);
-    if function.params.is_empty() {
-        signature.push_str("void");
-    } else {
-        let params: Vec<String> = function
+/// C representation of an Aleph value in the fast path (ADR-0027): `i64`,
+/// `f64` and `bool` are unboxed C scalars, everything else stays an `AlValue`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Repr {
+    I64,
+    F64,
+    Bool,
+    Boxed,
+}
+
+impl Repr {
+    fn of(ty: &Type) -> Self {
+        match ty {
+            Type::I64 => Self::I64,
+            Type::F64 => Self::F64,
+            Type::Bool => Self::Bool,
+            _ => Self::Boxed,
+        }
+    }
+
+    fn c_type(self) -> &'static str {
+        match self {
+            Self::I64 => "int64_t",
+            Self::F64 => "double",
+            Self::Bool => "bool",
+            Self::Boxed => "AlValue",
+        }
+    }
+
+    /// Wrap a C expression of this representation into an `AlValue`.
+    fn boxed(self, value: &str) -> String {
+        match self {
+            Self::I64 => format!("aleph_box_i64({value})"),
+            Self::F64 => format!("aleph_box_f64({value})"),
+            Self::Bool => format!("aleph_box_bool({value})"),
+            Self::Boxed => value.to_string(),
+        }
+    }
+
+    /// Read an `AlValue` C expression as this representation.
+    fn unbox(self, value: &str) -> String {
+        match self {
+            Self::I64 => format!("{value}.u.i64"),
+            Self::F64 => format!("{value}.u.f64"),
+            Self::Bool => format!("{value}.u.b"),
+            Self::Boxed => value.to_string(),
+        }
+    }
+}
+
+/// Frames a user call or higher-order builtin adds below the caller's root:
+/// the call node itself is at `depth`, the interpreter has `depth + 1` frames
+/// open while it runs and the callee body starts at `depth + 2`.
+fn calls_back(name: &str) -> bool {
+    builtins::lookup(name)
+        .map(|spec| {
+            spec.params
+                .iter()
+                .any(|ty| matches!(ty, builtins::Ty::Fn(..)))
+        })
+        .unwrap_or(false)
+}
+
+/// Deepest evaluation frame a function body can open, relative to its root,
+/// counting the `+1` frame that a user call or callback check sees.
+fn max_eval_depth(function: &ast::Fn) -> usize {
+    fn walk(expr: &Expr, depth: usize, max: &mut usize) {
+        *max = (*max).max(depth);
+        if let ExprKind::Call {
+            callee,
+            callee_kind,
+            ..
+        } = &expr.kind
+        {
+            let checks_on_call = match callee_kind {
+                CalleeKind::Fn => true,
+                CalleeKind::Builtin => calls_back(callee),
+                CalleeKind::Ctor => false,
+            };
+            if checks_on_call {
+                *max = (*max).max(depth + 1);
+            }
+        }
+        for child in children(expr) {
+            walk(child, depth + 1, max);
+        }
+    }
+    let mut max = 0;
+    for stmt in &function.stmts {
+        match &stmt.kind {
+            StmtKind::Let { value, .. } | StmtKind::Do { value } => walk(value, 0, &mut max),
+        }
+    }
+    walk(&function.result, 0, &mut max);
+    max
+}
+
+/// Direct sub-expressions, in evaluation order.
+fn children(expr: &Expr) -> Vec<&Expr> {
+    match &expr.kind {
+        ExprKind::Call { args, .. } => args.iter().collect(),
+        ExprKind::BinOp { lhs, rhs, .. } => vec![lhs, rhs],
+        ExprKind::UnOp { operand, .. } => vec![operand],
+        ExprKind::If { cond, then_, else_ } => vec![cond, then_, else_],
+        ExprKind::List { elems } => elems.iter().collect(),
+        ExprKind::Field { value, .. }
+        | ExprKind::Some { value }
+        | ExprKind::Ok { value }
+        | ExprKind::Err { value }
+        | ExprKind::Try { value }
+        | ExprKind::Has { value }
+        | ExprKind::IsOk { value } => vec![value],
+        ExprKind::Else { value, default } => vec![value, default],
+        ExprKind::Int { .. }
+        | ExprKind::Float { .. }
+        | ExprKind::Str { .. }
+        | ExprKind::Bool { .. }
+        | ExprKind::Nil
+        | ExprKind::Var { .. }
+        | ExprKind::FnRef { .. }
+        | ExprKind::Empty { .. }
+        | ExprKind::None { .. } => Vec::new(),
+    }
+}
+
+impl Generator<'_> {
+    /// Unboxed body without per-node depth accounting (ADR-0027). It falls back
+    /// to `aleph_slow_<name>` when its static maximum depth could reach the
+    /// R004 evaluation limit, so traps stay identical to the interpreter.
+    fn fast_function(&mut self, function: &ast::Fn) {
+        let (_, ret) = self.fn_types(&function.name);
+        let signature = self.signature(function, "fn", "l_");
+        let max_depth = max_eval_depth(function);
+        self.line(0, &signature);
+        self.line(0, "{");
+        let forward = function
             .params
             .iter()
-            .map(|param| format!("AlValue l_{}", param.name))
-            .collect();
-        signature.push_str(&params.join(", "));
+            .map(|param| format!("l_{}", param.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        self.line(
+            1,
+            &format!("if (AL_UNLIKELY(!aleph_fast_ok({max_depth}))) {{"),
+        );
+        self.line(
+            2,
+            &format!("return aleph_slow_{}({forward});", function.name),
+        );
+        self.line(1, "}");
+
+        let mut declarations = Vec::new();
+        let mut visit = |expr: &Expr| declarations.push(expr.id);
+        for stmt in &function.stmts {
+            match &stmt.kind {
+                StmtKind::Let { value, .. } | StmtKind::Do { value } => {
+                    ast::walk_expr(value, &mut visit);
+                }
+            }
+        }
+        ast::walk_expr(&function.result, &mut visit);
+        declarations.sort_unstable_by_key(|id| id.0);
+        for id in declarations {
+            let repr = self.repr_of_id(id);
+            self.line(1, &format!("{} t_n{};", repr.c_type(), id.0));
+        }
+        for stmt in &function.stmts {
+            if let StmtKind::Let { name, value } = &stmt.kind {
+                let repr = self.repr_of_id(value.id);
+                self.line(1, &format!("{} l_{name};", repr.c_type()));
+            }
+        }
+        let ret_repr = Repr::of(&ret);
+        self.line(1, &format!("{} aleph_ret_;", ret_repr.c_type()));
+        self.line(1, "aleph_loc_push();");
+
+        for stmt in &function.stmts {
+            match &stmt.kind {
+                StmtKind::Let { name, value } => {
+                    self.fast_expr(value, 0, 1);
+                    self.line(1, &format!("l_{} = t_n{};", name, value.id.0));
+                }
+                StmtKind::Do { value } => self.fast_expr(value, 0, 1),
+            }
+        }
+        self.fast_expr(&function.result, 0, 1);
+        self.line(1, &format!("aleph_ret_ = t_n{};", function.result.id.0));
+        if function_has_try(function) {
+            self.line(0, "L_epilogue:");
+        }
+        self.line(1, "aleph_loc_pop();");
+        self.line(1, "return aleph_ret_;");
+        self.line(0, "}");
+        self.out.push('\n');
     }
-    signature.push(')');
-    signature
+
+    fn repr_of_id(&self, id: NodeId) -> Repr {
+        self.checked
+            .expr_types
+            .get(&id)
+            .map(Repr::of)
+            .unwrap_or(Repr::Boxed)
+    }
+
+    fn repr(&self, expr: &Expr) -> Repr {
+        self.repr_of_id(expr.id)
+    }
+
+    fn temp(expr: &Expr) -> String {
+        format!("t_n{}", expr.id.0)
+    }
+
+    fn boxed_temp(&self, expr: &Expr) -> String {
+        self.repr(expr).boxed(&Self::temp(expr))
+    }
+
+    fn fast_expr(&mut self, expr: &Expr, depth: usize, indent: usize) {
+        let id = expr.id.0;
+        let repr = self.repr(expr);
+        match &expr.kind {
+            ExprKind::Int { value } => self.assign(indent, id, &int_literal(*value)),
+            ExprKind::Float { value } => {
+                let bits = value
+                    .parse::<f64>()
+                    .expect("the lexer validates float syntax")
+                    .to_bits();
+                self.assign(
+                    indent,
+                    id,
+                    &format!("aleph_f64_from_bits(UINT64_C(0x{bits:016x}))"),
+                );
+            }
+            ExprKind::Bool { value } => self.assign(indent, id, &value.to_string()),
+            ExprKind::Var { name } => self.assign(indent, id, &format!("l_{name}")),
+            ExprKind::Str { .. }
+            | ExprKind::Nil
+            | ExprKind::FnRef { .. }
+            | ExprKind::Empty { .. }
+            | ExprKind::None { .. } => {
+                // Leaves without children or traps: reuse the boxed emitter's
+                // value expression (it only writes `t_n<id> = ...;`).
+                self.leaf_boxed(expr, indent);
+            }
+            ExprKind::Call {
+                callee,
+                callee_kind,
+                args,
+            } => {
+                for arg in args {
+                    self.fast_expr(arg, depth + 1, indent);
+                }
+                match callee_kind {
+                    CalleeKind::Fn => {
+                        let (params, _) = self.fn_types(callee);
+                        let call_args = args
+                            .iter()
+                            .zip(&params)
+                            .map(|(arg, ty)| self.convert(arg, Repr::of(ty)))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let frames = depth + 2;
+                        self.line(
+                            indent,
+                            &format!("aleph_fast_call_enter(&L_n{id}, {frames});"),
+                        );
+                        self.assign(indent, id, &format!("aleph_fn_{callee}({call_args})"));
+                        self.line(indent, &format!("aleph_fast_call_leave({frames});"));
+                    }
+                    CalleeKind::Ctor => {
+                        if args.is_empty() {
+                            self.assign(
+                                indent,
+                                id,
+                                &format!("aleph_record(&RI_{callee}, NULL, 0)"),
+                            );
+                        } else {
+                            self.assign(indent, id, &format!("aleph_list_new({})", args.len()));
+                            for (index, arg) in args.iter().enumerate() {
+                                let value = self.boxed_temp(arg);
+                                self.line(
+                                    indent,
+                                    &format!("t_n{id}.u.list->items[{index}] = {value};"),
+                                );
+                            }
+                            self.assign(
+                                indent,
+                                id,
+                                &format!(
+                                    "aleph_record(&RI_{callee}, t_n{id}.u.list->items, {})",
+                                    args.len()
+                                ),
+                            );
+                        }
+                    }
+                    CalleeKind::Builtin => {
+                        let call_args = args
+                            .iter()
+                            .map(|arg| self.boxed_temp(arg))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let call = repr.unbox(&format!("aleph_b_{callee}({call_args})"));
+                        self.line(indent, &format!("aleph_here(&L_n{id});"));
+                        if calls_back(callee) {
+                            let frames = depth + 1;
+                            self.line(indent, &format!("aleph_g_eval_depth += {frames};"));
+                            self.assign(indent, id, &call);
+                            self.line(indent, &format!("aleph_g_eval_depth -= {frames};"));
+                        } else {
+                            self.assign(indent, id, &call);
+                        }
+                    }
+                }
+            }
+            ExprKind::BinOp { op, lhs, rhs } => {
+                self.fast_expr(lhs, depth + 1, indent);
+                match op {
+                    BinOp::And | BinOp::Or => {
+                        let left = Self::temp(lhs);
+                        let condition = if *op == BinOp::And {
+                            format!("!{left}")
+                        } else {
+                            left.clone()
+                        };
+                        self.line(indent, &format!("if ({condition}) {{"));
+                        self.assign(indent + 1, id, &left);
+                        self.line(indent, "} else {");
+                        self.fast_expr(rhs, depth + 1, indent + 1);
+                        self.assign(indent + 1, id, &Self::temp(rhs));
+                        self.line(indent, "}");
+                    }
+                    _ => {
+                        self.fast_expr(rhs, depth + 1, indent);
+                        self.fast_binop(expr, *op, lhs, rhs, indent);
+                    }
+                }
+            }
+            ExprKind::UnOp { op, operand } => {
+                self.fast_expr(operand, depth + 1, indent);
+                let value = Self::temp(operand);
+                match (op, self.repr(operand)) {
+                    (UnOp::Not, _) => self.assign(indent, id, &format!("!{value}")),
+                    (UnOp::Neg, Repr::F64) => self.assign(indent, id, &format!("-{value}")),
+                    (UnOp::Neg, Repr::I64) => {
+                        self.line(indent, &format!("aleph_here(&L_n{id});"));
+                        self.assign(indent, id, &format!("aleph_fast_neg({value})"));
+                    }
+                    (UnOp::Neg, _) => {
+                        self.fail_internal(expr, "internal compiler error: non-numeric negation");
+                    }
+                }
+            }
+            ExprKind::If { cond, then_, else_ } => {
+                self.fast_expr(cond, depth + 1, indent);
+                self.line(indent, &format!("if ({}) {{", Self::temp(cond)));
+                self.fast_expr(then_, depth + 1, indent + 1);
+                let then_value = self.convert(then_, repr);
+                self.assign(indent + 1, id, &then_value);
+                self.line(indent, "} else {");
+                self.fast_expr(else_, depth + 1, indent + 1);
+                let else_value = self.convert(else_, repr);
+                self.assign(indent + 1, id, &else_value);
+                self.line(indent, "}");
+            }
+            ExprKind::List { elems } => {
+                for elem in elems {
+                    self.fast_expr(elem, depth + 1, indent);
+                }
+                self.assign(indent, id, &format!("aleph_list_new({})", elems.len()));
+                for (index, elem) in elems.iter().enumerate() {
+                    let value = self.boxed_temp(elem);
+                    self.line(
+                        indent,
+                        &format!("t_n{id}.u.list->items[{index}] = {value};"),
+                    );
+                }
+            }
+            ExprKind::Field { name, value } => {
+                self.fast_expr(value, depth + 1, indent);
+                let index = self.field_index(value, name);
+                let field = format!("{}.u.rec->fields[{index}]", Self::temp(value));
+                self.assign(indent, id, &repr.unbox(&field));
+            }
+            ExprKind::Some { value } | ExprKind::Ok { value } | ExprKind::Err { value } => {
+                self.fast_expr(value, depth + 1, indent);
+                let constructor = match &expr.kind {
+                    ExprKind::Some { .. } => "aleph_some",
+                    ExprKind::Ok { .. } => "aleph_ok",
+                    _ => "aleph_err",
+                };
+                let inner = self.boxed_temp(value);
+                self.assign(indent, id, &format!("{constructor}({inner})"));
+            }
+            ExprKind::Try { value } => {
+                self.fast_expr(value, depth + 1, indent);
+                let base = Self::temp(value);
+                self.line(indent, &format!("if ({base}.tag == AL_OK) {{"));
+                self.assign(indent + 1, id, &repr.unbox(&format!("{base}.u.box->value")));
+                self.line(indent, "} else {");
+                self.line(indent + 1, &format!("aleph_ret_ = {base};"));
+                self.line(indent + 1, "goto L_epilogue;");
+                self.line(indent, "}");
+            }
+            ExprKind::Else { value, default } => {
+                self.fast_expr(value, depth + 1, indent);
+                let tag = self.else_tag(value);
+                let base = Self::temp(value);
+                self.line(indent, &format!("if ({base}.tag == {tag}) {{"));
+                self.assign(indent + 1, id, &repr.unbox(&format!("{base}.u.box->value")));
+                self.line(indent, "} else {");
+                self.fast_expr(default, depth + 1, indent + 1);
+                let fallback = self.convert(default, repr);
+                self.assign(indent + 1, id, &fallback);
+                self.line(indent, "}");
+            }
+            ExprKind::Has { value } | ExprKind::IsOk { value } => {
+                self.fast_expr(value, depth + 1, indent);
+                let tag = if matches!(expr.kind, ExprKind::Has { .. }) {
+                    "AL_SOME"
+                } else {
+                    "AL_OK"
+                };
+                self.assign(indent, id, &format!("{}.tag == {tag}", Self::temp(value)));
+            }
+        }
+    }
+
+    /// The temp of `expr` converted to `target` (boxing or unboxing).
+    fn convert(&self, expr: &Expr, target: Repr) -> String {
+        let from = self.repr(expr);
+        let temp = Self::temp(expr);
+        if from == target {
+            temp
+        } else if target == Repr::Boxed {
+            from.boxed(&temp)
+        } else {
+            target.unbox(&from.boxed(&temp))
+        }
+    }
+
+    /// Childless boxed leaves: the same value expression as the slow emitter.
+    fn leaf_boxed(&mut self, expr: &Expr, indent: usize) {
+        let id = expr.id.0;
+        let value = match &expr.kind {
+            ExprKind::Str { value } => {
+                format!("aleph_str_n({}, {})", c_string(value), value.len())
+            }
+            ExprKind::Nil => "aleph_unit()".to_string(),
+            ExprKind::FnRef { name } => {
+                let label = self.ref_info(name).kind.label();
+                format!("aleph_fn_static(&aleph_fnref_{label}_{name})")
+            }
+            ExprKind::Empty { .. } => "aleph_list_new(0)".to_string(),
+            ExprKind::None { .. } => "aleph_none()".to_string(),
+            _ => unreachable!("leaf_boxed only handles childless boxed leaves"),
+        };
+        self.assign(indent, id, &value);
+    }
+
+    fn fast_binop(&mut self, expr: &Expr, op: BinOp, lhs: &Expr, rhs: &Expr, indent: usize) {
+        let id = expr.id.0;
+        let left = Self::temp(lhs);
+        let right = Self::temp(rhs);
+        let operands = self.repr(lhs);
+        let symbol = match op {
+            BinOp::Add => "+",
+            BinOp::Sub => "-",
+            BinOp::Mul => "*",
+            BinOp::Div => "/",
+            BinOp::Mod => "%",
+            BinOp::Eq => "==",
+            BinOp::Ne => "!=",
+            BinOp::Lt => "<",
+            BinOp::Le => "<=",
+            BinOp::Gt => ">",
+            BinOp::Ge => ">=",
+            BinOp::And | BinOp::Or => unreachable!("handled by fast_expr"),
+        };
+        match op {
+            BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => match operands {
+                Repr::F64 if op != BinOp::Mod => {
+                    self.assign(indent, id, &format!("{left} {symbol} {right}"));
+                }
+                Repr::I64 => {
+                    let function = match op {
+                        BinOp::Add => "aleph_fast_add",
+                        BinOp::Sub => "aleph_fast_sub",
+                        BinOp::Mul => "aleph_fast_mul",
+                        BinOp::Div => "aleph_fast_div",
+                        _ => "aleph_fast_mod",
+                    };
+                    self.line(indent, &format!("aleph_here(&L_n{id});"));
+                    self.assign(indent, id, &format!("{function}({left}, {right})"));
+                }
+                _ => self.fail_internal(expr, "internal compiler error: non-numeric arithmetic"),
+            },
+            BinOp::Eq | BinOp::Ne => {
+                if operands == Repr::Boxed || self.repr(rhs) == Repr::Boxed {
+                    let negate = if op == BinOp::Ne { "!" } else { "" };
+                    let value = format!(
+                        "{negate}aleph_values_equal({}, {})",
+                        self.boxed_temp(lhs),
+                        self.boxed_temp(rhs)
+                    );
+                    self.assign(indent, id, &value);
+                } else {
+                    // IEEE `==` for f64 (NaN != NaN, -0.0 == 0.0), as in
+                    // aleph_values_equal.
+                    self.assign(indent, id, &format!("{left} {symbol} {right}"));
+                }
+            }
+            _ => match operands {
+                // IEEE comparisons: all false when either side is NaN.
+                Repr::I64 | Repr::F64 => {
+                    self.assign(indent, id, &format!("{left} {symbol} {right}"));
+                }
+                _ => {
+                    let function = match op {
+                        BinOp::Lt => "aleph_lt",
+                        BinOp::Le => "aleph_le",
+                        BinOp::Gt => "aleph_gt",
+                        _ => "aleph_ge",
+                    };
+                    let value = format!(
+                        "{function}({}, {})",
+                        self.boxed_temp(lhs),
+                        self.boxed_temp(rhs)
+                    );
+                    self.assign(indent, id, &value);
+                }
+            },
+        }
+    }
+}
+
+fn function_has_try(function: &ast::Fn) -> bool {
+    let mut found = false;
+    let mut visit = |expr: &Expr| {
+        if matches!(expr.kind, ExprKind::Try { .. }) {
+            found = true;
+        }
+    };
+    for stmt in &function.stmts {
+        match &stmt.kind {
+            StmtKind::Let { value, .. } | StmtKind::Do { value } => {
+                ast::walk_expr(value, &mut visit);
+            }
+        }
+    }
+    ast::walk_expr(&function.result, &mut visit);
+    found
 }
 
 fn function_declarations(function: &ast::Fn) -> Vec<u32> {
@@ -814,6 +1417,39 @@ mod tests {
         assert!(first.contains("aleph_b_print"));
         assert!(first.contains("aleph_div_i64") || first.contains("u.f64 /"));
         assert!(!first.contains("l_arr_n"), "no C stack arrays");
+    }
+
+    #[test]
+    fn fast_path_is_unboxed_without_per_node_accounting() {
+        let code = generate(
+            "fn fib n:i64 -> i64\n if < n 2 n + fib - n 1 fib - n 2\nfn main -> unit\n print show fib 10\n",
+        );
+        let fast_start = code
+            .find("static int64_t aleph_fn_fib(int64_t l_n)\n{")
+            .expect("fast body with unboxed signature");
+        let fast = &code[fast_start..];
+        let fast = &fast[..fast.find("\n}\n").expect("end of fast body")];
+        assert!(fast.contains("if (AL_UNLIKELY(!aleph_fast_ok("), "{fast}");
+        assert!(fast.contains("return aleph_slow_fib(l_n);"), "{fast}");
+        assert!(fast.contains("int64_t t_n"), "{fast}");
+        assert!(fast.contains("aleph_fast_add("), "{fast}");
+        assert!(fast.contains("aleph_fast_call_enter(&L_n"), "{fast}");
+        assert!(!fast.contains("aleph_eval_enter"), "{fast}");
+        assert!(!fast.contains("AlValue t_n"), "{fast}");
+        assert!(code.contains("AL_COLD static int64_t aleph_slow_fib(int64_t p_n);"));
+        assert!(code.contains("AlValue l_n = aleph_box_i64(p_n);"));
+    }
+
+    #[test]
+    fn max_eval_depth_counts_call_frames() {
+        let parsed = parser::parse(
+            "t.aph",
+            "fn down n:i64 -> i64\n if == n 0 0 + 1 down - n 1\nfn main -> unit\n nil\n",
+        );
+        let file = parsed.file.expect("parsed file");
+        let down = file.fns.iter().find(|f| f.name == "down").expect("down");
+        // if(0) -> +(1) -> down(2) -> -(3) -> n/1(4); the call check sees 3.
+        assert_eq!(max_eval_depth(down), 4);
     }
 
     #[test]

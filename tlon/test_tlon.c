@@ -236,8 +236,8 @@ static void test_builtins(void) {
         numbers[6] = aleph_f64(1.0);
         numbers[7] = aleph_f64(-1.0);
         check_show(aleph_b_sort(aleph_list(numbers, 8)),
-                   "[NaN -inf -1.0 -0.0 0.0 1.0 inf NaN]",
-                   "sort f64 total order signed NaN");
+                   "[-inf -1.0 -0.0 0.0 1.0 inf NaN NaN]",
+                   "sort f64: every NaN last, whatever its sign");
     }
     check_show(aleph_b_sort(list3(strv("b"), strv("a"), strv("c"))),
                "[\"a\" \"b\" \"c\"]", "sort str");

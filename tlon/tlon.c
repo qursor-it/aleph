@@ -31,17 +31,18 @@ static size_t g_use_count;
 static int g_argc;
 static const char *const *g_argv;
 
-static size_t g_eval_depth;
-static size_t g_call_depth;
+/* Depth and location state; shared with the inline fast-path helpers in
+ * tlon.h (ADR-0027). */
+size_t aleph_g_eval_depth;
+size_t aleph_g_call_depth;
 
 /* Native stack guard for the big main thread (set in main_thread). */
-#define AL_STACK_GUARD (1024u * 1024u)
-static uintptr_t g_stack_base;
-static bool g_stack_base_set;
+uintptr_t aleph_g_stack_base;
+bool aleph_g_stack_base_set;
 
 static const AlLoc g_default_loc = {0, 0, 0};
-static const AlLoc *g_locs[AL_MAX_EVAL_DEPTH + 1];
-static size_t g_loc_depth;
+const AlLoc *aleph_g_locs[AL_MAX_EVAL_DEPTH + 1];
+size_t aleph_g_loc_depth;
 
 void aleph_set_file(const char *file) { g_file = file ? file : ""; }
 
@@ -60,8 +61,8 @@ void aleph_set_args(int argc, const char *const *argv) {
 /* ------------------------------------------------------------------ */
 
 static const AlLoc *current_loc(void) {
-    if (g_loc_depth > 0 && g_locs[g_loc_depth - 1] != NULL) {
-        return g_locs[g_loc_depth - 1];
+    if (aleph_g_loc_depth > 0 && aleph_g_locs[aleph_g_loc_depth - 1] != NULL) {
+        return aleph_g_locs[aleph_g_loc_depth - 1];
     }
     return &g_default_loc;
 }
@@ -186,32 +187,32 @@ void *aleph_alloc(size_t size) {
 /* ------------------------------------------------------------------ */
 
 void aleph_eval_enter(const AlLoc *loc) {
-    if (g_eval_depth >= AL_MAX_EVAL_DEPTH) {
+    if (aleph_g_eval_depth >= AL_MAX_EVAL_DEPTH) {
         aleph_trap_at("R004", "stack overflow", loc);
     }
-    g_eval_depth += 1;
-    if (g_loc_depth < AL_MAX_EVAL_DEPTH + 1) {
-        g_locs[g_loc_depth++] = loc;
+    aleph_g_eval_depth += 1;
+    if (aleph_g_loc_depth < AL_MAX_EVAL_DEPTH + 1) {
+        aleph_g_locs[aleph_g_loc_depth++] = loc;
     }
 }
 
 void aleph_eval_leave(void) {
-    if (g_eval_depth > 0) {
-        g_eval_depth -= 1;
+    if (aleph_g_eval_depth > 0) {
+        aleph_g_eval_depth -= 1;
     }
-    if (g_loc_depth > 0) {
-        g_loc_depth -= 1;
+    if (aleph_g_loc_depth > 0) {
+        aleph_g_loc_depth -= 1;
     }
 }
 
 static void native_stack_guard(const AlLoc *loc) {
     uintptr_t here;
     uintptr_t used;
-    if (!g_stack_base_set) {
+    if (!aleph_g_stack_base_set) {
         return;
     }
     here = (uintptr_t)&here;
-    used = here <= g_stack_base ? g_stack_base - here : here - g_stack_base;
+    used = here <= aleph_g_stack_base ? aleph_g_stack_base - here : here - aleph_g_stack_base;
     if (used > (uintptr_t)(AL_MAIN_STACK_SIZE - AL_STACK_GUARD)) {
         aleph_trap_at("R004", "stack overflow", loc);
     }
@@ -219,19 +220,19 @@ static void native_stack_guard(const AlLoc *loc) {
 
 void aleph_call_enter(const AlLoc *loc) {
     native_stack_guard(loc);
-    if (g_call_depth >= AL_MAX_CALL_DEPTH || g_eval_depth >= AL_MAX_EVAL_DEPTH) {
+    if (aleph_g_call_depth >= AL_MAX_CALL_DEPTH || aleph_g_eval_depth >= AL_MAX_EVAL_DEPTH) {
         aleph_trap_at("R004", "stack overflow", loc);
     }
-    g_call_depth += 1;
-    g_eval_depth += 1;
+    aleph_g_call_depth += 1;
+    aleph_g_eval_depth += 1;
 }
 
 void aleph_call_leave(void) {
-    if (g_call_depth > 0) {
-        g_call_depth -= 1;
+    if (aleph_g_call_depth > 0) {
+        aleph_g_call_depth -= 1;
     }
-    if (g_eval_depth > 0) {
-        g_eval_depth -= 1;
+    if (aleph_g_eval_depth > 0) {
+        aleph_g_eval_depth -= 1;
     }
 }
 
@@ -983,11 +984,18 @@ AlValue aleph_b_rev(AlValue xs) {
     return result;
 }
 
+/* Sort order for f64: total order on non-NaN values (-0.0 < 0.0), and every
+ * NaN, whatever its sign bit or payload, after +inf.  The sign of a NaN
+ * produced by 0.0 / 0.0 differs between x86-64 and arm64, so it must not
+ * affect the order (ADR-0024). */
 static int f64_total_cmp(double left, double right) {
     uint64_t left_bits;
     uint64_t right_bits;
     int64_t left_order;
     int64_t right_order;
+    if (isnan(left) || isnan(right)) {
+        return (isnan(left) ? 1 : 0) - (isnan(right) ? 1 : 0);
+    }
     memcpy(&left_bits, &left, sizeof(left_bits));
     memcpy(&right_bits, &right, sizeof(right_bits));
     left_order = (int64_t)left_bits;
@@ -2111,8 +2119,8 @@ static void *main_thread(void *argument) {
     MainContext *context = (MainContext *)argument;
     unsigned char stack_base;
 
-    g_stack_base = (uintptr_t)&stack_base;
-    g_stack_base_set = true;
+    aleph_g_stack_base = (uintptr_t)&stack_base;
+    aleph_g_stack_base_set = true;
     context->value = context->code(NULL, 0);
     return NULL;
 }
@@ -2153,8 +2161,8 @@ int aleph_main_run(AlValue (*main_code)(AlValue *, size_t), int argc,
         main_thread_failure();
     }
     /* The main thread has exited; do not guard against a stale stack base. */
-    g_stack_base = 0;
-    g_stack_base_set = false;
+    aleph_g_stack_base = 0;
+    aleph_g_stack_base_set = false;
 
     fflush(stdout);
     fflush(stderr);

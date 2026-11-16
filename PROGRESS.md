@@ -435,3 +435,19 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 286 passed (221 unit, 2 bench_refs, 43 CLI, 1 differential, 8 golden, 8 llms, 3 tlon)
 - next: T-023 `fix` suggestions for the most common diagnostics.
 - agent: opencode/deepseek-v4.1-flash
+
+## 2026-11-16T01:10 T-032 done
+- `sort` on f64 put a NaN with the sign bit set before `-inf`: `0.0 / 0.0` is a negative NaN on x86-64 and a positive one on arm64, so `run_sort_f64` failed on x86-64 in both engines
+- `interp::compare_values` and `tlon.c` `f64_total_cmp` now order every NaN after `inf`, whatever its sign or payload; ADR-0024 text updated
+- `tlon/test_tlon.c` expectation changed from `[NaN -inf ... inf NaN]` to `[-inf ... inf NaN NaN]`: the old one encoded the platform-dependent order
+- agent: manual (Bernardo Manfriani)
+
+## 2026-11-16T01:10 T-033 done
+- `cgen.rs`: every function emitted as `aleph_slow_<name>` (old instrumented body, `AL_COLD`) and `aleph_fn_<name>` (fast body: `int64_t`/`double`/`bool` temps, params and results; no `aleph_eval_enter/leave`); fast body falls back to slow when `eval_depth + max_eval_depth(fn) >= 20000`
+- `tlon.h`: inline fast helpers (`aleph_fast_ok`, `aleph_fast_call_enter/leave`, `aleph_loc_push/pop/here`, `aleph_fast_add..neg`, `aleph_box_*`, `aleph_f64_from_bits`); `tlon.c` exports depth/location state as `aleph_g_*`
+- new goldens at the R004 limit: `run_trap_depth_eval`, `run_trap_depth_map`, `run_depth_near_limit` (4998 ok, 4999 traps); interpreter and native byte-identical
+- fib35 on x86-64: 1.71 s -> 0.115 s (CPython 1.12 s, C 0.02 s)
+- tests: 288 passed, clippy clean
+- decisions: ADR-0027 (Proposed)
+- next: T-023; optional later: drop the location slot/stack guard cost per call if profiling shows it matters
+- agent: manual (Bernardo Manfriani)
