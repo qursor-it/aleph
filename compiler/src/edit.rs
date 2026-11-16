@@ -237,7 +237,12 @@ fn resolve(
     let id = raw
         .node
         .strip_prefix('n')
-        .filter(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
+        // Canonical spelling only: `n0`, `n13`, never `n013`.
+        .filter(|digits| {
+            !digits.is_empty()
+                && digits.bytes().all(|b| b.is_ascii_digit())
+                && (digits == &"0" || !digits.starts_with('0'))
+        })
         .and_then(|digits| digits.parse::<u32>().ok())
         .ok_or_else(|| Box::new(invalid(file_name, format!("node {}", raw.node))))?;
     let kind = nodes
@@ -370,6 +375,9 @@ fn check_fragments(
     marked: &str,
     fragments: &BTreeMap<u32, &str>,
 ) -> Result<(), Vec<Diagnostic>> {
+    if fragments.is_empty() {
+        return Ok(());
+    }
     let not_one = |found: String| {
         vec![
             Diagnostic::error("X010", file_name, 0, 0, "edit does not parse")
@@ -384,7 +392,13 @@ fn check_fragments(
     let (probe, starts) = substitute(marked, fragments, |fragment| format!("[{fragment}]"));
     let output = parser::parse(file_name, &probe);
     let Some(file) = output.file.filter(|_| output.diagnostics.is_empty()) else {
-        return Err(not_one(first_found(&output.diagnostics)));
+        // Positions in the bracketed probe text would mislead: code and message only.
+        let found = output
+            .diagnostics
+            .first()
+            .map(|d| format!("{} {}", d.code, d.msg))
+            .unwrap_or_default();
+        return Err(not_one(found));
     };
     let mut singles = 0;
     for_each_expr(&file, &mut |expr| {
@@ -420,19 +434,8 @@ fn balanced(fragment: &str) -> bool {
 }
 
 fn for_each_expr(file: &File, visit: &mut impl FnMut(&ast::Expr)) {
-    for function in &file.fns {
-        for example in &function.examples {
-            ast::walk_expr(&example.lhs, visit);
-            ast::walk_expr(&example.rhs, visit);
-        }
-        for stmt in &function.stmts {
-            match &stmt.kind {
-                ast::StmtKind::Let { value, .. } | ast::StmtKind::Do { value } => {
-                    ast::walk_expr(value, visit)
-                }
-            }
-        }
-        ast::walk_expr(&function.result, visit);
+    for expr in file.fns.iter().flat_map(fn_exprs) {
+        ast::walk_expr(expr, visit);
     }
 }
 
@@ -645,6 +648,10 @@ mod tests {
         assert_eq!(code("{"), "X007");
         assert_eq!(code(r#"[{"op":"move","node":"n1"}]"#), "X007");
         assert_eq!(code(r#"[{"op":"replace","node":"x1","text":"1"}]"#), "X007");
+        assert_eq!(
+            code(r#"[{"op":"replace","node":"n013","text":"1"}]"#),
+            "X007"
+        );
         assert_eq!(code(r#"[{"op":"replace","node":"n10"}]"#), "X007");
         assert_eq!(code(r#"[{"op":"delete","node":"n9","extra":1}]"#), "X007");
         assert_eq!(

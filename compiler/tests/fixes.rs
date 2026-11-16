@@ -1,5 +1,6 @@
 //! T-023: every `tests/aph/fix_*.aph` golden carries a certain `fix`, and
-//! applying that fix textually (then canonicalizing) clears the diagnostic.
+//! applying that fix textually (then canonicalizing) clears the diagnostic;
+//! the same fix object applied with `aleph edit` gives the same text.
 
 mod common;
 
@@ -150,6 +151,16 @@ fn every_fix_golden_applies_and_clears_its_diagnostic() {
             }
             let failing_code = diagnostic["code"].as_str().expect("code").to_string();
             let applied = canonicalize(&apply(&source, diagnostic));
+            // A fix object is also a valid `aleph edit` edit (ADR-0029).
+            match alephc::edit::apply(&name, &source, &format!("[{}]", diagnostic["fix"])) {
+                Ok(edited) if edited == applied => {}
+                Ok(edited) => failures.push(format!(
+                    "{name}: aleph edit gave a different result:\n{edited}"
+                )),
+                Err(errors) => {
+                    failures.push(format!("{name}: aleph edit rejected the fix: {errors:?}"))
+                }
+            }
             fs::write(&path, &applied).expect("write applied source");
             let (after_code, after) = check(&path);
             if after_code != 0 {

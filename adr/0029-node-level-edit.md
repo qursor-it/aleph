@@ -34,19 +34,24 @@ spec does not define the JSON shape, the allowed node kinds or the errors.
   and examples are `aleph check`'s job.
 - Output: the edited canonical text on stdout, exit 0. With `-w` the file is
   written atomically (same path as `fmt -w`) and then `aleph check`
-  diagnostics of the new file are printed, with ids of the new AST.
+  diagnostics of the new file are printed, with ids of the new AST; the exit
+  code is then `check`'s (1 on errors), so a written-but-failing edit is told
+  apart from a rejected one by the code prefix (`X` = rejected, not written).
 - Errors (no output, no write, exit 1):
   - `X007` invalid edits json (malformed JSON, unknown op/position/field,
-    bad node id spelling, missing or superfluous `text`/`position`);
+    bad node id spelling such as `x1` or `n013`, missing or superfluous
+    `text`/`position`);
   - `X008` unknown node id;
-  - `X009` edit not allowed for node kind (`found` is `<op> <kind>`);
+  - `X009` edit not allowed for node kind (`found` is `<op> <kind>`, kind
+    one of `file use type fn ex stmt expr other`; `stmt` = a `let`/`do` line);
   - `X010` edit does not parse: a one-line fragment containing a newline,
     any text containing U+0001 (reserved for expression markers), an
     expression fragment that is not exactly one expression in place
     (unbalanced brackets, or `[fragment]` is not a one-element list, e.g.
     `7 8` inside a list), or the edited program does not parse. `found`
     holds the first parser diagnostic; its line:col refers to the edited
-    text, not the input file;
+    text, not the input file (the one-expression check gives code and
+    message only);
   - `X011` conflicting edits: an edit whose node lies inside a node that
     another edit replaces or deletes (pre-order ids make each subtree a
     contiguous id range).
