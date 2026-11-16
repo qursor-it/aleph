@@ -723,6 +723,19 @@ impl<'a> ExprCtx<'a> {
         depth: usize,
         span: ast::Span,
     ) -> PResult<(ast::Expr, usize)> {
+        if is_type(name, "dict") {
+            // The dict type name is also its empty-dict constructor (ADR-0032).
+            let (ty, next) = parse_type_at(self.file, self.line, self.tokens, pos, 0)?;
+            let kind = ast::ExprKind::Dict { ty };
+            return Ok((
+                ast::Expr {
+                    id: NodeId::UNASSIGNED,
+                    span,
+                    kind,
+                },
+                next,
+            ));
+        }
         match self.resolve_name(name, env) {
             None => Err(p003(self.file, token, name)),
             Some(NameResolution::Var) => Ok((
@@ -1418,7 +1431,7 @@ fn parse_type_at(
 
     let arity = if is_type(name, "list") || is_type(name, "option") {
         1
-    } else if is_type(name, "result") {
+    } else if is_type(name, "result") || is_type(name, "dict") {
         2
     } else {
         return Ok((
@@ -1453,6 +1466,10 @@ fn parse_type_at(
         ast::TypeKind::Opt {
             elem: children.remove(0),
         }
+    } else if is_type(name, "dict") {
+        let val = children.remove(1);
+        let key = children.remove(0);
+        ast::TypeKind::Dict { key, val }
     } else {
         let err = children.remove(1);
         let ok = children.remove(0);
@@ -1860,7 +1877,8 @@ fn main -> res unit str
             let known = primitive_kind(spelling).is_some()
                 || is_type(spelling, "list")
                 || is_type(spelling, "option")
-                || is_type(spelling, "result");
+                || is_type(spelling, "result")
+                || is_type(spelling, "dict");
             assert!(known, "unhandled type name: {spelling}");
         }
     }

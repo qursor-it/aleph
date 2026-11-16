@@ -348,10 +348,24 @@ pub enum TypeKind {
     Bool,
     Str,
     Unit,
-    List { elem: Box<Type> },
-    Opt { elem: Box<Type> },
-    Res { ok: Box<Type>, err: Box<Type> },
-    Named { name: String },
+    List {
+        elem: Box<Type>,
+    },
+    Opt {
+        elem: Box<Type>,
+    },
+    Res {
+        ok: Box<Type>,
+        err: Box<Type>,
+    },
+    /// `dict K V` (ADR-0032).
+    Dict {
+        key: Box<Type>,
+        val: Box<Type>,
+    },
+    Named {
+        name: String,
+    },
 }
 
 /// An expression.
@@ -429,6 +443,10 @@ pub enum ExprKind {
         elems: Vec<Expr>,
     },
     Empty {
+        ty: Type,
+    },
+    /// The empty dict `dict K V`; `ty` is the dict type (ADR-0032).
+    Dict {
         ty: Type,
     },
     Field {
@@ -598,6 +616,10 @@ fn assign_type(ty: &mut Type, next: &mut u32) {
             assign_type(ok, next);
             assign_type(err, next);
         }
+        TypeKind::Dict { key, val } => {
+            assign_type(key, next);
+            assign_type(val, next);
+        }
         TypeKind::I64
         | TypeKind::F64
         | TypeKind::Bool
@@ -630,7 +652,9 @@ fn assign_expr(expr: &mut Expr, next: &mut u32) {
                 assign_expr(elem, next);
             }
         }
-        ExprKind::Empty { ty } | ExprKind::None { ty } => assign_type(ty, next),
+        ExprKind::Empty { ty } | ExprKind::None { ty } | ExprKind::Dict { ty } => {
+            assign_type(ty, next)
+        }
         ExprKind::Field { value, .. }
         | ExprKind::Some { value }
         | ExprKind::Ok { value }
@@ -709,6 +733,10 @@ fn collect_type(ty: &Type, ids: &mut Vec<NodeId>) {
             collect_type(ok, ids);
             collect_type(err, ids);
         }
+        TypeKind::Dict { key, val } => {
+            collect_type(key, ids);
+            collect_type(val, ids);
+        }
         TypeKind::I64
         | TypeKind::F64
         | TypeKind::Bool
@@ -741,7 +769,9 @@ fn collect_expr(expr: &Expr, ids: &mut Vec<NodeId>) {
                 collect_expr(elem, ids);
             }
         }
-        ExprKind::Empty { ty } | ExprKind::None { ty } => collect_type(ty, ids),
+        ExprKind::Empty { ty } | ExprKind::None { ty } | ExprKind::Dict { ty } => {
+            collect_type(ty, ids)
+        }
         ExprKind::Field { value, .. }
         | ExprKind::Some { value }
         | ExprKind::Ok { value }
@@ -810,6 +840,7 @@ pub fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
         | ExprKind::Var { .. }
         | ExprKind::FnRef { .. }
         | ExprKind::Empty { .. }
+        | ExprKind::Dict { .. }
         | ExprKind::None { .. } => {}
     }
 }
@@ -859,6 +890,7 @@ pub fn walk_expr_mut(expr: &mut Expr, visit: &mut impl FnMut(&mut Expr)) {
         | ExprKind::Var { .. }
         | ExprKind::FnRef { .. }
         | ExprKind::Empty { .. }
+        | ExprKind::Dict { .. }
         | ExprKind::None { .. } => {}
     }
 }

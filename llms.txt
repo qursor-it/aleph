@@ -12,43 +12,46 @@ One space between tokens. Column 0 = item; one leading space = `fn` body line. i
 Order: `use` sorted by full canonical line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). Item `fn`/`type` names are unique, not builtin/type names (P001).
 
 ## 4. Types
-`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. v0.2: `dict`, JSON, sums, generics.
+`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. v0.2: JSON, sums, generics.
 
 ## 5. Expressions
 Prefix, fixed arity, no parentheses; call arity from signatures, constructors and builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool. `@f` is a function value, only as a higher-order argument.
 
 ### 5.1 Builtins (v0.1)
-`e`: p pure, E effectful; `cap`: - none or capability name.
-
-|name|signature|e|cap|
-|---|---|---|---|
-|args|()->list str|p|-|
-|at|list T,i64->opt T|p|-|
-|cat|str,str->str|p|-|
-|contains|str,str->bool|p|-|
-|count|str->i64|p|-|
-|eprint|str->unit|E|-|
-|filter|(A->bool),list A->list A|p|-|
-|float|str->res f64 str|p|-|
-|fold|(B,A->B),B,list A->B|p|-|
-|int|str->res i64 str|p|-|
-|join|list str,str->str|p|-|
-|len|list T->i64|p|-|
-|lower|str->str|p|-|
-|map|(A->B),list A->list B|p|-|
-|print|str->unit|E|-|
-|push|list T,T->list T|p|-|
-|range|i64,i64->list i64|p|-|
-|read|str->res str str|E|fs.read|
-|rev|list T->list T|p|-|
-|show|T->str (T primitive or list of primitive)|p|-|
-|slice|list T,i64,i64->list T|p|-|
-|sort|list T->list T (T primitive)|p|-|
-|split|str,str->list str|p|-|
-|sum|list i64->i64|p|-|
-|trim|str->str|p|-|
-|upper|str->str|p|-|
-|write|str,str->res unit str|E|fs.write|
+One per line: `name signature`; effectful ones end with `!` and their capability, if any.
+args ()->list str
+at list T,i64->opt T
+cat str,str->str
+contains str,str->bool
+count str->i64
+del dict A B,A->dict A B
+eprint str->unit !
+filter (A->bool),list A->list A
+float str->res f64 str
+fold (B,A->B),B,list A->B
+get dict A B,A->opt B
+int str->res i64 str
+join list str,str->str
+keys dict A B->list A
+len list T->i64
+lower str->str
+map (A->B),list A->list B
+print str->unit !
+push list T,T->list T
+put dict A B,A,B->dict A B
+range i64,i64->list i64
+read str->res str str ! fs.read
+rev list T->list T
+show T->str (T primitive or list of primitive)
+size dict A B->i64
+slice list T,i64,i64->list T
+sort list T->list T (T primitive)
+split str,str->list str
+sum list i64->i64
+trim str->str
+upper str->str
+vals dict A B->list B
+write str,str->res unit str ! fs.write
 
 ## 8. Capabilities (ADR-0008)
 Deny by default. `use fs.read "PREFIX"` / `use fs.write "PREFIX"`. `net.host`/`env`/`time` parse in v0.1 but have no builtins until v0.2. Relative/absolute POSIX prefixes, normalized (empty/`.` dropped), `..` never covered. Empty prefix, `..`, or a filesystem capability without a path -> C003. Literals checked statically (C001/C002); computed paths at run time (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 division by zero, R003 capability, R004 stack, R005 allocation.

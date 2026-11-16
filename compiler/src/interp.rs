@@ -24,6 +24,7 @@ use crate::ast::{
 };
 use crate::builtins;
 use crate::diag::Diagnostic;
+use crate::lexicon;
 
 /// The maximum number of nested user function calls (R004).
 pub const MAX_CALL_DEPTH: usize = 10_000;
@@ -61,6 +62,8 @@ pub enum Value {
     Opt(Option<Rc<Value>>),
     Res(Result<Rc<Value>, Rc<Value>>),
     Record(Rc<str>, Rc<Vec<Value>>),
+    /// Key/value pairs sorted by key with [`compare_values`] (ADR-0032).
+    Dict(Rc<Vec<(Value, Value)>>),
     Fn(FnTarget),
 }
 
@@ -90,6 +93,12 @@ pub fn values_equal(left: &Value, right: &Value) -> bool {
             an == bn
                 && af.len() == bf.len()
                 && af.iter().zip(bf.iter()).all(|(a, b)| values_equal(a, b))
+        }
+        (Value::Dict(a), Value::Dict(b)) => {
+            a.len() == b.len()
+                && a.iter()
+                    .zip(b.iter())
+                    .all(|((ak, av), (bk, bv))| values_equal(ak, bk) && values_equal(av, bv))
         }
         (Value::Fn(a), Value::Fn(b)) => a == b,
         _ => false,
@@ -319,6 +328,7 @@ impl<'a> Interp<'a> {
                 Ok(Flow::Value(Value::List(Rc::new(values))))
             }
             ExprKind::Empty { .. } => Ok(Flow::Value(Value::List(Rc::new(Vec::new())))),
+            ExprKind::Dict { .. } => Ok(Flow::Value(Value::Dict(Rc::new(Vec::new())))),
             ExprKind::Field { name, value } => {
                 let record = eval_value!(self, value, env);
                 let Value::Record(type_name, fields) = record else {
@@ -558,6 +568,45 @@ impl<'a> Interp<'a> {
         debug_assert_eq!(spec.arity(), args.len(), "arity of builtin `{name}`");
         let value = match name {
             "len" => Value::I64(as_list(&args[0]).len() as i64),
+            "put" => {
+                let mut pairs = as_dict(&args[0]).as_ref().clone();
+                match find_key(&pairs, &args[1]) {
+                    Ok(index) => pairs[index].1 = args[2].clone(),
+                    Err(index) => pairs.insert(index, (args[1].clone(), args[2].clone())),
+                }
+                Value::Dict(Rc::new(pairs))
+            }
+            "get" => {
+                let pairs = as_dict(&args[0]);
+                match find_key(pairs, &args[1]) {
+                    Ok(index) => Value::Opt(Some(Rc::new(pairs[index].1.clone()))),
+                    Err(_) => Value::Opt(None),
+                }
+            }
+            "del" => {
+                let pairs = as_dict(&args[0]);
+                match find_key(pairs, &args[1]) {
+                    Ok(index) => {
+                        let mut pairs = pairs.as_ref().clone();
+                        pairs.remove(index);
+                        Value::Dict(Rc::new(pairs))
+                    }
+                    Err(_) => args[0].clone(),
+                }
+            }
+            "keys" => Value::List(Rc::new(
+                as_dict(&args[0])
+                    .iter()
+                    .map(|(key, _)| key.clone())
+                    .collect(),
+            )),
+            "vals" => Value::List(Rc::new(
+                as_dict(&args[0])
+                    .iter()
+                    .map(|(_, val)| val.clone())
+                    .collect(),
+            )),
+            "size" => Value::I64(as_dict(&args[0]).len() as i64),
             "at" => {
                 let values = as_list(&args[0]);
                 match usize::try_from(as_i64(&args[1])) {
@@ -846,6 +895,16 @@ pub fn show(value: &Value) -> String {
             }
             text
         }
+        Value::Dict(pairs) => {
+            let mut text = lexicon::type_name("dict").expect("dict").to_string();
+            for (key, val) in pairs.iter() {
+                text.push(' ');
+                text.push_str(&show_literal(key));
+                text.push(' ');
+                text.push_str(&show_literal(val));
+            }
+            text
+        }
         Value::Fn(target) => match target {
             FnTarget::User(name) | FnTarget::Ctor(name) => format!("@{name}"),
             FnTarget::Builtin(name) => format!("@{name}"),
@@ -887,6 +946,18 @@ fn as_str(value: &Value) -> &str {
         Value::Str(text) => text,
         _ => panic!("type checker guarantees a str"),
     }
+}
+
+fn as_dict(value: &Value) -> &Rc<Vec<(Value, Value)>> {
+    match value {
+        Value::Dict(pairs) => pairs,
+        _ => panic!("type checker guarantees a dict"),
+    }
+}
+
+/// Binary search for `key` in sorted dict pairs.
+fn find_key(pairs: &[(Value, Value)], key: &Value) -> Result<usize, usize> {
+    pairs.binary_search_by(|(probe, _)| compare_values(probe, key))
 }
 
 fn as_list(value: &Value) -> &Rc<Vec<Value>> {

@@ -100,6 +100,7 @@ TYPE := i64 | f64 | bool | str | unit
       | list TYPE
       | opt TYPE
       | res TYPE TYPE
+      | dict TYPE TYPE             (v0.2, ADR-0032: key i64, bool or str)
       | ident                      (user record type)
 ```
 
@@ -108,7 +109,8 @@ Type syntax is prefix with fixed arity, like expressions: `res list i64 str` = r
 - Static typing, bidirectional checking. Function signatures are always explicit; `let` types are inferred.
 - No implicit conversions, no subtyping, no overloading of user functions.
 - Builtins may be generic (e.g. `len` over any `list T`); user functions are monomorphic in v0.1.
-- `dict K V`, JSON value type, sum types, user generics: v0.2.
+- `dict K V` (v0.2, ADR-0032 Proposed): immutable map, key type `i64`, `bool` or `str` (else T004); see §5.2.
+- JSON value type, sum types, user generics: v0.2.
 
 ## 5. Expressions
 
@@ -178,7 +180,20 @@ Effectful:
 | `read path` | str -> res str str | `fs.read` covering path |
 | `write path s` | str, str -> res unit str | `fs.write` covering path |
 
-`fetch`, `now`, `env`, `json`, `dict`: v0.2.
+`fetch`, `now`, `env`, `json`: v0.2.
+
+### 5.2 Dicts (v0.2, ADR-0032 Proposed)
+
+`dict K V` as an expression is the empty dict of that type. Dicts are immutable; keys are ordered ascending (`i64` numerically, `false` before `true`, `str` by bytes) and every observation follows that order. Dicts are not showable, primitive or comparable.
+
+| Name | Signature |
+|---|---|
+| `put d k v` | dict K V, K, V -> dict K V (add or replace) |
+| `get d k` | dict K V, K -> opt V |
+| `del d k` | dict K V, K -> dict K V (unchanged if absent) |
+| `keys d` | dict K V -> list K (ascending) |
+| `vals d` | dict K V -> list V (key order) |
+| `size d` | dict K V -> i64 |
 
 ## 6. Runtime semantics (Tlön v0.1)
 
@@ -291,4 +306,4 @@ Note on `ex words "a b c" = 3`: `words` has arity 1, so the left expression ends
 
 ## 13. Out of scope for v0.1 (planned)
 
-Modules/imports, `dict`, JSON, sum types, generics, lambdas, general loops, network, time, env, scoped regions, LLVM and WASM backends, content addressing (Uqbar), MCP server, tokenizer measurement. See `TASKS.md` for order.
+Modules/imports, JSON, sum types, generics, lambdas, general loops, network, time, env, scoped regions, LLVM and WASM backends, content addressing (Uqbar), MCP server, tokenizer measurement. See `TASKS.md` for order.

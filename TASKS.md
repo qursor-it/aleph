@@ -42,7 +42,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 
 ## v0.2 language (do not start before M2 is done)
 
-- [ ] T-027 `dict K V` type and builtins (Proposed ADR first)
+- [x] T-027 `dict K V` type and builtins (Proposed ADR first)
 - [ ] T-028 JSON parse/print (Proposed ADR first)
 - [ ] T-029 Sum types + `match` (Proposed ADR first)
 - [ ] T-030 Scoped regions in Tlön — ADR-0007

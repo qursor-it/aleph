@@ -495,3 +495,14 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0031 proposed
 - next: M3 complete; independent DeepSeek review of T-024..T-026 when OpenCode quota returns; v0.2 not started
 - agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed
+
+## 2026-11-16T20:00 T-027 done
+- `dict K V` (ADR-0032): lexicon type `dict`; parser type arity 2 and expression `dict K V` = empty dict (type name as constructor); AST `TypeKind::Dict`, `ExprKind::Dict`; printer; checker `Type::Dict`, key type i64/bool/str else T004 (expected `key`), `Bound::Key`
+- pure builtins put/get/del/keys/vals/size (names reserved); not showable/primitive/comparable
+- interpreter: `Value::Dict` sorted pair vector, binary search; Tlön: `AL_DICT` tag reusing `AlList` storage (k0 v0 k1 v1 ...), `aleph_dict_empty`, `aleph_b_put/get/del/keys/vals/size`; cgen emits `aleph_dict_empty()`
+- SPEC §4/§5.2 and grammar.ebnf updated (marked v0.2, ADR-0032 Proposed); llms.txt: dict in §4, builtin list compacted to `name sig [! cap]` lines to stay within 1950 tokens (7795 chars); digests updated
+- goldens: run_dict_words, run_dict_ops (.out, interpreter and native identical via differential test), dict_f64_key/dict_show/dict_eq (.diag T004)
+- tests: 322 passed (golden/differential files counted per harness test)
+- decisions: ADR-0032 proposed
+- next: T-028 JSON (Proposed ADR first)
+- agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed

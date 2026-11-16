@@ -124,6 +124,14 @@ pub(crate) fn print_type(ty: &ast::Type) -> String {
             print_type(ok),
             print_type(err)
         ),
+        TypeKind::Dict { key, val } => {
+            format!(
+                "{} {} {}",
+                type_name("dict"),
+                print_type(key),
+                print_type(val)
+            )
+        }
         TypeKind::Named { name } => name.clone(),
     }
 }
@@ -175,6 +183,7 @@ pub fn print_expr(expr: &ast::Expr) -> String {
             format!("[{}]", printed.join(" "))
         }
         ExprKind::Empty { ty } => format!("{} {}", keyword("emptylist"), print_type(ty)),
+        ExprKind::Dict { ty } => print_type(ty),
         ExprKind::Field { name, value } => {
             format!("{}{} {}", punctuation("field"), name, print_expr(value))
         }

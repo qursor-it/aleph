@@ -1,0 +1,1 @@
+{"code":"T004","severity":"error","file":"tests/aph/dict_show.aph","line":2,"col":8,"node":"n4","msg":"type constraint not satisfied","expected":"showable","found":"dict i64 i64"}

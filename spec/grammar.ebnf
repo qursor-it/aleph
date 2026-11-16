@@ -24,6 +24,7 @@ type        = "i64" | "f64" | "bool" | "str" | "unit"
             | "list" " " type
             | "opt" " " type
             | "res" " " type " " type
+            | "dict" " " type " " type             (* v0.2, ADR-0032 *)
             | ident ;
 
 expr        = literal
@@ -36,6 +37,7 @@ expr        = literal
             | "[" expr { " " expr } "]"
             | "empty" " " type
             | "none" " " type
+            | "dict" " " type " " type             (* empty dict, ADR-0032 *)
             | ( "some" | "ok" | "err" | "try" | "has" | "isok" ) " " expr
             | "else" " " expr " " expr
             | "." ident " " expr ;

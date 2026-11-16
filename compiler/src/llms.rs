@@ -39,12 +39,12 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x68754f76e079cdd0,
+        hash: 0x9fb062a7ca633a70,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
         contents: GRAMMAR,
-        hash: 0x6582a78875e273cf,
+        hash: 0x6ecc3b1421174d82,
     },
     SourceDigest {
         path: "spec/diagnostics.md",
@@ -134,7 +134,7 @@ pub fn render() -> String {
     );
     let primitives = lexicon::TYPES
         .iter()
-        .filter(|(_, name)| !matches!(*name, "list" | "opt" | "res"))
+        .filter(|(_, name)| !matches!(*name, "list" | "opt" | "res" | "dict"))
         .map(|(_, name)| *name)
         .collect::<Vec<_>>()
         .join(" ");
@@ -142,7 +142,7 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. v0.2: `dict`, JSON, sums, generics."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. v0.2: JSON, sums, generics."
         ),
     );
     section(
@@ -217,31 +217,23 @@ fn keyword_list() -> String {
 /// Markdown table of `builtins::BUILTINS` (name, signature, effect, capability).
 fn builtins_table() -> String {
     let mut out = String::from(
-        "`e`: p pure, E effectful; `cap`: - none or capability name.\n\n\
-         |name|signature|e|cap|\n|---|---|---|---|\n",
+        "One per line: `name signature`; effectful ones end with `!` and their capability, if any.\n",
     );
     for spec in builtins::BUILTINS {
         let capability = match spec.capability {
-            Some(Capability::FsRead) => "fs.read",
-            Some(Capability::FsWrite) => "fs.write",
-            Some(Capability::NetHost) => "net.host",
-            Some(Capability::Env) => "env",
-            Some(Capability::Time) => "time",
-            None => "-",
+            Some(Capability::FsRead) => " fs.read",
+            Some(Capability::FsWrite) => " fs.write",
+            Some(Capability::NetHost) => " net.host",
+            Some(Capability::Env) => " env",
+            Some(Capability::Time) => " time",
+            None => "",
         };
         let effect = match spec.effect {
-            Effect::Pure => "p",
-            Effect::Effectful => "E",
+            Effect::Pure => "",
+            Effect::Effectful => " !",
         };
-        writeln!(
-            out,
-            "|{}|{}|{}|{}|",
-            spec.name,
-            signature(spec),
-            effect,
-            capability
-        )
-        .expect("writing to a String never fails");
+        writeln!(out, "{} {}{effect}{capability}", spec.name, signature(spec))
+            .expect("writing to a String never fails");
     }
     out.pop();
     out
@@ -259,10 +251,11 @@ fn signature(spec: &builtins::BuiltinSpec) -> String {
     } else {
         format!("{params}->{}", ty(spec.ret))
     };
-    if !spec.bounds.is_empty() {
+    if spec.bounds.iter().any(|(_, bound)| *bound != Bound::Key) {
         let bounds = spec
             .bounds
             .iter()
+            .filter(|(_, bound)| *bound != Bound::Key)
             .map(|(var, bound)| bound_text(*var, *bound))
             .collect::<Vec<_>>()
             .join("; ");
@@ -275,6 +268,8 @@ fn bound_text(var: TyVar, bound: Bound) -> String {
     let restriction = match bound {
         Bound::Primitive => "primitive",
         Bound::Showable => "primitive or list of primitive",
+        // Stated once in section 4 instead of on every dict builtin.
+        Bound::Key => "i64/bool/str",
     };
     format!("{var:?} {restriction}")
 }
@@ -289,6 +284,7 @@ fn ty(value: &Ty) -> String {
         Ty::List(inner) => format!("list {}", ty(inner)),
         Ty::Opt(inner) => format!("opt {}", ty(inner)),
         Ty::Res(ok, err) => format!("res {} {}", ty(ok), ty(err)),
+        Ty::Dict(key, val) => format!("dict {} {}", ty(key), ty(val)),
         Ty::Var(TyVar::T) => "T".to_string(),
         Ty::Var(TyVar::A) => "A".to_string(),
         Ty::Var(TyVar::B) => "B".to_string(),
@@ -393,7 +389,7 @@ mod tests {
     fn every_builtin_bound_is_rendered() {
         for spec in builtins::BUILTINS {
             let rendered = signature(spec);
-            for (var, bound) in spec.bounds {
+            for (var, bound) in spec.bounds.iter().filter(|(_, b)| *b != Bound::Key) {
                 let needle = bound_text(*var, *bound);
                 assert!(
                     rendered.contains(&needle),
@@ -406,6 +402,7 @@ mod tests {
             signature(builtins::lookup("sort").unwrap()),
             "list T->list T (T primitive)"
         );
+        assert!(render().contains("`dict K V` (K i64/bool/str"));
         assert_eq!(
             signature(builtins::lookup("show").unwrap()),
             "T->str (T primitive or list of primitive)"

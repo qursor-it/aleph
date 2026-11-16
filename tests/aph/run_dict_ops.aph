@@ -1,0 +1,13 @@
+fn main -> unit
+ let a put put put dict i64 str 3 "c" 1 "a" 2 "b"
+ let b put a 1 "z"
+ do print show keys b
+ do print show vals b
+ do print show vals a
+ do print show size del a 9
+ do print show vals del a 2
+ do print else get b 1 "?"
+ do print else get b 7 "?"
+ let f put put dict bool i64 true 1 false 0
+ do print show keys f
+ print show size dict str str

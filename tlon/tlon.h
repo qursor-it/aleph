@@ -39,7 +39,9 @@ typedef enum {
     AL_OK,
     AL_ERR,
     AL_RECORD,
-    AL_FN
+    AL_FN,
+    /* `dict K V` (ADR-0032): u.list holds k0 v0 k1 v1 ..., keys ascending. */
+    AL_DICT
 } AlTag;
 
 typedef struct AlValue AlValue;
@@ -351,6 +353,13 @@ AlValue aleph_b_push(AlValue xs, AlValue value);
 AlValue aleph_b_slice(AlValue xs, AlValue start, AlValue end);
 AlValue aleph_b_rev(AlValue xs);
 AlValue aleph_b_sort(AlValue xs);
+AlValue aleph_dict_empty(void);
+AlValue aleph_b_put(AlValue dict, AlValue key, AlValue value);
+AlValue aleph_b_get(AlValue dict, AlValue key);
+AlValue aleph_b_del(AlValue dict, AlValue key);
+AlValue aleph_b_keys(AlValue dict);
+AlValue aleph_b_vals(AlValue dict);
+AlValue aleph_b_size(AlValue dict);
 AlValue aleph_b_range(AlValue start, AlValue end);
 AlValue aleph_b_sum(AlValue xs);
 AlValue aleph_b_map(AlValue function, AlValue xs);

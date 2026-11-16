@@ -481,6 +481,7 @@ bool aleph_values_equal(AlValue left, AlValue right) {
                memcmp(left.u.str->data, right.u.str->data, left.u.str->len) ==
                    0;
     case AL_LIST:
+    case AL_DICT:
         if (left.u.list->len != right.u.list->len) {
             return false;
         }
@@ -900,6 +901,13 @@ static void show_into(Buf *buffer, AlValue value) {
             buf_cstr(buffer, value.u.fn->name);
         }
         break;
+    case AL_DICT:
+        buf_cstr(buffer, "dict");
+        for (index = 0; index < value.u.list->len; index += 1) {
+            buf_putc(buffer, ' ');
+            literal_into(buffer, value.u.list->items[index]);
+        }
+        break;
     }
 }
 
@@ -1060,6 +1068,109 @@ AlValue aleph_b_sort(AlValue xs) {
               qsort_value_order);
     }
     return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dict builtins (ADR-0032): sorted pairs, copy on update               */
+/* ------------------------------------------------------------------ */
+
+static AlValue as_dict(AlValue list) {
+    list.tag = AL_DICT;
+    return list;
+}
+
+AlValue aleph_dict_empty(void) {
+    return as_dict(aleph_list_new(0));
+}
+
+/* Index of the pair holding `key`, or of the pair it would precede. */
+static size_t dict_find(const AlList *pairs, AlValue key, bool *found) {
+    size_t low = 0;
+    size_t high = pairs->len / 2;
+    while (low < high) {
+        size_t mid = low + (high - low) / 2;
+        int order = value_order(pairs->items[2 * mid], key);
+        if (order == 0) {
+            *found = true;
+            return mid;
+        }
+        if (order < 0) {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+    *found = false;
+    return low;
+}
+
+AlValue aleph_b_put(AlValue dict, AlValue key, AlValue value) {
+    const AlList *pairs = dict.u.list;
+    bool found;
+    size_t at = dict_find(pairs, key, &found);
+    size_t len = pairs->len + (found ? 0 : 2);
+    AlValue result = aleph_list_new(len);
+    AlValue *items = result.u.list->items;
+    if (pairs->len > 0) {
+        memcpy(items, pairs->items, 2 * at * sizeof(AlValue));
+    }
+    items[2 * at] = key;
+    items[2 * at + 1] = value;
+    {
+        size_t rest = found ? 2 * at + 2 : 2 * at;
+        if (pairs->len > rest) {
+            memcpy(items + 2 * at + 2, pairs->items + rest,
+                   (pairs->len - rest) * sizeof(AlValue));
+        }
+    }
+    return as_dict(result);
+}
+
+AlValue aleph_b_get(AlValue dict, AlValue key) {
+    bool found;
+    size_t at = dict_find(dict.u.list, key, &found);
+    return found ? aleph_some(dict.u.list->items[2 * at + 1]) : aleph_none();
+}
+
+AlValue aleph_b_del(AlValue dict, AlValue key) {
+    const AlList *pairs = dict.u.list;
+    bool found;
+    size_t at = dict_find(pairs, key, &found);
+    AlValue result;
+    if (!found) {
+        return dict;
+    }
+    result = aleph_list_new(pairs->len - 2);
+    if (at > 0) {
+        memcpy(result.u.list->items, pairs->items, 2 * at * sizeof(AlValue));
+    }
+    if (pairs->len > 2 * at + 2) {
+        memcpy(result.u.list->items + 2 * at, pairs->items + 2 * at + 2,
+               (pairs->len - 2 * at - 2) * sizeof(AlValue));
+    }
+    return as_dict(result);
+}
+
+static AlValue dict_column(AlValue dict, size_t column) {
+    size_t count = dict.u.list->len / 2;
+    AlValue result = aleph_list_new(count);
+    size_t index;
+    for (index = 0; index < count; index += 1) {
+        result.u.list->items[index] = dict.u.list->items[2 * index + column];
+    }
+    return result;
+}
+
+AlValue aleph_b_keys(AlValue dict) {
+    return dict_column(dict, 0);
+}
+
+AlValue aleph_b_vals(AlValue dict) {
+    return dict_column(dict, 1);
+}
+
+AlValue aleph_b_size(AlValue dict) {
+    return aleph_i64((int64_t)(dict.u.list->len / 2));
 }
 
 AlValue aleph_b_range(AlValue start, AlValue end) {

@@ -32,6 +32,7 @@ pub enum Type {
     List(Box<Type>),
     Opt(Box<Type>),
     Res(Box<Type>, Box<Type>),
+    Dict(Box<Type>, Box<Type>),
     Record(String),
     Fn(Vec<Type>, Box<Type>),
     Var(u32),
@@ -66,6 +67,13 @@ impl fmt::Display for Type {
                 lexicon::type_name("result").expect("res"),
                 ok,
                 err
+            ),
+            Type::Dict(key, val) => write!(
+                formatter,
+                "{} {} {}",
+                lexicon::type_name("dict").expect("dict"),
+                key,
+                val
             ),
             Type::Record(name) => formatter.write_str(name),
             Type::Fn(params, ret) => {
@@ -213,6 +221,21 @@ impl<'a> TypeChecker<'a> {
                 Box::new(self.lower_type(ok)),
                 Box::new(self.lower_type(err)),
             ),
+            TypeKind::Dict { key, val } => {
+                let key_ty = self.lower_type(key);
+                if !matches!(key_ty, Type::I64 | Type::Bool | Type::Str | Type::Error) {
+                    self.push_diag_expected_found(
+                        key.id,
+                        key.span,
+                        "T004",
+                        "type constraint not satisfied",
+                        "key",
+                        key_ty.to_string(),
+                    );
+                    return Type::Error;
+                }
+                Type::Dict(Box::new(key_ty), Box::new(self.lower_type(val)))
+            }
             TypeKind::Named { name } => {
                 if self.records.contains_key(name) {
                     Type::Record(name.clone())
@@ -244,6 +267,9 @@ impl<'a> TypeChecker<'a> {
             Type::Res(ok, err) => {
                 Type::Res(Box::new(self.resolve(ok)), Box::new(self.resolve(err)))
             }
+            Type::Dict(key, val) => {
+                Type::Dict(Box::new(self.resolve(key)), Box::new(self.resolve(val)))
+            }
             Type::Fn(params, ret) => Type::Fn(
                 params.iter().map(|param| self.resolve(param)).collect(),
                 Box::new(self.resolve(ret)),
@@ -256,7 +282,9 @@ impl<'a> TypeChecker<'a> {
         match self.resolve(ty) {
             Type::Var(id) => id == var,
             Type::List(elem) | Type::Opt(elem) => self.occurs(var, &elem),
-            Type::Res(ok, err) => self.occurs(var, &ok) || self.occurs(var, &err),
+            Type::Res(ok, err) | Type::Dict(ok, err) => {
+                self.occurs(var, &ok) || self.occurs(var, &err)
+            }
             Type::Fn(params, ret) => {
                 params.iter().any(|param| self.occurs(var, param)) || self.occurs(var, &ret)
             }
@@ -306,7 +334,8 @@ impl<'a> TypeChecker<'a> {
             | (Type::Unit, Type::Unit) => true,
             (Type::Record(a), Type::Record(b)) => a == b,
             (Type::List(a), Type::List(b)) | (Type::Opt(a), Type::Opt(b)) => self.unify_inner(a, b),
-            (Type::Res(a_ok, a_err), Type::Res(b_ok, b_err)) => {
+            (Type::Res(a_ok, a_err), Type::Res(b_ok, b_err))
+            | (Type::Dict(a_ok, a_err), Type::Dict(b_ok, b_err)) => {
                 self.unify_inner(a_ok, b_ok) && self.unify_inner(a_err, b_err)
             }
             (Type::Fn(a_params, a_ret), Type::Fn(b_params, b_ret)) => {
@@ -468,6 +497,7 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::List { elems } => self.check_list(elems, expected),
             ExprKind::Empty { ty } => Type::List(Box::new(self.lower_type(ty))),
+            ExprKind::Dict { ty } => self.lower_type(ty),
             ExprKind::Field { name, value } => self.check_field(expr, name, value),
             ExprKind::Some { value } => self.check_some(value, expected),
             ExprKind::None { ty } => Type::Opt(Box::new(self.lower_type(ty))),
@@ -585,6 +615,10 @@ impl<'a> TypeChecker<'a> {
             BuiltinTy::Res(ok, err) => Type::Res(
                 Box::new(self.instantiate(ok, slots)),
                 Box::new(self.instantiate(err, slots)),
+            ),
+            BuiltinTy::Dict(key, val) => Type::Dict(
+                Box::new(self.instantiate(key, slots)),
+                Box::new(self.instantiate(val, slots)),
             ),
             BuiltinTy::Var(var) => slots[var_index(*var)].clone(),
             BuiltinTy::Fn(params, ret) => Type::Fn(
@@ -1212,7 +1246,7 @@ fn is_concrete(ty: &Type) -> bool {
     match ty {
         Type::Var(_) | Type::Error => false,
         Type::List(elem) | Type::Opt(elem) => is_concrete(elem),
-        Type::Res(ok, err) => is_concrete(ok) && is_concrete(err),
+        Type::Res(ok, err) | Type::Dict(ok, err) => is_concrete(ok) && is_concrete(err),
         Type::Fn(params, ret) => params.iter().all(is_concrete) && is_concrete(ret),
         _ => true,
     }
@@ -1237,6 +1271,7 @@ fn is_primitive(ty: &Type) -> bool {
 fn satisfies(ty: &Type, bound: Bound) -> bool {
     match bound {
         Bound::Primitive => is_primitive(ty),
+        Bound::Key => matches!(ty, Type::I64 | Type::Bool | Type::Str),
         Bound::Showable => {
             is_primitive(ty)
                 || match ty {
@@ -1253,6 +1288,7 @@ fn deferred_text(kind: DeferredKind) -> String {
             "primitive".to_string()
         }
         DeferredKind::Builtin(Bound::Showable) => "showable".to_string(),
+        DeferredKind::Builtin(Bound::Key) => "key".to_string(),
         DeferredKind::Numeric => "numeric".to_string(),
         DeferredKind::I64 => "i64".to_string(),
     }
@@ -1277,7 +1313,7 @@ fn contains_error(ty: &Type) -> bool {
     match ty {
         Type::Error => true,
         Type::List(elem) | Type::Opt(elem) => contains_error(elem),
-        Type::Res(ok, err) => contains_error(ok) || contains_error(err),
+        Type::Res(ok, err) | Type::Dict(ok, err) => contains_error(ok) || contains_error(err),
         Type::Fn(params, ret) => params.iter().any(contains_error) || contains_error(ret),
         _ => false,
     }

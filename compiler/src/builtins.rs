@@ -27,6 +27,8 @@ pub enum Ty {
     List(&'static Ty),
     Opt(&'static Ty),
     Res(&'static Ty, &'static Ty),
+    /// `dict K V` (ADR-0032).
+    Dict(&'static Ty, &'static Ty),
     Var(TyVar),
     Fn(&'static [&'static Ty], &'static Ty),
 }
@@ -38,6 +40,8 @@ pub enum Bound {
     Primitive,
     /// A primitive or a list of a primitive.
     Showable,
+    /// A dict key type: `i64`, `bool` or `str` (ADR-0032).
+    Key,
 }
 
 /// Whether a builtin is pure or has observable effects (SPEC §5.1).
@@ -89,6 +93,8 @@ static RES_UNIT_STR: Ty = Ty::Res(&UNIT, &STR);
 static MAP_FN: Ty = Ty::Fn(&[&A], &B);
 static FILTER_FN: Ty = Ty::Fn(&[&A], &BOOL);
 static FOLD_FN: Ty = Ty::Fn(&[&B, &A], &B);
+static DICT_AB: Ty = Ty::Dict(&A, &B);
+static OPT_B: Ty = Ty::Opt(&B);
 
 /// All builtins (SPEC §5.1), sorted by name.
 pub static BUILTINS: &[BuiltinSpec] = &[
@@ -138,6 +144,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "del",
+        params: &[&DICT_AB, &A],
+        ret: &DICT_AB,
+        bounds: &[(TyVar::A, Bound::Key)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "eprint",
         params: &[&STR],
         ret: &UNIT,
@@ -174,6 +189,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "get",
+        params: &[&DICT_AB, &A],
+        ret: &OPT_B,
+        bounds: &[(TyVar::A, Bound::Key)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "int",
         params: &[&STR],
         ret: &RES_I64_STR,
@@ -187,6 +211,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         params: &[&LIST_STR, &STR],
         ret: &STR,
         bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "keys",
+        params: &[&DICT_AB],
+        ret: &LIST_A,
+        bounds: &[(TyVar::A, Bound::Key)],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -237,6 +270,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "put",
+        params: &[&DICT_AB, &A, &B],
+        ret: &DICT_AB,
+        bounds: &[(TyVar::A, Bound::Key)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "range",
         params: &[&I64, &I64],
         ret: &LIST_I64,
@@ -268,6 +310,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         params: &[&T],
         ret: &STR,
         bounds: &[(TyVar::T, Bound::Showable)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "size",
+        params: &[&DICT_AB],
+        ret: &I64,
+        bounds: &[(TyVar::A, Bound::Key)],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -322,6 +373,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         params: &[&STR],
         ret: &STR,
         bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "vals",
+        params: &[&DICT_AB],
+        ret: &LIST_B,
+        bounds: &[(TyVar::A, Bound::Key)],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -391,6 +451,13 @@ mod tests {
             ("eprint", 1),
             ("read", 1),
             ("write", 2),
+            // SPEC §5.2 (ADR-0032)
+            ("put", 3),
+            ("get", 2),
+            ("del", 2),
+            ("keys", 1),
+            ("vals", 1),
+            ("size", 1),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {

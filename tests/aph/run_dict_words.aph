@@ -1,0 +1,12 @@
+fn bump d:dict str i64 w:str -> dict str i64
+ ex bump dict str i64 "x" = put dict str i64 "x" 1
+ put d w + 1 else get d w 0
+fn tally ws:list str -> dict str i64
+ ex tally ["a" "b" "a"] = put put dict str i64 "a" 2 "b" 1
+ fold @bump dict str i64 ws
+fn main -> unit
+ let d tally split "the cat the dog the end" " "
+ do print show keys d
+ do print show vals d
+ do print show size del d "the"
+ print show has get d "zzz"

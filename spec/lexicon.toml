@@ -43,6 +43,7 @@ unit    = "unit"
 list    = "list"
 option  = "opt"
 result  = "res"
+dict    = "dict"
 
 [operators]
 add = "+"
@@ -63,4 +64,5 @@ field = "."
 [builtins]
 names = ["len","at","push","slice","rev","sort","range","sum","map","filter","fold",
          "cat","count","split","join","trim","upper","lower","contains","show","int","float",
-         "args","print","eprint","read","write"]
+         "args","print","eprint","read","write",
+         "put","get","del","keys","vals","size"]
