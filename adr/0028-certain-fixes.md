@@ -29,7 +29,9 @@ and `with` is canonical source text.
 8. `T001` expected `str`, found a showable non-`str` type (a primitive or a
    list of primitives) -> `replace n` with `show E`.
 9. `C001` for `read`/`write` whose path argument is a string literal that is
-   non-empty, relative (no leading `/`, SPEC §8) and has no `..` segment -> `{"op":"insert","node":"n0","with":
+   non-empty, relative (no leading `/`, SPEC §8), has no `..` segment and
+   does not normalize to the whole working directory (`.`, `./`: granting
+   all of it is never a certain fix) -> `{"op":"insert","node":"n0","with":
    "use fs.read \"<literal>\""}` (or `fs.write`). The literal is escaped with
    `ast::escape_str`.
 10. `C002` with the same literal conditions -> `insert` at `n0` the `use`

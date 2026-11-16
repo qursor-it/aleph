@@ -216,9 +216,10 @@ fn literal_use_line(spec: &builtins::BuiltinSpec, args: &[Expr]) -> Option<Strin
     let ExprKind::Str { value } = &arg.kind else {
         return None;
     };
-    // SPEC §8: prefixes are relative to the working directory.
-    if value.is_empty() || value.starts_with('/') || value.split('/').any(|segment| segment == "..")
-    {
+    // SPEC §8: prefixes are relative to the working directory. A path that
+    // normalizes to nothing (`.`, `./`) would grant the whole directory.
+    let normalized = Normalized::parse(value)?;
+    if normalized.absolute || normalized.segments.is_empty() {
         return None;
     }
     Some(format!(
@@ -373,6 +374,10 @@ mod tests {
             "fn main -> res unit str\n let text read \"data/../x\"\n ok nil\n",
             "fn main -> res unit str\n let text read \"\"\n ok nil\n",
             "fn main -> res unit str\n let text read \"/etc/x\"\n ok nil\n",
+            // These normalize to the whole working directory.
+            "fn main -> res unit str\n let text read \".\"\n ok nil\n",
+            "fn main -> res unit str\n let text read \"./\"\n ok nil\n",
+            "fn main -> res unit str\n let text read \"./.\"\n ok nil\n",
             "fn main -> res unit str\n let p \"data/x\"\n let text read p\n ok nil\n",
         ] {
             let diagnostics = caps(source);

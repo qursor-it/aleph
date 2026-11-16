@@ -17,8 +17,9 @@ network download and user approval (AGENTS.md dependency rule).
     for the llms.txt budget (ADR-0026);
   - `bytes`: UTF-8 bytes; `chars`: Unicode scalar values;
   - `words`: whitespace-separated words;
-  - `aleph`: tokens from the Aleph lexer (SPEC §2); a lexical error is
-    reported as the lexer's diagnostics (exit 1).
+  - `aleph`: tokens from the Aleph lexer (SPEC §2). On a lexical error,
+    asked for alone, the lexer's diagnostics are reported (exit 1); with
+    `all` its count is `-` (text) / `null` (JSON) and the others still count.
 - Text output: one `NAME COUNT` line per counter. JSON output: one object
   `{"file", "tokens": [{"tokenizer","method","count"}]}`.
 - An unknown `--tokenizer` is a usage error (stderr, exit 2) listing the

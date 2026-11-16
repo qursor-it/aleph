@@ -1,0 +1,7 @@
+fn main -> unit
+ let s put put put put put dict str i64 "b" 1 "é" 2 "B" 3 "" 4 "ab" 5
+ do print show vals s
+ let n put put put dict i64 bool 9223372036854775807 true -9223372036854775807 false -1 true
+ do print show keys n
+ do print show size del dict i64 i64 3
+ print show vals del n -1

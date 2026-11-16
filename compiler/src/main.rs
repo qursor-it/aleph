@@ -560,14 +560,15 @@ fn tokens_command(cli: &cli::Cli) -> ExitCode {
         Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
     };
 
-    let mut counts = Vec::new();
-    for tokenizer in selected {
-        let Some(count) = (tokenizer.count)(&source) else {
-            // Only the lexer-based counter can fail: report why.
-            let (_, diagnostics) = alephc::lexer::lex(&cli.file, &source);
-            return emit_diagnostics(&diagnostics);
-        };
-        counts.push((tokenizer, count));
+    let counts: Vec<_> = selected
+        .iter()
+        .map(|tokenizer| (tokenizer, (tokenizer.count)(&source)))
+        .collect();
+    // Only the lexer-based counter can fail. Asked for alone, report why;
+    // among several, its count is null and the others still count.
+    if let [(_, None)] = counts.as_slice() {
+        let (_, diagnostics) = alephc::lexer::lex(&cli.file, &source);
+        return emit_diagnostics(&diagnostics);
     }
 
     let text = if cli.json {
@@ -588,7 +589,10 @@ fn tokens_command(cli: &cli::Cli) -> ExitCode {
     } else {
         counts
             .iter()
-            .map(|(tokenizer, count)| format!("{} {count}\n", tokenizer.name))
+            .map(|(tokenizer, count)| match count {
+                Some(count) => format!("{} {count}\n", tokenizer.name),
+                None => format!("{} -\n", tokenizer.name),
+            })
             .collect()
     };
     let stdout = std::io::stdout();

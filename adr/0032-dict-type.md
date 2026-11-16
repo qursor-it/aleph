@@ -42,8 +42,12 @@ Options for the empty-dict expression (score 1-10):
 
 ## Consequences
 - Agents get a map without new syntax beyond one type name.
-- Building a dict of n entries with `put` is O(n²); acceptable for v0.2,
-  revisit with scoped regions (T-030) or a persistent tree if benchmarks
-  need it.
+- Building a dict of n entries with `put` is O(n²) time, and in the native
+  backend also O(n²) memory: the arena never frees, so every `put` leaves a
+  full copy behind (4000 keys ≈ 256 MB; same as `push` on lists). Acceptable
+  for v0.2; revisit with scoped regions (T-030) or a persistent tree.
+- A dict in a failed example's `expected`/`found` (E002) is shown as
+  `dict k1 v1 k2 v2 ...` in key order. That text is for display only: it is
+  not Aleph syntax and is ambiguous for nested dicts.
 - `put`, `get`, `del`, `keys`, `vals`, `size` and `dict` become reserved
   names (T005).

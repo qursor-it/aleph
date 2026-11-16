@@ -936,4 +936,16 @@ fn tokens_rejects_unknown_tokenizers_and_lex_errors() {
     let out = run(&["tokens", file.as_str(), "--tokenizer", "aleph"]);
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stdout).contains("\"code\":\"L"));
+
+    // Among several counters the lexer's failure only blanks its own count.
+    let out = run(&["tokens", file.as_str(), "--tokenizer", "all"]);
+    assert_eq!(out.status.code(), Some(0));
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains("bytes 25\n") && text.ends_with("aleph -\n"),
+        "{text}"
+    );
+    let out = run(&["tokens", file.as_str(), "--tokenizer", "all", "--json"]);
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["tokens"][4]["count"], serde_json::Value::Null);
 }

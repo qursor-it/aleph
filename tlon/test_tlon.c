@@ -327,6 +327,52 @@ static void test_builtins(void) {
 /* Higher-order builtins and function values                           */
 /* ------------------------------------------------------------------ */
 
+static void test_dict(void) {
+    AlValue d = aleph_dict_empty();
+    check_i64(aleph_b_size(d), 0, "dict empty size");
+    check_i64(aleph_b_size(aleph_b_del(d, i64v(1))), 0, "dict del on empty");
+    check(aleph_b_get(d, i64v(1)).tag == AL_NONE, "dict get on empty");
+
+    /* Insert out of order: the middle, then the front, then the end. */
+    d = aleph_b_put(d, i64v(5), aleph_str("five"));
+    d = aleph_b_put(d, i64v(-3), aleph_str("minus"));
+    d = aleph_b_put(d, i64v(INT64_MAX), aleph_str("max"));
+    d = aleph_b_put(d, i64v(0), aleph_str("zero"));
+    check_show(aleph_b_keys(d), "[-3 0 5 9223372036854775807]", "dict keys");
+    check_show(aleph_b_vals(d), "[\"minus\" \"zero\" \"five\" \"max\"]",
+               "dict vals");
+
+    /* Replace keeps the size; the old dict is unchanged. */
+    AlValue replaced = aleph_b_put(d, i64v(5), aleph_str("FIVE"));
+    check_i64(aleph_b_size(replaced), 4, "dict replace size");
+    check_show(aleph_b_vals(replaced),
+               "[\"minus\" \"zero\" \"FIVE\" \"max\"]", "dict replace");
+    check_show(aleph_b_vals(d), "[\"minus\" \"zero\" \"five\" \"max\"]",
+               "dict immutable");
+
+    /* Delete at the front, the middle, the end, and an absent key. */
+    check_show(aleph_b_keys(aleph_b_del(d, i64v(-3))),
+               "[0 5 9223372036854775807]", "dict del front");
+    check_show(aleph_b_keys(aleph_b_del(d, i64v(5))),
+               "[-3 0 9223372036854775807]", "dict del middle");
+    check_show(aleph_b_keys(aleph_b_del(d, i64v(INT64_MAX))), "[-3 0 5]",
+               "dict del end");
+    check_i64(aleph_b_size(aleph_b_del(d, i64v(7))), 4, "dict del absent");
+
+    AlValue found = aleph_b_get(d, i64v(0));
+    check(found.tag == AL_SOME, "dict get present");
+    check(aleph_b_get(d, i64v(1)).tag == AL_NONE, "dict get absent");
+
+    /* str keys order by bytes: uppercase before lowercase, ASCII before UTF-8. */
+    AlValue s = aleph_dict_empty();
+    s = aleph_b_put(s, aleph_str("b"), i64v(1));
+    s = aleph_b_put(s, aleph_str("\xc3\xa9"), i64v(2));
+    s = aleph_b_put(s, aleph_str("B"), i64v(3));
+    s = aleph_b_put(s, aleph_str(""), i64v(4));
+    s = aleph_b_put(s, aleph_str("ab"), i64v(5));
+    check_show(aleph_b_vals(s), "[4 3 5 1 2]", "dict str byte order");
+}
+
 static void test_higher_order(void) {
     AlValue xs = list3(i64v(1), i64v(2), i64v(3));
     AlValue static_inc = aleph_fn_static(&hof_inc_fn);
@@ -976,6 +1022,7 @@ int main(int argc, char **argv) {
 
     test_show();
     test_builtins();
+    test_dict();
     test_higher_order();
     test_filesystem();
     test_effects();
