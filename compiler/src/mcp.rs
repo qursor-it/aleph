@@ -13,6 +13,7 @@ use std::os::unix::fs::DirBuilderExt;
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 use std::os::unix::process::CommandExt;
+use std::os::unix::process::ExitStatusExt;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -236,16 +237,17 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
         .and_then(Value::as_str)
         .ok_or_else(|| invalid_params("missing source"))?;
     let file = file_label(args.get("file"))?;
-    let timeout = args
-        .get("timeout_ms")
-        .and_then(Value::as_u64)
-        .unwrap_or(DEFAULT_TIMEOUT_MS)
-        .clamp(1, MAX_TIMEOUT_MS);
+    let timeout = match args.get("timeout_ms") {
+        None => DEFAULT_TIMEOUT_MS,
+        Some(value) => value
+            .as_u64()
+            .ok_or_else(|| invalid_params("timeout_ms must be a non-negative integer"))?,
+    }
+    .clamp(1, MAX_TIMEOUT_MS);
 
     if name == "run" && has_absolute_prefix(source) {
-        return Ok(tool_result(
-            "run rejects absolute capability prefixes in the sandbox".to_string(),
-            true,
+        return Err(invalid_params(
+            "run rejects absolute capability prefixes in the sandbox",
         ));
     }
 
@@ -262,6 +264,7 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
     let failed = outcome.timed_out || outcome.exit_code != Some(0);
     let text = json!({
         "exit_code": outcome.exit_code,
+        "signal": outcome.signal,
         "timed_out": outcome.timed_out,
         "truncated": outcome.truncated,
         "stdout": outcome.stdout,
@@ -296,6 +299,7 @@ fn file_label(value: Option<&Value>) -> Result<String, RpcError> {
     let valid = label.len() <= 64
         && label.ends_with(".aph")
         && !label.starts_with('.')
+        && !label.starts_with('-')
         && label
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-' || b == b'.');
@@ -354,6 +358,8 @@ fn read_resource(params: &Value) -> Result<Value, RpcError> {
 
 struct Outcome {
     exit_code: Option<i32>,
+    /// The signal that killed the child (e.g. SIGXFSZ past the file limit).
+    signal: Option<i32>,
     timed_out: bool,
     truncated: bool,
     stdout: String,
@@ -407,7 +413,13 @@ fn run_sandboxed(
 ) -> io::Result<Outcome> {
     let dir = TempDir::new()?;
     fs::write(dir.0.join(file), source)?;
-    let mut command = Command::new(std::env::current_exe()?);
+    // `/proc/self/exe` is this very binary even after cargo replaced the file
+    // on disk; `current_exe()` would then name a deleted path.
+    #[cfg(target_os = "linux")]
+    let exe = PathBuf::from("/proc/self/exe");
+    #[cfg(not(target_os = "linux"))]
+    let exe = std::env::current_exe()?;
+    let mut command = Command::new(exe);
     command
         .arg(tool)
         .arg(file)
@@ -440,7 +452,12 @@ fn run_sandboxed(
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
     let mut timed_out = false;
     let status = loop {
-        if let Some(status) = child.try_wait()? {
+        let polled = child.try_wait();
+        if polled.is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        if let Some(status) = polled? {
             break Some(status);
         }
         if Instant::now() >= deadline {
@@ -461,6 +478,7 @@ fn run_sandboxed(
     let (err, err_cut) = join(stderr);
     Ok(Outcome {
         exit_code: status.and_then(|status| status.code()),
+        signal: status.and_then(|status| status.signal()),
         timed_out,
         truncated: out_cut || err_cut,
         stdout: String::from_utf8_lossy(&out).into_owned(),
@@ -602,6 +620,9 @@ mod tests {
         let response = call(json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
             "params":{"name":"run","arguments":{"source":"","args":many}}}));
         assert_eq!(response["error"]["code"], -32602);
+        let response = call(json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
+            "params":{"name":"check","arguments":{"source":"","timeout_ms":"10"}}}));
+        assert_eq!(response["error"]["code"], -32602);
         // A response from the client is not answered.
         assert!(handle_line(r#"{"jsonrpc":"2.0","id":6,"result":{}}"#).is_none());
         let response = call(json!({"jsonrpc":"2.0","id":2,"method":"nope"}));
@@ -648,13 +669,18 @@ mod tests {
     fn file_labels_are_plain_names() {
         assert_eq!(file_label(None).unwrap(), "main.aph");
         assert_eq!(file_label(Some(&json!("a-b_1.aph"))).unwrap(), "a-b_1.aph");
-        for bad in ["../x.aph", "/x.aph", ".x.aph", "x.txt", "a/b.aph", ""] {
+        for bad in [
+            "../x.aph", "/x.aph", ".x.aph", "x.txt", "a/b.aph", "", "-w.aph",
+        ] {
             assert!(file_label(Some(&json!(bad))).is_err(), "{bad}");
         }
     }
 
     #[test]
     fn absolute_prefixes_are_detected() {
+        assert!(has_absolute_prefix(
+            "use fs.read \"//etc\"\nfn main -> unit\n nil\n"
+        ));
         assert!(has_absolute_prefix(
             "use fs.read \"/etc\"\nfn main -> unit\n nil\n"
         ));

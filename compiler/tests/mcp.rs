@@ -116,8 +116,8 @@ fn run_is_sandboxed() {
     ]);
 
     assert_eq!(outcome(&replies[0])["stdout"], "hi\n");
-    assert_eq!(replies[1]["result"]["isError"], true);
-    assert!(replies[1]["result"]["content"][0]["text"]
+    assert_eq!(replies[1]["error"]["code"], -32602);
+    assert!(replies[1]["error"]["message"]
         .as_str()
         .unwrap()
         .contains("absolute"));
@@ -141,6 +141,8 @@ fn run_output_is_capped_and_memory_is_limited() {
 fn main -> unit
  print grow \"ab\" 20
 ";
+    // A 128 MiB file: beyond the 64 MiB file-size limit.
+    let big_file = "use fs.write \"big.txt\"\nfn grow s:str n:i64 -> str\n if == n 0 s grow cat s s - n 1\nfn main -> res unit str\n let r try write \"big.txt\" grow \"ab\" 26\n ok nil\n";
     // A 2 GiB string: beyond the 1 GiB address-space limit.
     let greedy = "fn grow s:str n:i64 -> str
  if == n 0 s grow cat s s - n 1
@@ -149,13 +151,17 @@ fn main -> unit
 ";
     let replies = session(&[
         tool_call(1, "run", json!({"source": loud, "timeout_ms": 30000})),
-        tool_call(2, "run", json!({"source": greedy, "timeout_ms": 30000})),
+        tool_call(2, "run", json!({"source": big_file, "timeout_ms": 30000})),
+        tool_call(3, "run", json!({"source": greedy, "timeout_ms": 30000})),
     ]);
+    // Past the 64 MiB file-size limit the child dies of SIGXFSZ (25).
+    let killed = outcome(&replies[1]);
+    assert_eq!(killed["signal"], 25, "{killed}");
     let capped = outcome(&replies[0]);
     assert_eq!(capped["truncated"], true);
     assert_eq!(capped["stdout"].as_str().unwrap().len(), 1 << 20);
-    let limited = outcome(&replies[1]);
+    let limited = outcome(&replies[2]);
     assert_eq!(limited["timed_out"], false);
     assert_ne!(limited["exit_code"], 0, "{limited}");
-    assert_eq!(replies[1]["result"]["isError"], true);
+    assert_eq!(replies[2]["result"]["isError"], true);
 }
