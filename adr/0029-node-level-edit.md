@@ -41,11 +41,13 @@ spec does not define the JSON shape, the allowed node kinds or the errors.
   - `X007` invalid edits json (malformed JSON, unknown op/position/field,
     bad node id spelling such as `x1` or `n013`, missing or superfluous
     `text`/`position`);
-  - `X008` unknown node id;
+  - `X008` unknown node id (also a well-spelled id beyond u32);
   - `X009` edit not allowed for node kind (`found` is `<op> <kind>`, kind
     one of `file use type fn ex stmt expr other`; `stmt` = a `let`/`do` line);
   - `X010` edit does not parse: a one-line fragment containing a newline,
-    any text containing U+0001 (reserved for expression markers), an
+    any text containing U+0001 (reserved for expression markers), blank
+    text anywhere but a `replace` of `n0` (these three carry `node` and a
+    short `found` such as `blank text`), an
     expression fragment that is not exactly one expression in place
     (unbalanced brackets, or `[fragment]` is not a one-element list, e.g.
     `7 8` inside a list), or the edited program does not parse. `found`

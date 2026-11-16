@@ -243,8 +243,14 @@ fn resolve(
                 && digits.bytes().all(|b| b.is_ascii_digit())
                 && (digits == &"0" || !digits.starts_with('0'))
         })
-        .and_then(|digits| digits.parse::<u32>().ok())
         .ok_or_else(|| Box::new(invalid(file_name, format!("node {}", raw.node))))?;
+    // Well spelled but beyond any id this file can have.
+    let id: u32 = id.parse().map_err(|_| {
+        Box::new(
+            Diagnostic::error("X008", file_name, 0, 0, "unknown node id")
+                .with_node(raw.node.clone()),
+        )
+    })?;
     let kind = nodes
         .get(&id)
         .ok_or_else(|| node_error(file_name, "X008", "unknown node id", id))?
@@ -263,7 +269,14 @@ fn resolve(
             if raw.position.is_some() {
                 return Err(Box::new(invalid(file_name, "position on replace")));
             }
-            Op::Replace(required_text(file_name, raw.text, kind.single_line(), id)?)
+            let blank_ok = kind == Kind::File;
+            Op::Replace(required_text(
+                file_name,
+                raw.text,
+                kind.single_line(),
+                blank_ok,
+                id,
+            )?)
         }
         "delete" => {
             if !matches!(
@@ -291,7 +304,10 @@ fn resolve(
             };
             // Only an item inserted at `n0` may span lines; elsewhere it is a body line.
             let one_line = kind != Kind::File;
-            Op::Insert(position, required_text(file_name, raw.text, one_line, id)?)
+            Op::Insert(
+                position,
+                required_text(file_name, raw.text, one_line, false, id)?,
+            )
         }
         other => return Err(Box::new(invalid(file_name, format!("op {other}")))),
     };
@@ -300,17 +316,33 @@ fn resolve(
 
 /// The edit's text; body-line and expression fragments must be one line.
 /// The marker character never appears in valid source, so it is rejected.
+/// Blank text (which would silently delete or do nothing) is allowed only
+/// when replacing the whole file.
 fn required_text(
     file_name: &str,
     text: Option<String>,
     one_line: bool,
+    blank_ok: bool,
     id: u32,
 ) -> Result<String, Box<Diagnostic>> {
     let text = text.ok_or_else(|| Box::new(invalid(file_name, "missing text")))?;
-    if (one_line && text.contains('\n')) || text.contains(MARK) {
-        return Err(node_error(file_name, "X010", "edit does not parse", id));
+    let problem = if one_line && text.contains('\n') {
+        Some("newline in one-line text")
+    } else if text.contains(MARK) {
+        Some("U+0001 in text")
+    } else if !blank_ok && text.trim().is_empty() {
+        Some("blank text")
+    } else {
+        None
+    };
+    match problem {
+        Some(found) => {
+            let mut diagnostic = node_error(file_name, "X010", "edit does not parse", id);
+            diagnostic.found = Some(found.to_string());
+            Err(diagnostic)
+        }
+        None => Ok(text),
     }
-    Ok(text)
 }
 
 /// X011 when an edit touches a node that another edit replaces or deletes.
@@ -652,6 +684,17 @@ mod tests {
             code(r#"[{"op":"replace","node":"n013","text":"1"}]"#),
             "X007"
         );
+        assert_eq!(
+            code(r#"[{"op":"replace","node":"n4294967296","text":"1"}]"#),
+            "X008"
+        );
+        // Blank text would silently delete or do nothing.
+        assert_eq!(code(r#"[{"op":"replace","node":"n5","text":""}]"#), "X010");
+        assert_eq!(
+            code(r#"[{"op":"replace","node":"n1","text":"   "}]"#),
+            "X010"
+        );
+        assert_eq!(code(r#"[{"op":"insert","node":"n1","text":""}]"#), "X010");
         assert_eq!(code(r#"[{"op":"replace","node":"n10"}]"#), "X007");
         assert_eq!(code(r#"[{"op":"delete","node":"n9","extra":1}]"#), "X007");
         assert_eq!(
