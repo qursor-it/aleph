@@ -8,7 +8,10 @@
 use std::fs;
 use std::io::{self, BufRead, Read, Write};
 use std::os::unix::fs::DirBuilderExt;
-#[cfg(target_os = "linux")]
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -76,10 +79,11 @@ pub fn handle_line(line: &str) -> Option<Value> {
     }
     let method = object.get("method").and_then(Value::as_str);
     let (Some(id), Some(method)) = (id.clone(), method) else {
-        // Notifications (no id) get no answer; an id without a method is
-        // not a request this server understands.
+        // Notifications (no id) and responses (`result`/`error`) get no
+        // answer; any other id without a method is an invalid request.
+        let response = object.contains_key("result") || object.contains_key("error");
         return match (id, method) {
-            (Some(id), None) => Some(error_response(id, -32600, "invalid request")),
+            (Some(id), None) if !response => Some(error_response(id, -32600, "invalid request")),
             _ => None,
         };
     };
@@ -245,10 +249,13 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
         ));
     }
 
-    if extra.iter().any(|arg| arg.len() > MAX_ARG_BYTES) {
+    if extra.iter().map(String::len).sum::<usize>() > MAX_ARG_BYTES {
         return Err(invalid_params(format!(
-            "argument longer than {MAX_ARG_BYTES} bytes"
+            "arguments longer than {MAX_ARG_BYTES} bytes"
         )));
+    }
+    if extra.iter().any(|arg| arg.contains('\0')) {
+        return Err(invalid_params("argument contains a NUL byte"));
     }
     let outcome = run_sandboxed(name, &file, source, &extra, timeout)
         .map_err(|err| (-32603, format!("internal error: {err}")))?;
@@ -381,7 +388,10 @@ impl Drop for TempDir {
 /// Address-space limit for tool subprocesses (the interpreter reserves a
 /// 256 MiB stack).
 const MEMORY_LIMIT: u64 = 1 << 30;
-/// Longest argument Linux accepts (`MAX_ARG_STRLEN` is 128 KiB).
+/// Largest file a tool subprocess may write (`fs.write` in its temp dir).
+const FILE_LIMIT: u64 = 64 << 20;
+/// Cap on all tool arguments together, below Linux's 128 KiB per-argument
+/// limit and far below the total argument limit.
 const MAX_ARG_BYTES: usize = 100 * 1024;
 
 /// Run `aleph COMMAND FILE EXTRA..` on `source` in a fresh temp directory.
@@ -409,7 +419,10 @@ fn run_sandboxed(
         .stderr(Stdio::piped());
     // SAFETY: the closure runs in the forked child before exec and only makes
     // two async-signal-safe system calls.
-    #[cfg(target_os = "linux")]
+    #[cfg(all(
+        target_os = "linux",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
     unsafe {
         command.pre_exec(limit_child);
     }
@@ -455,33 +468,48 @@ fn run_sandboxed(
     })
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 #[repr(C)]
 struct RLimit {
     current: u64,
     max: u64,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 extern "C" {
-    fn prctl(option: i32, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> i32;
+    fn prctl(option: i32, ...) -> i32;
     fn setrlimit(resource: i32, limit: *const RLimit) -> i32;
 }
 
-/// In the child: die with the server (no orphan outlives a killed server)
-/// and cap memory so one call cannot exhaust the machine.
-#[cfg(target_os = "linux")]
+/// In the child: die with the server (no orphan outlives a killed server),
+/// cap memory and file size so one call cannot exhaust the machine. The
+/// constants and `RLimit` layout hold for 64-bit Linux on x86_64/aarch64.
+// shortcut: a server killed between fork and prctl leaves an orphan without
+// timeout; check getppid() after prctl if that window ever matters.
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 fn limit_child() -> io::Result<()> {
     const PR_SET_PDEATHSIG: i32 = 1;
     const SIGKILL: u64 = 9;
+    const RLIMIT_FSIZE: i32 = 1;
     const RLIMIT_AS: i32 = 9;
-    let limit = RLimit {
-        current: MEMORY_LIMIT,
-        max: MEMORY_LIMIT,
+    let limit = |bytes| RLimit {
+        current: bytes,
+        max: bytes,
     };
     // SAFETY: plain system calls with valid arguments.
     let failed = unsafe {
-        prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) != 0 || setrlimit(RLIMIT_AS, &limit) != 0
+        prctl(PR_SET_PDEATHSIG, SIGKILL) != 0
+            || setrlimit(RLIMIT_AS, &limit(MEMORY_LIMIT)) != 0
+            || setrlimit(RLIMIT_FSIZE, &limit(FILE_LIMIT)) != 0
     };
     if failed {
         return Err(io::Error::last_os_error());
@@ -567,6 +595,15 @@ mod tests {
         let response = call(json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
             "params":{"name":"edit","arguments":{"source":"","edits":"x".repeat(MAX_ARG_BYTES + 1)}}}));
         assert_eq!(response["error"]["code"], -32602);
+        let response = call(json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
+            "params":{"name":"run","arguments":{"source":"","args":["a\u{0}b"]}}}));
+        assert_eq!(response["error"]["code"], -32602);
+        let many: Vec<String> = (0..40).map(|_| "x".repeat(10_000)).collect();
+        let response = call(json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
+            "params":{"name":"run","arguments":{"source":"","args":many}}}));
+        assert_eq!(response["error"]["code"], -32602);
+        // A response from the client is not answered.
+        assert!(handle_line(r#"{"jsonrpc":"2.0","id":6,"result":{}}"#).is_none());
         let response = call(json!({"jsonrpc":"2.0","id":2,"method":"nope"}));
         assert_eq!(response["error"]["code"], -32601);
         let response =

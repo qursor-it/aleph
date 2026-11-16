@@ -128,6 +128,11 @@ fn run_is_sandboxed() {
     assert_eq!(replies[3]["result"]["isError"], true);
 }
 
+// The memory limit exists only on 64-bit Linux (ADR-0030).
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 #[test]
 fn run_output_is_capped_and_memory_is_limited() {
     // 2^21 bytes of output, twice the 1 MiB cap.
