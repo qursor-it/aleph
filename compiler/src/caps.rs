@@ -89,6 +89,16 @@ pub fn check_caps(file: &str, ast: &ast::File) -> Vec<Diagnostic> {
     }
 
     diagnostics.sort_by_key(|diagnostic| (diagnostic.line, diagnostic.col));
+    // The same `use` line is offered once, so applying every fix never
+    // duplicates a grant.
+    let mut offered = BTreeSet::new();
+    for diagnostic in &mut diagnostics {
+        if let Some(fix) = &diagnostic.fix {
+            if !offered.insert(fix.with.clone()) {
+                diagnostic.fix = None;
+            }
+        }
+    }
     diagnostics
 }
 
@@ -366,6 +376,16 @@ mod tests {
             diagnostics[0].fix.as_ref().map(|fix| fix.with.as_str()),
             Some("use fs.write \"out/x.txt\"")
         );
+    }
+
+    #[test]
+    fn the_same_use_line_is_offered_once() {
+        let diagnostics = caps(
+            "fn main -> res unit str\n let a read \"data/x\"\n let b read \"data/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C001", "C001"]);
+        assert!(diagnostics[0].fix.is_some());
+        assert!(diagnostics[1].fix.is_none());
     }
 
     #[test]

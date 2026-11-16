@@ -36,6 +36,8 @@ and `with` is canonical source text.
    `ast::escape_str`.
 10. `C002` with the same literal conditions -> `insert` at `n0` the `use`
     line for the literal path itself, e.g. `use fs.read "other/x"`.
+    When several C001/C002 diagnostics in a file would insert the same `use`
+    line, only the first (in line/col order) carries the fix.
 
 ### Certainty conditions
 - The expected and found types must be fully resolved: no `Var` and no
