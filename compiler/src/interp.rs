@@ -944,7 +944,12 @@ fn compare_ordering(op: BinOp, ordering: Option<Ordering>) -> bool {
 fn compare_values(left: &Value, right: &Value) -> Ordering {
     match (left, right) {
         (Value::I64(a), Value::I64(b)) => a.cmp(b),
-        (Value::F64(a), Value::F64(b)) => a.total_cmp(b),
+        // Every NaN sorts after +inf whatever its sign bit: the sign of
+        // `0.0 / 0.0` differs between x86-64 and arm64 (ADR-0024).
+        (Value::F64(a), Value::F64(b)) => match (a.is_nan(), b.is_nan()) {
+            (false, false) => a.total_cmp(b),
+            (left, right) => left.cmp(&right),
+        },
         (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
         (Value::Str(a), Value::Str(b)) => a.as_bytes().cmp(b.as_bytes()),
         _ => Ordering::Equal,

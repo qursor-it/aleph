@@ -1,0 +1,7 @@
+fn down n:i64 -> i64
+ ex down 0 = 0
+ ex down 3 = 3
+ if == n 0 0 + 1 down - n 1
+fn main -> unit
+ do print show down 4998
+ print show down 4999

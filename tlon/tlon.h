@@ -160,6 +160,149 @@ void aleph_trap(const char *code, const char *msg) AL_NORETURN;
 void aleph_trap_at(const char *code, const char *msg, const AlLoc *loc)
     AL_NORETURN;
 
+/*
+ * Fast path (ADR-0027).
+ *
+ * Generated code emits every function twice: an instrumented "slow" body that
+ * mirrors interp.rs node by node (aleph_eval_enter/leave around every
+ * expression) and a "fast" body with unboxed i64/f64/bool values and no
+ * per-node accounting.  The fast body is taken only when the function's
+ * static maximum evaluation depth cannot reach AL_MAX_EVAL_DEPTH from the
+ * current depth, so it can never trap R004 on evaluation; user calls and
+ * higher-order builtins still advance the counters by the exact number of
+ * frames the interpreter would have open, so R004 traps stay byte-identical.
+ */
+#define AL_STACK_GUARD (1024u * 1024u)
+#if defined(__GNUC__)
+#define AL_COLD __attribute__((noinline, cold))
+#define AL_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define AL_COLD
+#define AL_UNLIKELY(x) (x)
+#endif
+
+extern size_t aleph_g_eval_depth;
+extern size_t aleph_g_call_depth;
+extern uintptr_t aleph_g_stack_base;
+extern bool aleph_g_stack_base_set;
+extern const AlLoc *aleph_g_locs[AL_MAX_EVAL_DEPTH + 1];
+extern size_t aleph_g_loc_depth;
+
+/* True when a fast body whose deepest node sits `max_depth` frames below the
+ * function root cannot reach the evaluation limit. */
+static inline bool aleph_fast_ok(size_t max_depth) {
+    return aleph_g_eval_depth + max_depth < AL_MAX_EVAL_DEPTH;
+}
+
+/* A fast frame owns one slot on the location stack; it is set right before
+ * each operation that can trap or that reads the current location. */
+static inline void aleph_loc_push(void) {
+    aleph_g_locs[aleph_g_loc_depth++] = NULL;
+}
+static inline void aleph_loc_pop(void) { aleph_g_loc_depth -= 1; }
+static inline void aleph_here(const AlLoc *loc) {
+    aleph_g_locs[aleph_g_loc_depth - 1] = loc;
+}
+
+/* `frames` is the number of evaluation frames the interpreter has open below
+ * the caller's root when the callee's body starts (call node nesting + 2). */
+static inline void aleph_fast_call_enter(const AlLoc *loc, size_t frames) {
+    if (aleph_g_stack_base_set) {
+        uintptr_t here = (uintptr_t)&here;
+        uintptr_t used = here <= aleph_g_stack_base ? aleph_g_stack_base - here
+                                                    : here - aleph_g_stack_base;
+        if (AL_UNLIKELY(used > (uintptr_t)(AL_MAIN_STACK_SIZE - AL_STACK_GUARD))) {
+            aleph_trap_at("R004", "stack overflow", loc);
+        }
+    }
+    if (AL_UNLIKELY(aleph_g_call_depth >= AL_MAX_CALL_DEPTH)) {
+        aleph_trap_at("R004", "stack overflow", loc);
+    }
+    aleph_g_call_depth += 1;
+    aleph_g_eval_depth += frames;
+}
+static inline void aleph_fast_call_leave(size_t frames) {
+    aleph_g_call_depth -= 1;
+    aleph_g_eval_depth -= frames;
+}
+
+/* Unboxed checked i64 arithmetic; traps match aleph_add_i64 & co. */
+static inline int64_t aleph_fast_add(int64_t a, int64_t b) {
+    int64_t r;
+    if (AL_UNLIKELY(__builtin_add_overflow(a, b, &r))) {
+        aleph_trap("R001", "integer overflow");
+    }
+    return r;
+}
+static inline int64_t aleph_fast_sub(int64_t a, int64_t b) {
+    int64_t r;
+    if (AL_UNLIKELY(__builtin_sub_overflow(a, b, &r))) {
+        aleph_trap("R001", "integer overflow");
+    }
+    return r;
+}
+static inline int64_t aleph_fast_mul(int64_t a, int64_t b) {
+    int64_t r;
+    if (AL_UNLIKELY(__builtin_mul_overflow(a, b, &r))) {
+        aleph_trap("R001", "integer overflow");
+    }
+    return r;
+}
+static inline int64_t aleph_fast_div(int64_t a, int64_t b) {
+    if (AL_UNLIKELY(b == 0)) {
+        aleph_trap("R002", "division by zero");
+    }
+    if (AL_UNLIKELY(a == INT64_MIN && b == -1)) {
+        aleph_trap("R001", "integer overflow");
+    }
+    return a / b;
+}
+static inline int64_t aleph_fast_mod(int64_t a, int64_t b) {
+    if (AL_UNLIKELY(b == 0)) {
+        aleph_trap("R002", "division by zero");
+    }
+    if (AL_UNLIKELY(a == INT64_MIN && b == -1)) {
+        aleph_trap("R001", "integer overflow");
+    }
+    return a % b;
+}
+static inline int64_t aleph_fast_neg(int64_t a) {
+    if (AL_UNLIKELY(a == INT64_MIN)) {
+        aleph_trap("R001", "integer overflow");
+    }
+    return -a;
+}
+
+/* Exact bit-pattern float literal without a function call. */
+static inline double aleph_f64_from_bits(uint64_t bits) {
+    union {
+        uint64_t u;
+        double d;
+    } pun;
+    pun.u = bits;
+    return pun.d;
+}
+
+/* Inline boxing for the fast path (same values as aleph_i64 & co). */
+static inline AlValue aleph_box_i64(int64_t v) {
+    AlValue r;
+    r.tag = AL_I64;
+    r.u.i64 = v;
+    return r;
+}
+static inline AlValue aleph_box_f64(double v) {
+    AlValue r;
+    r.tag = AL_F64;
+    r.u.f64 = v;
+    return r;
+}
+static inline AlValue aleph_box_bool(bool v) {
+    AlValue r;
+    r.tag = AL_BOOL;
+    r.u.b = v;
+    return r;
+}
+
 /* Value constructors. */
 AlValue aleph_unit(void);
 AlValue aleph_i64(int64_t value);

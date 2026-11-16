@@ -1,0 +1,6 @@
+fn f n:i64 -> i64
+ ex f 0 = 0
+ ex f 2 = 0
+ if == n 0 0 sum map @f [- n 1]
+fn main -> unit
+ print show f 100000

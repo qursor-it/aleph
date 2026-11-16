@@ -29,6 +29,8 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-019 C codegen for all builtins incl. map/filter/fold via function pointers
 - [x] T-020 Differential tests: interpreter vs native output identical for all golden programs
 - [x] T-021 Benchmark harness `bench/run.sh`: time + memory of native Aleph vs Python vs C on `bench/tasks.md` programs (write reference versions)
+- [x] T-032 Fix f64 `sort`: every NaN after `inf` whatever its sign bit (x86-64 vs arm64 differed) — ADR-0024
+- [x] T-033 Fast path codegen: unboxed i64/f64/bool, no per-node depth accounting, exact R004 via slow fallback — ADR-0027
 
 ## M3 — Agent tooling
 

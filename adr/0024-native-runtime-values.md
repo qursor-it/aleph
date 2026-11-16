@@ -97,7 +97,8 @@ diverge from the interpreter. Equality is structural (`NaN != NaN`);
 All non-higher-order SPEC §5.1 builtins are `aleph_b_<name>` and follow
 ADR-0021 exactly: negative or past-end `at` -> `none`; `slice` clamps to
 `[0, len]`; `sort` is ascending and f64 uses `total_cmp` semantics (`-0.0 <
-0.0`, NaNs ordered after infinities by sign/payload); `split` with `""`
+0.0`, every NaN after `inf` whatever its sign bit or payload, because the sign of
+`0.0 / 0.0` differs between x86-64 and arm64); `split` with `""`
 separates Unicode scalar values; `trim` removes Unicode `White_Space`; `upper`
 and `lower` are ASCII-only; `count` is bytes; `int` is `-?[0-9]+` in i64 range;
 `float` is `-?[0-9]+\.[0-9]+`; `print` does not flush; `eprint` flushes stdout
