@@ -1222,9 +1222,14 @@ fn t001_fix(
         (Type::Opt(elem), found) if found == &**elem => {
             Some(wrap(lexicon::keyword("optsome").expect("some")))
         }
-        // Boolean tests: the found value is an option or result.
-        (Type::Bool, Type::Opt(_)) => Some(wrap(lexicon::keyword("isome").expect("has"))),
-        (Type::Bool, Type::Res(_, _)) => Some(wrap(lexicon::keyword("isokay").expect("isok"))),
+        // Boolean tests: the found value is an option or result. Not with a
+        // bool payload: then the author may mean the payload, not presence.
+        (Type::Bool, Type::Opt(elem)) if **elem != Type::Bool => {
+            Some(wrap(lexicon::keyword("isome").expect("has")))
+        }
+        (Type::Bool, Type::Res(ok, _)) if **ok != Type::Bool => {
+            Some(wrap(lexicon::keyword("isokay").expect("isok")))
+        }
         // `try` is only certain when the enclosing function returns the same
         // error type as the found result.
         (expected, Type::Res(ok, err)) if expected == &**ok && expected != &Type::Bool => {
@@ -1422,6 +1427,11 @@ mod tests {
             Some("isok 1"),
             "rule 6 applies before the try rule"
         );
+        // A bool payload makes has/isok ambiguous (presence vs value).
+        let opt_bool = Type::Opt(Box::new(Type::Bool));
+        let res_bool = Type::Res(Box::new(Type::Bool), Box::new(Type::Str));
+        assert_eq!(t001(&Type::Bool, &opt_bool, None), None);
+        assert_eq!(t001(&Type::Bool, &res_bool, Some(&res)), None);
         // show does not apply to str or non-showable types.
         assert_eq!(t001(&Type::Str, &Type::Str, None), None);
         assert_eq!(

@@ -21,8 +21,11 @@ and `with` is canonical source text.
 3. `T001` expected `res T U`, found `U`, with `T != U` -> `replace n` with
    `err E`.
 4. `T001` expected `opt T`, found `T` -> `replace n` with `some E`.
-5. `T001` expected `bool`, found `opt _` -> `replace n` with `has E`.
-6. `T001` expected `bool`, found `res _ _` -> `replace n` with `isok E`.
+5. `T001` expected `bool`, found `opt T` with `T` not `bool` -> `replace n`
+   with `has E`.
+6. `T001` expected `bool`, found `res T _` with `T` not `bool` -> `replace n`
+   with `isok E`. (With a `bool` payload the author may mean the value, not
+   its presence: no fix.)
 7. `T001` expected `T`, found `res T U`, where `T` is not `bool` and the
    enclosing function returns `res V U` (same error type `U`) -> `replace n`
    with `try E`.
