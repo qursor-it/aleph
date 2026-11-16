@@ -11,7 +11,9 @@ spec does not define the JSON shape, the allowed node kinds or the errors.
 
 ## Decision
 - `EDITS` is a JSON array of objects `{"op","node","text"?,"position"?}`.
-  Unknown fields are rejected. `node` is an id such as `n12`.
+  Unknown fields are rejected. `node` is an id such as `n12`. `with` is
+  accepted as an alias of `text`, so a diagnostic's `fix` object
+  (ADR-0028) is a valid edit as is.
 - All ids refer to the **input** file (parsed and canonicalized as by
   `aleph ast`). Edits are applied together against that snapshot; their
   order matters only for several inserts at the same anchor.
@@ -38,9 +40,13 @@ spec does not define the JSON shape, the allowed node kinds or the errors.
     bad node id spelling, missing or superfluous `text`/`position`);
   - `X008` unknown node id;
   - `X009` edit not allowed for node kind (`found` is `<op> <kind>`);
-  - `X010` edit does not parse (a one-line fragment containing a newline, or
-    the edited program does not parse; `found` holds the first parser
-    diagnostic);
+  - `X010` edit does not parse: a one-line fragment containing a newline,
+    any text containing U+0001 (reserved for expression markers), an
+    expression fragment that is not exactly one expression in place
+    (unbalanced brackets, or `[fragment]` is not a one-element list, e.g.
+    `7 8` inside a list), or the edited program does not parse. `found`
+    holds the first parser diagnostic; its line:col refers to the edited
+    text, not the input file;
   - `X011` conflicting edits: an edit whose node lies inside a node that
     another edit replaces or deletes (pre-order ids make each subtree a
     contiguous id range).
@@ -51,4 +57,5 @@ spec does not define the JSON shape, the allowed node kinds or the errors.
   reproducing whole files.
 - Edits that produce type errors are accepted on stdout; agents must check.
 - Expression replacement is textual inside the printed line, so a fragment
-  must be a complete prefix expression; otherwise X010.
+  must be a complete prefix expression; otherwise X010. The one-expression
+  check reparses the program once more with each fragment wrapped in `[ ]`.

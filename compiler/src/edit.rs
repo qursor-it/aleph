@@ -4,12 +4,13 @@
 //! all resolved against that snapshot, rendered into new text, reparsed and
 //! printed canonically. A result that does not parse is rejected (X010).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::Deserialize;
 
 use crate::ast::{self, ExprKind, File};
 use crate::diag::Diagnostic;
+use crate::lexer::{self, TokenKind};
 use crate::{parser, printer};
 
 /// One edit as written in the `EDITS` JSON array.
@@ -18,7 +19,8 @@ use crate::{parser, printer};
 struct RawEdit {
     op: String,
     node: String,
-    #[serde(default)]
+    // `with` lets a diagnostic's `fix` object (ADR-0028) be passed as is.
+    #[serde(default, alias = "with")]
     text: Option<String>,
     #[serde(default)]
     position: Option<String>,
@@ -50,9 +52,9 @@ impl Kind {
         }
     }
 
-    /// Kinds whose text is one body line or part of one.
+    /// Kinds whose replacement text is one body line or part of one.
     fn single_line(self) -> bool {
-        matches!(self, Kind::Fn | Kind::Example | Kind::Stmt | Kind::Expr)
+        matches!(self, Kind::Example | Kind::Stmt | Kind::Expr)
     }
 }
 
@@ -111,23 +113,34 @@ pub fn apply(file_name: &str, source: &str, edits_json: &str) -> Result<String, 
         .map_err(|diagnostic| vec![*diagnostic])?;
     check_conflicts(file_name, &nodes, &edits)?;
 
-    let text = render(&file, &nodes, &edits);
+    let marked = render(&file, &nodes, &edits);
+    let fragments: BTreeMap<u32, &str> = edits
+        .iter()
+        .filter_map(|edit| match &edit.op {
+            Op::Replace(text) if nodes[&edit.node].kind == Kind::Expr => {
+                Some((edit.node, text.as_str()))
+            }
+            _ => None,
+        })
+        .collect();
+    let (text, _) = substitute(&marked, &fragments, str::to_string);
     let reparsed = parser::parse(file_name, &text);
-    match (reparsed.file, reparsed.diagnostics.first()) {
-        (Some(edited), None) => Ok(printer::print_file(&edited)),
-        (_, first) => {
-            let found = first
-                .map(|d| format!("{} {}:{} {}", d.code, d.line, d.col, d.msg))
-                .unwrap_or_default();
-            Err(vec![Diagnostic::error(
-                "X010",
-                file_name,
-                0,
-                0,
-                "edit does not parse",
-            )
-            .with_expected_found("parsable program", found)])
+    match (reparsed.file, reparsed.diagnostics.is_empty()) {
+        (Some(edited), true) => {
+            check_fragments(file_name, &marked, &fragments)?;
+            Ok(printer::print_file(&edited))
         }
+        _ => Err(vec![Diagnostic::error(
+            "X010",
+            file_name,
+            0,
+            0,
+            "edit does not parse",
+        )
+        .with_expected_found(
+            "parsable program",
+            first_found(&reparsed.diagnostics),
+        )]),
     }
 }
 
@@ -245,7 +258,7 @@ fn resolve(
             if raw.position.is_some() {
                 return Err(Box::new(invalid(file_name, "position on replace")));
             }
-            Op::Replace(required_text(file_name, raw.text, kind, id)?)
+            Op::Replace(required_text(file_name, raw.text, kind.single_line(), id)?)
         }
         "delete" => {
             if !matches!(
@@ -271,7 +284,9 @@ fn resolve(
                 }
                 _ => return Err(not_allowed()),
             };
-            Op::Insert(position, required_text(file_name, raw.text, kind, id)?)
+            // Only an item inserted at `n0` may span lines; elsewhere it is a body line.
+            let one_line = kind != Kind::File;
+            Op::Insert(position, required_text(file_name, raw.text, one_line, id)?)
         }
         other => return Err(Box::new(invalid(file_name, format!("op {other}")))),
     };
@@ -279,14 +294,15 @@ fn resolve(
 }
 
 /// The edit's text; body-line and expression fragments must be one line.
+/// The marker character never appears in valid source, so it is rejected.
 fn required_text(
     file_name: &str,
     text: Option<String>,
-    kind: Kind,
+    one_line: bool,
     id: u32,
 ) -> Result<String, Box<Diagnostic>> {
     let text = text.ok_or_else(|| Box::new(invalid(file_name, "missing text")))?;
-    if kind.single_line() && text.contains('\n') {
+    if (one_line && text.contains('\n')) || text.contains(MARK) {
         return Err(node_error(file_name, "X010", "edit does not parse", id));
     }
     Ok(text)
@@ -313,9 +329,118 @@ fn check_conflicts(
     Ok(())
 }
 
+// Control characters never appear in printed source (strings escape them).
+const MARK: char = '\u{1}';
+
 fn marker(id: u32) -> String {
-    // Control characters never appear in printed source (strings escape them).
-    format!("\u{1}{id}\u{1}")
+    format!("{MARK}{id}{MARK}")
+}
+
+/// Replace every marker in `marked`, left to right, with `wrap(fragment)`.
+/// Returns the text and the 1-based (line, byte col) where each replacement
+/// starts.
+fn substitute(
+    marked: &str,
+    fragments: &BTreeMap<u32, &str>,
+    wrap: impl Fn(&str) -> String,
+) -> (String, Vec<(u32, u32)>) {
+    let mut out = String::new();
+    let mut starts = Vec::new();
+    let mut rest = marked;
+    while let Some(open) = rest.find(MARK) {
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        let close = after.find(MARK).expect("markers come in pairs");
+        let id: u32 = after[..close].parse().expect("a marker holds an id");
+        let line = out.matches('\n').count() + 1;
+        let col = out.len() - out.rfind('\n').map_or(0, |i| i + 1) + 1;
+        starts.push((line as u32, col as u32));
+        out.push_str(&wrap(fragments[&id]));
+        rest = &after[close + 1..];
+    }
+    out.push_str(rest);
+    (out, starts)
+}
+
+/// Every expression fragment must be exactly one expression in place. A
+/// balanced fragment wrapped as `[fragment]` must parse as a one-element list
+/// (otherwise `7 8` would silently become two list elements).
+fn check_fragments(
+    file_name: &str,
+    marked: &str,
+    fragments: &BTreeMap<u32, &str>,
+) -> Result<(), Vec<Diagnostic>> {
+    let not_one = |found: String| {
+        vec![
+            Diagnostic::error("X010", file_name, 0, 0, "edit does not parse")
+                .with_expected_found("one expression", found),
+        ]
+    };
+    for (id, fragment) in fragments {
+        if !balanced(fragment) {
+            return Err(not_one(format!("n{id} unbalanced brackets")));
+        }
+    }
+    let (probe, starts) = substitute(marked, fragments, |fragment| format!("[{fragment}]"));
+    let output = parser::parse(file_name, &probe);
+    let Some(file) = output.file.filter(|_| output.diagnostics.is_empty()) else {
+        return Err(not_one(first_found(&output.diagnostics)));
+    };
+    let mut singles = 0;
+    for_each_expr(&file, &mut |expr| {
+        if let ExprKind::List { elems } = &expr.kind {
+            if elems.len() == 1 && starts.contains(&(expr.span.line, expr.span.col)) {
+                singles += 1;
+            }
+        }
+    });
+    if singles == starts.len() {
+        Ok(())
+    } else {
+        Err(not_one("several expressions".to_string()))
+    }
+}
+
+/// Brackets in the fragment's tokens never close more than they opened and
+/// end balanced; lexical errors count as unbalanced.
+fn balanced(fragment: &str) -> bool {
+    let (lines, diagnostics) = lexer::lex("", fragment);
+    let mut depth = 0i64;
+    for token in lines.iter().flat_map(|line| &line.tokens) {
+        match token.kind {
+            TokenKind::LBracket => depth += 1,
+            TokenKind::RBracket => depth -= 1,
+            _ => {}
+        }
+        if depth < 0 {
+            return false;
+        }
+    }
+    diagnostics.is_empty() && depth == 0
+}
+
+fn for_each_expr(file: &File, visit: &mut impl FnMut(&ast::Expr)) {
+    for function in &file.fns {
+        for example in &function.examples {
+            ast::walk_expr(&example.lhs, visit);
+            ast::walk_expr(&example.rhs, visit);
+        }
+        for stmt in &function.stmts {
+            match &stmt.kind {
+                ast::StmtKind::Let { value, .. } | ast::StmtKind::Do { value } => {
+                    ast::walk_expr(value, visit)
+                }
+            }
+        }
+        ast::walk_expr(&function.result, visit);
+    }
+}
+
+fn first_found(diagnostics: &[Diagnostic]) -> String {
+    diagnostics
+        .first()
+        .map(|d| format!("{} {}:{} {}", d.code, d.line, d.col, d.msg))
+        .unwrap_or_default()
 }
 
 /// Render the edited, not yet canonical, source text.
@@ -421,11 +546,6 @@ fn render(file: &File, nodes: &HashMap<u32, Node>, edits: &[Edit]) -> String {
     let mut text = items.join("\n");
     if !text.is_empty() {
         text.push('\n');
-    }
-    for (id, fragment) in &replaced {
-        if nodes[id].kind == Kind::Expr {
-            text = text.replace(&marker(*id), fragment);
-        }
     }
     text
 }
@@ -560,6 +680,84 @@ mod tests {
             ),
             "X011"
         );
+    }
+
+    #[test]
+    fn replaces_a_fn_with_several_lines() {
+        assert_eq!(
+            ok(
+                r#"[{"op":"replace","node":"n1","text":"fn inc x:i64 -> i64\n ex inc 1 = 3\n + x 2"}]"#
+            ),
+            "fn inc x:i64 -> i64\n ex inc 1 = 3\n + x 2\n"
+        );
+        // A line inserted into a fn is still one line.
+        assert_eq!(
+            code(r#"[{"op":"insert","node":"n1","text":"let a 1\n let b 2"}]"#),
+            "X010"
+        );
+    }
+
+    #[test]
+    fn fragments_are_one_expression() {
+        let list = "fn l -> list i64\n ex l = [1 2 3]\n [1 2 3]\n";
+        let run = |edits: &str| apply("t.aph", list, edits);
+        // n9 is `3` in the example's rhs list.
+        assert_eq!(
+            run(r#"[{"op":"replace","node":"n9","text":"7 8"}]"#).unwrap_err()[0].code,
+            "X010"
+        );
+        assert_eq!(
+            run(r#"[{"op":"replace","node":"n9","text":"3] [4"}]"#).unwrap_err()[0].code,
+            "X010"
+        );
+        assert_eq!(
+            run(r#"[{"op":"replace","node":"n9","text":"+ 3 4"}]"#).unwrap(),
+            "fn l -> list i64\n ex l = [1 2 + 3 4]\n [1 2 3]\n"
+        );
+        // A list fragment is one expression (types are `check`'s job).
+        assert_eq!(
+            run(r#"[{"op":"replace","node":"n9","text":"[3]"}]"#).unwrap(),
+            "fn l -> list i64\n ex l = [1 2 [3]]\n [1 2 3]\n"
+        );
+    }
+
+    #[test]
+    fn fix_objects_are_edits() {
+        assert_eq!(
+            ok(r#"[{"op":"replace","node":"n10","with":"* x 2"}]"#),
+            "fn inc x:i64 -> i64\n ex inc 1 = 2\n let y * x 2\n y\n"
+        );
+    }
+
+    #[test]
+    fn marker_characters_are_rejected() {
+        assert_eq!(
+            code(
+                r#"[{"op":"replace","node":"n12","text":"\u000111\u0001"},{"op":"replace","node":"n11","text":"x"}]"#
+            ),
+            "X010"
+        );
+    }
+
+    #[test]
+    fn inserts_at_one_anchor_keep_their_order() {
+        assert_eq!(
+            ok(
+                r#"[{"op":"insert","node":"n9","text":"let a 1"},{"op":"insert","node":"n9","text":"let b 2"}]"#
+            ),
+            "fn inc x:i64 -> i64\n ex inc 1 = 2\n let y + x 1\n let a 1\n let b 2\n y\n"
+        );
+        let doc = "fn inc x:i64 -> i64\n doc \"add one\"\n ex inc 1 = 2\n + x 1\n";
+        assert_eq!(
+            apply(
+                "t.aph",
+                doc,
+                r#"[{"op":"insert","node":"n1","position":"start","text":"ex inc 0 = 1"}]"#
+            )
+            .unwrap(),
+            "fn inc x:i64 -> i64\n doc \"add one\"\n ex inc 0 = 1\n ex inc 1 = 2\n + x 1\n"
+        );
+        assert_eq!(code(r#"[{"op":"insert","node":"n10","text":"1"}]"#), "X009");
     }
 
     #[test]
