@@ -1,1 +1,1 @@
-{"code":"C001","severity":"error","file":"tests/aph/cap_c001_write.aph","line":3,"col":8,"node":"n7","msg":"missing capability","expected":"fs.write"}
+{"code":"C001","severity":"error","file":"tests/aph/cap_c001_write.aph","line":3,"col":8,"node":"n7","msg":"missing capability","expected":"fs.write","fix":{"op":"insert","node":"n0","with":"use fs.write \"data/out.txt\""}}

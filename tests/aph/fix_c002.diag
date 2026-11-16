@@ -1,0 +1,1 @@
+{"code":"C002","severity":"error","file":"tests/aph/fix_c002.aph","line":3,"col":11,"node":"n7","msg":"path not covered by capability","expected":"data","found":"other/x","fix":{"op":"insert","node":"n0","with":"use fs.read \"other/x\""}}

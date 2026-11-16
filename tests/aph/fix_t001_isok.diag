@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/fix_t001_isok.aph","line":3,"col":2,"node":"n7","msg":"type mismatch","expected":"bool","found":"res i64 str","fix":{"op":"replace","node":"n7","with":"isok g"}}

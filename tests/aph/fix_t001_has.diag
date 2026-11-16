@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/fix_t001_has.aph","line":3,"col":2,"node":"n6","msg":"type mismatch","expected":"bool","found":"opt i64","fix":{"op":"replace","node":"n6","with":"has some 1"}}

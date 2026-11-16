@@ -370,7 +370,9 @@ fn explain_command(cli: &cli::Cli) -> ExitCode {
 /// F001: the source is not the canonical printing of its AST (SPEC §10).
 fn canonical_diagnostic(file: &str, source: &str, canonical: &str) -> Diagnostic {
     let (line, col) = first_difference(source, canonical);
-    Diagnostic::error("F001", file, line, col, "not in canonical form").with_canonical(canonical)
+    Diagnostic::error("F001", file, line, col, "not in canonical form")
+        .with_fix("replace", "n0", canonical)
+        .with_canonical(canonical)
 }
 
 /// The 1-based `(line, byte column)` where `source` and `canonical` first

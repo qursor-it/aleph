@@ -1,0 +1,4 @@
+use fs.read "data"
+fn main -> res unit str
+ let text read "other/x"
+ ok nil

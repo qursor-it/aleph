@@ -1,0 +1,3 @@
+fn main -> res unit str
+ let r write "out/x.txt" "hi"
+ ok nil

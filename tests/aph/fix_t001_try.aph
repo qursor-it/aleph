@@ -1,0 +1,9 @@
+fn f -> res i64 str
+ ex f = ok 1
+ ok h g
+fn g -> res i64 str
+ ex g = ok 1
+ ok 1
+fn h n:i64 -> i64
+ ex h 1 = 1
+ n

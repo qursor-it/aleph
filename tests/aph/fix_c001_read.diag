@@ -1,0 +1,1 @@
+{"code":"C001","severity":"error","file":"tests/aph/fix_c001_read.aph","line":2,"col":11,"node":"n6","msg":"missing capability","expected":"fs.read","fix":{"op":"insert","node":"n0","with":"use fs.read \"data/in.txt\""}}

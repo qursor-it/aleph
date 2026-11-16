@@ -130,7 +130,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("3."),
-        "Order: `use` sorted by full canonical line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`* (unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`).",
+        "Order: `use` sorted by full canonical line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). Item `fn`/`type` names are unique, not builtin/type names (P001).",
     );
     let primitives = lexicon::TYPES
         .iter()
@@ -321,7 +321,7 @@ fn diagnostics_section() -> String {
         codes.push(cells[0]);
     }
     format!(
-        "JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` is `{{\"op\":\"replace\",\"node\":\"n42\",\"with\":\"...\"}}`, only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: {}.",
+        "JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: {}.",
         codes.join(" ")
     )
 }

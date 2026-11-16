@@ -8,9 +8,10 @@
 
 use std::collections::BTreeSet;
 
-use crate::ast::{self, CalleeKind, Capability, Expr, ExprKind, NodeId, StmtKind};
+use crate::ast::{self, escape_str, CalleeKind, Capability, Expr, ExprKind, NodeId, StmtKind};
 use crate::builtins;
 use crate::diag::Diagnostic;
+use crate::lexicon;
 
 /// Whether a declared path `prefix` covers `path` (ADR-0020).
 ///
@@ -160,6 +161,9 @@ fn check_call(file: &str, ast: &ast::File, expr: &Expr, diagnostics: &mut Vec<Di
         )
         .with_node(node_name(expr.id));
         diagnostic.expected = Some(capability.spelling().to_string());
+        if let Some(line) = literal_use_line(spec, args) {
+            diagnostic = diagnostic.with_fix("insert", "n0", line);
+        }
         diagnostics.push(diagnostic);
         return;
     }
@@ -186,17 +190,43 @@ fn check_call(file: &str, ast: &ast::File, expr: &Expr, diagnostics: &mut Vec<Di
     }
 
     let expected = sorted_prefixes(prefixes).join(" ");
-    diagnostics.push(
-        Diagnostic::error(
-            "C002",
-            file,
-            expr.span.line,
-            expr.span.col,
-            "path not covered by capability",
-        )
-        .with_node(node_name(expr.id))
-        .with_expected_found(expected, value.clone()),
-    );
+    let mut diagnostic = Diagnostic::error(
+        "C002",
+        file,
+        expr.span.line,
+        expr.span.col,
+        "path not covered by capability",
+    )
+    .with_node(node_name(expr.id))
+    .with_expected_found(expected, value.clone());
+    if let Some(line) = literal_use_line(spec, args) {
+        diagnostic = diagnostic.with_fix("insert", "n0", line);
+    }
+    diagnostics.push(diagnostic);
+}
+
+/// The `use` line that would grant a literal, valid filesystem path, or `None`
+/// when the call has no such path (ADR-0028).
+fn literal_use_line(spec: &builtins::BuiltinSpec, args: &[Expr]) -> Option<String> {
+    let capability = spec.capability?;
+    if !matches!(capability, Capability::FsRead | Capability::FsWrite) {
+        return None;
+    }
+    let arg = args.get(spec.path_arg?)?;
+    let ExprKind::Str { value } = &arg.kind else {
+        return None;
+    };
+    // SPEC §8: prefixes are relative to the working directory.
+    if value.is_empty() || value.starts_with('/') || value.split('/').any(|segment| segment == "..")
+    {
+        return None;
+    }
+    Some(format!(
+        "{} {} \"{}\"",
+        lexicon::keyword("capability").expect("use"),
+        capability.spelling(),
+        escape_str(value)
+    ))
 }
 
 fn sorted_prefixes(prefixes: Vec<&str>) -> Vec<String> {
@@ -307,6 +337,64 @@ mod tests {
         assert_eq!(diagnostics[0].expected.as_deref(), Some("fs.write"));
         assert_eq!(diagnostics[0].line, 3);
         assert_eq!(diagnostics[0].col, 8);
+    }
+
+    #[test]
+    fn literal_paths_get_a_certain_insert_fix() {
+        let diagnostics =
+            caps("fn main -> res unit str\n let text read \"data/in.txt\"\n ok nil\n");
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        let fix = diagnostics[0].fix.as_ref().expect("C001 fix");
+        assert_eq!(fix.op, "insert");
+        assert_eq!(fix.node, "n0");
+        assert_eq!(fix.with, "use fs.read \"data/in.txt\"");
+
+        let diagnostics = caps(
+            "use fs.read \"data\"\nfn main -> res unit str\n let text read \"other/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C002"]);
+        let fix = diagnostics[0].fix.as_ref().expect("C002 fix");
+        assert_eq!(fix.op, "insert");
+        assert_eq!(fix.node, "n0");
+        assert_eq!(fix.with, "use fs.read \"other/x\"");
+
+        let diagnostics =
+            caps("fn main -> res unit str\n let r write \"out/x.txt\" \"hi\"\n ok nil\n");
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        assert_eq!(
+            diagnostics[0].fix.as_ref().map(|fix| fix.with.as_str()),
+            Some("use fs.write \"out/x.txt\"")
+        );
+    }
+
+    #[test]
+    fn invalid_or_unknown_literal_paths_get_no_fix() {
+        for source in [
+            "fn main -> res unit str\n let text read \"data/../x\"\n ok nil\n",
+            "fn main -> res unit str\n let text read \"\"\n ok nil\n",
+            "fn main -> res unit str\n let text read \"/etc/x\"\n ok nil\n",
+            "fn main -> res unit str\n let p \"data/x\"\n let text read p\n ok nil\n",
+        ] {
+            let diagnostics = caps(source);
+            assert_eq!(codes(&diagnostics), ["C001"], "{source}");
+            assert!(diagnostics[0].fix.is_none(), "{source}");
+        }
+
+        let diagnostics = caps(
+            "use fs.read \"data\"\nfn main -> res unit str\n let text read \"data/../etc/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C002"]);
+        assert!(diagnostics[0].fix.is_none());
+    }
+
+    #[test]
+    fn the_insert_fix_escapes_the_literal_path() {
+        let diagnostics = caps("fn main -> res unit str\n let text read \"a\\\"b\\nc\"\n ok nil\n");
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        assert_eq!(
+            diagnostics[0].fix.as_ref().map(|fix| fix.with.as_str()),
+            Some("use fs.read \"a\\\"b\\nc\"")
+        );
     }
 
     #[test]

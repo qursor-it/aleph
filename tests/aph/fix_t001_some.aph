@@ -1,0 +1,3 @@
+fn f -> opt i64
+ ex f = some 1
+ 1

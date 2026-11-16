@@ -1,0 +1,6 @@
+fn f -> bool
+ ex f = isok g
+ g
+fn g -> res i64 str
+ ex g = ok 1
+ ok 1

@@ -18,6 +18,7 @@ use crate::ast::{self, BinOp, CalleeKind, Expr, ExprKind, NodeId, Span, StmtKind
 use crate::builtins::{self, Bound, Effect, Ty as BuiltinTy, TyVar};
 use crate::diag::Diagnostic;
 use crate::lexicon;
+use crate::printer;
 
 /// A checked type. `Var` is an inference variable; `Error` is the recovery
 /// type produced after a diagnostic and unifies with everything.
@@ -1117,9 +1118,22 @@ impl<'a> TypeChecker<'a> {
         if self.reported.contains(&expr.id) {
             return;
         }
-        let expected = expected.to_string();
-        let found = found.to_string();
-        self.push_diag_expected_found(expr.id, expr.span, "T001", "type mismatch", expected, found);
+        let current_ret = self.current_ret.as_ref().map(|ty| self.resolve(ty));
+        let fix = t001_fix(expected, found, expr, current_ret.as_ref());
+        self.reported.insert(expr.id);
+        let mut diagnostic = Diagnostic::error(
+            "T001",
+            self.file,
+            expr.span.line,
+            expr.span.col,
+            "type mismatch",
+        )
+        .with_node(format!("n{}", expr.id.0))
+        .with_expected_found(expected.to_string(), found.to_string());
+        if let Some(with) = fix {
+            diagnostic = diagnostic.with_fix("replace", format!("n{}", expr.id.0), with);
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     fn push_diag(&mut self, id: NodeId, span: Span, code: &str, msg: &str) {
@@ -1143,6 +1157,64 @@ impl<'a> TypeChecker<'a> {
             .with_node(format!("n{}", id.0))
             .with_expected_found(expected.into(), found.into());
         self.diagnostics.push(diagnostic);
+    }
+}
+
+/// A certain `T001` fix (ADR-0028), or `None` when the wrapped result is not
+/// guaranteed to type-check.
+fn t001_fix(
+    expected: &Type,
+    found: &Type,
+    expr: &Expr,
+    current_ret: Option<&Type>,
+) -> Option<String> {
+    if !is_concrete(expected) || !is_concrete(found) {
+        return None;
+    }
+    let text = printer::print_expr(expr);
+    let wrap = |keyword: &str| format!("{keyword} {text}");
+
+    match (expected, found) {
+        // A result expression where either side matches the found type.
+        (Type::Res(ok, err), found) if found == &**ok && ok != err => {
+            Some(wrap(lexicon::keyword("resok").expect("ok")))
+        }
+        (Type::Res(ok, err), found) if found == &**err && ok != err => {
+            Some(wrap(lexicon::keyword("reserr").expect("err")))
+        }
+        // An option expression where the payload matches the found type.
+        (Type::Opt(elem), found) if found == &**elem => {
+            Some(wrap(lexicon::keyword("optsome").expect("some")))
+        }
+        // Boolean tests: the found value is an option or result.
+        (Type::Bool, Type::Opt(_)) => Some(wrap(lexicon::keyword("isome").expect("has"))),
+        (Type::Bool, Type::Res(_, _)) => Some(wrap(lexicon::keyword("isokay").expect("isok"))),
+        // `try` is only certain when the enclosing function returns the same
+        // error type as the found result.
+        (expected, Type::Res(ok, err)) if expected == &**ok && expected != &Type::Bool => {
+            match current_ret? {
+                Type::Res(_, ret_err) if ret_err == err => {
+                    Some(wrap(lexicon::keyword("propagate").expect("try")))
+                }
+                _ => None,
+            }
+        }
+        // `show` accepts primitives and lists of primitives, except str.
+        (Type::Str, found) if !matches!(found, Type::Str) && satisfies(found, Bound::Showable) => {
+            Some(format!("show {text}"))
+        }
+        _ => None,
+    }
+}
+
+/// Whether a type contains no inference variable or error type.
+fn is_concrete(ty: &Type) -> bool {
+    match ty {
+        Type::Var(_) | Type::Error => false,
+        Type::List(elem) | Type::Opt(elem) => is_concrete(elem),
+        Type::Res(ok, err) => is_concrete(ok) && is_concrete(err),
+        Type::Fn(params, ret) => params.iter().all(is_concrete) && is_concrete(ret),
+        _ => true,
     }
 }
 
@@ -1237,6 +1309,105 @@ mod tests {
             .iter()
             .map(|diagnostic| diagnostic.code.as_str())
             .collect()
+    }
+
+    fn int_expr() -> Expr {
+        Expr {
+            id: NodeId(7),
+            span: Span { line: 1, col: 1 },
+            kind: ExprKind::Int { value: 1 },
+        }
+    }
+
+    fn t001(expected: &Type, found: &Type, ret: Option<&Type>) -> Option<String> {
+        t001_fix(expected, found, &int_expr(), ret)
+    }
+
+    #[test]
+    fn t001_fixes_cover_the_declared_rules() {
+        let res = Type::Res(Box::new(Type::I64), Box::new(Type::Str));
+        assert_eq!(
+            t001(&res, &Type::I64, None).as_deref(),
+            Some("ok 1"),
+            "expected res, found ok side"
+        );
+        assert_eq!(
+            t001(&res, &Type::Str, None).as_deref(),
+            Some("err 1"),
+            "expected res, found error side"
+        );
+        assert_eq!(
+            t001(&Type::Opt(Box::new(Type::I64)), &Type::I64, None).as_deref(),
+            Some("some 1")
+        );
+        assert_eq!(
+            t001(&Type::Bool, &Type::Opt(Box::new(Type::I64)), None).as_deref(),
+            Some("has 1")
+        );
+        assert_eq!(t001(&Type::Bool, &res, None).as_deref(), Some("isok 1"));
+        assert_eq!(
+            t001(&Type::I64, &res, Some(&res)).as_deref(),
+            Some("try 1"),
+            "enclosing fn returns the same error type"
+        );
+        assert_eq!(
+            t001(&Type::Str, &Type::I64, None).as_deref(),
+            Some("show 1")
+        );
+        assert_eq!(
+            t001(&Type::Str, &Type::List(Box::new(Type::Bool)), None).as_deref(),
+            Some("show 1"),
+            "lists of primitives are showable"
+        );
+    }
+
+    #[test]
+    fn t001_fixes_are_omitted_when_not_certain() {
+        let res = Type::Res(Box::new(Type::I64), Box::new(Type::Str));
+        // Unresolved expected or found types.
+        assert_eq!(t001(&Type::Var(0), &Type::I64, None), None);
+        assert_eq!(
+            t001(&Type::List(Box::new(Type::Var(0))), &Type::I64, None),
+            None
+        );
+        assert_eq!(t001(&Type::I64, &Type::Var(0), None), None);
+        assert_eq!(t001(&Type::I64, &res, Some(&Type::Var(0))), None);
+        // Ambiguous result sides.
+        let same = Type::Res(Box::new(Type::I64), Box::new(Type::I64));
+        assert_eq!(t001(&same, &Type::I64, None), None);
+        // try requires an enclosing result with the same error type.
+        let other = Type::Res(Box::new(Type::Unit), Box::new(Type::Bool));
+        assert_eq!(t001(&Type::I64, &res, Some(&other)), None);
+        assert_eq!(t001(&Type::I64, &res, Some(&Type::Unit)), None);
+        assert_eq!(
+            t001(&Type::Bool, &res, Some(&Type::Unit)).as_deref(),
+            Some("isok 1"),
+            "rule 6 applies before the try rule"
+        );
+        // show does not apply to str or non-showable types.
+        assert_eq!(t001(&Type::Str, &Type::Str, None), None);
+        assert_eq!(
+            t001(
+                &Type::Str,
+                &Type::List(Box::new(Type::List(Box::new(Type::I64)))),
+                None
+            ),
+            None
+        );
+        // Unrelated mismatches.
+        assert_eq!(t001(&Type::I64, &Type::Bool, None), None);
+    }
+
+    #[test]
+    fn t001_diagnostics_carry_their_fix() {
+        let output = check_source("fn f -> res i64 str\n ex f = ok 1\n 1\n");
+        assert_eq!(codes(&output), ["T001"]);
+        let diagnostic = &output.diagnostics[0];
+        assert_eq!(diagnostic.node.as_deref(), Some("n9"));
+        let fix = diagnostic.fix.as_ref().expect("certain fix");
+        assert_eq!(fix.op, "replace");
+        assert_eq!(fix.node, "n9");
+        assert_eq!(fix.with, "ok 1");
     }
 
     #[test]

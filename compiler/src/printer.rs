@@ -137,7 +137,7 @@ fn print_unop(op: UnOp) -> &'static str {
 }
 
 /// Canonical expression text, shared with `aleph explain`.
-pub(crate) fn print_expr(expr: &ast::Expr) -> String {
+pub fn print_expr(expr: &ast::Expr) -> String {
     match &expr.kind {
         ExprKind::Int { value } => value.to_string(),
         ExprKind::Float { value } => value.clone(),

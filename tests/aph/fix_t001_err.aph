@@ -1,0 +1,3 @@
+fn f -> res i64 str
+ ex f = err "x"
+ "x"

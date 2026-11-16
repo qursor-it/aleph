@@ -451,3 +451,15 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0027 (Proposed)
 - next: T-023; optional later: drop the location slot/stack guard cost per call if profiling shows it matters
 - agent: manual (Bernardo Manfriani)
+
+## 2026-11-15T22:30 T-023 done
+- certain `fix` suggestions per ADR-0028: `check` attaches `replace` for F001 (node n0, canonical file text) and for T001 `ok`/`err`/`some`/`has`/`isok`/`try`/`show` wrappers only when expected/found are fully resolved; `caps` attaches `insert` at n0 for C001/C002 when the read/write path is a non-empty relative literal without `..` (escaped with `ast::escape_str`)
+- no fixes for ambiguous result sides, unresolved/error types, computed/empty/`..` paths, or any other diagnostic; P002/T007 untouched
+- new ADR-0028 Proposed: the ten rules, certainty conditions, and the meaning of insert at n0 (canonical order applies)
+- new `tests/aph/fix_*.aph` + `.diag` (F001, T001 rules 2-8, C001 read/write, C002); existing F001/C001/C002 goldens updated with their fixes; `compiler/tests/fixes.rs` applies every golden fix, canonicalizes, rechecks that the failing code is gone
+- unit tests per rule plus negative cases in `check.rs`/`caps.rs`; `printer::print_expr` is public for the apply test
+- `llms.rs`: examples now read `ex E = E`+ (unless `main`/effectful), top-level fn/type names are unique and not builtin/type names (P001), `fix` may be replace/insert; `llms.txt` regenerated at 7797 chars (~1950 tokens); no digested source changed
+- tests: 295 passed (229 unit, 2 bench_refs, 43 CLI, 1 differential, 1 fixes, 8 golden, 8 llms, 3 tlon)
+- decisions: ADR-0028 proposed
+- next: T-024 `aleph edit`.
+- agent: opencode/deepseek-v4.1-flash (high); review + absolute-path guard by orchestrator (claude-opus-5.5), not an independent review

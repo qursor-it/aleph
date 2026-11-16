@@ -1,0 +1,1 @@
+{"code":"F001","severity":"error","file":"tests/aph/fix_f001_noncanonical.aph","line":1,"col":1,"msg":"not in canonical form","fix":{"op":"replace","node":"n0","with":"use env\nfn main -> unit\n print \"hi\"\n"},"canonical":"use env\nfn main -> unit\n print \"hi\"\n"}
