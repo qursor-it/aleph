@@ -486,3 +486,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0030 proposed
 - next: T-026 `aleph tokens` (ADR-0031)
 - agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed
+
+## 2026-11-16T18:15 T-026 done
+- `aleph tokens FILE [--tokenizer NAME|all] [--json]` (new `tokens.rs`, ADR-0031): table of counters chars4 (default, ceil(chars/4)), bytes, chars, words, aleph (lexer tokens; lex errors reported as diagnostics); no BPE file in repo, so no real model tokenizer
+- unknown tokenizer: usage error exit 2; MCP `tokens` tool (default all)
+- `every_stubbed_subcommand_reports_not_implemented` replaced by `tokens_missing_file_reports_x002`: no subcommand is stubbed any more
+- tests: 322 passed
+- decisions: ADR-0031 proposed
+- next: M3 complete; independent DeepSeek review of T-024..T-026 when OpenCode quota returns; v0.2 not started
+- agent: orchestrator (claude-opus-5.5) directly, OpenCode quota exhausted; not independently reviewed

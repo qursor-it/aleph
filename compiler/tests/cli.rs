@@ -309,15 +309,16 @@ fn run_trap_is_json_on_stderr_and_exits_seventy() {
     assert_eq!(value["file"], file.as_str());
 }
 
+/// `tokens` was the last stubbed subcommand (X001); it now reads its file.
 #[test]
-fn every_stubbed_subcommand_reports_not_implemented() {
+fn tokens_missing_file_reports_x002() {
     let file = "foo.aph";
     let out = run(&["tokens", file]);
     assert_eq!(out.status.code(), Some(1));
 
     let value: serde_json::Value =
         serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
-    assert_eq!(value["code"], "X001");
+    assert_eq!(value["code"], "X002");
     assert_eq!(value["file"], file);
 }
 
@@ -903,4 +904,36 @@ fn edit_rejects_unparsable_results_without_writing() {
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stdout).contains("\"code\":\"X010\""));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), source);
+}
+
+#[test]
+fn tokens_counts_with_the_default_and_all_tokenizers() {
+    let file = temp_source("tokens.aph", "fn main -> unit\n print \"hi\"\n");
+    let out = run(&["tokens", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "chars4 7\n");
+
+    let out = run(&["tokens", file.as_str(), "--tokenizer", "all", "--json"]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let names: Vec<&str> = report["tokens"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["tokenizer"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["chars4", "bytes", "chars", "words", "aleph"]);
+    assert_eq!(report["tokens"][4]["count"], 6);
+}
+
+#[test]
+fn tokens_rejects_unknown_tokenizers_and_lex_errors() {
+    let file = temp_source("tokens_bad.aph", "fn main -> unit\n print $\n");
+    let out = run(&["tokens", file.as_str(), "--tokenizer", "gpt4"]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("unknown tokenizer"));
+
+    let out = run(&["tokens", file.as_str(), "--tokenizer", "aleph"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("\"code\":\"L"));
 }

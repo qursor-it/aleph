@@ -17,6 +17,7 @@ use alephc::llms;
 use alephc::mcp;
 use alephc::parser;
 use alephc::printer;
+use alephc::tokens;
 
 fn main() -> ExitCode {
     let cli = match cli::parse(std::env::args_os().skip(1)) {
@@ -39,6 +40,7 @@ fn main() -> ExitCode {
         "edit" => edit_command(&cli),
         "llms" => llms_command(),
         "mcp" => mcp_command(),
+        "tokens" => tokens_command(&cli),
         // Later phases are still stubbed.
         _ => emit_diagnostics(&[Diagnostic::not_implemented(&cli.file)]),
     }
@@ -538,6 +540,61 @@ fn edit_command(cli: &cli::Cli) -> ExitCode {
     let mut out = stdout.lock();
     if let Err(err) = out.write_all(text.as_bytes()) {
         eprintln!("aleph: failed to write edited text: {err}");
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
+}
+
+/// `aleph tokens FILE [--tokenizer NAME|all] [--json]` (ADR-0031).
+fn tokens_command(cli: &cli::Cli) -> ExitCode {
+    let Some(selected) = tokens::select(cli.tokenizer.as_deref()) else {
+        eprintln!(
+            "unknown tokenizer: {} (known: {}, all)",
+            cli.tokenizer.as_deref().unwrap_or_default(),
+            tokens::names()
+        );
+        return ExitCode::from(2);
+    };
+    let source = match read_source(cli) {
+        Ok(source) => source,
+        Err(diagnostic) => return emit_diagnostics(&[*diagnostic]),
+    };
+
+    let mut counts = Vec::new();
+    for tokenizer in selected {
+        let Some(count) = (tokenizer.count)(&source) else {
+            // Only the lexer-based counter can fail: report why.
+            let (_, diagnostics) = alephc::lexer::lex(&cli.file, &source);
+            return emit_diagnostics(&diagnostics);
+        };
+        counts.push((tokenizer, count));
+    }
+
+    let text = if cli.json {
+        let entries: Vec<serde_json::Value> = counts
+            .iter()
+            .map(|(tokenizer, count)| {
+                serde_json::json!({
+                    "tokenizer": tokenizer.name,
+                    "method": tokenizer.method,
+                    "count": count,
+                })
+            })
+            .collect();
+        format!(
+            "{}\n",
+            serde_json::json!({"file": cli.file, "tokens": entries})
+        )
+    } else {
+        counts
+            .iter()
+            .map(|(tokenizer, count)| format!("{} {count}\n", tokenizer.name))
+            .collect()
+    };
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    if let Err(err) = out.write_all(text.as_bytes()) {
+        eprintln!("aleph: failed to write token counts: {err}");
         return ExitCode::from(2);
     }
     ExitCode::SUCCESS

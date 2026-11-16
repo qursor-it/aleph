@@ -75,6 +75,7 @@ fn check_fmt_edit_and_explain_tools() {
             json!({"source": CLEAN, "edits": [{"op":"replace","node":"n9","text":"+ x 2"}]}),
         ),
         tool_call(5, "explain", json!({"source": CLEAN, "json": true})),
+        tool_call(6, "tokens", json!({"source": CLEAN})),
     ]);
 
     assert_eq!(replies[0]["result"]["isError"], false);
@@ -95,6 +96,9 @@ fn check_fmt_edit_and_explain_tools() {
     let explained: Value =
         serde_json::from_str(outcome(&replies[4])["stdout"].as_str().unwrap()).unwrap();
     assert!(explained.is_object());
+    let counted: Value =
+        serde_json::from_str(outcome(&replies[5])["stdout"].as_str().unwrap()).unwrap();
+    assert_eq!(counted["tokens"].as_array().unwrap().len(), 5);
 }
 
 #[test]

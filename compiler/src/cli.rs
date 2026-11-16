@@ -22,6 +22,8 @@ pub struct Cli {
     pub args: Vec<String>,
     /// `aleph edit FILE --json EDITS`: the edits JSON array (ADR-0029).
     pub edits: Option<String>,
+    /// `aleph tokens FILE --tokenizer NAME|all` (ADR-0031).
+    pub tokenizer: Option<String>,
 }
 
 /// Parse arguments after the program name.
@@ -48,6 +50,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
             out: None,
             args: Vec::new(),
             edits: None,
+            tokenizer: None,
         });
     }
 
@@ -57,6 +60,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
     let mut out = None;
     let mut program_args = Vec::new();
     let mut edits = None;
+    let mut tokenizer = None;
     let mut i = 0;
 
     while i < tokens.len() {
@@ -66,6 +70,12 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
                 .get(i + 1)
                 .ok_or_else(|| "--json requires EDITS".to_string())?;
             edits = Some(value.clone());
+            i += 2;
+        } else if arg == "--tokenizer" && command == "tokens" {
+            let value = tokens
+                .get(i + 1)
+                .ok_or_else(|| "--tokenizer requires a value".to_string())?;
+            tokenizer = Some(value.clone());
             i += 2;
         } else if arg == "--json" {
             json = true;
@@ -106,6 +116,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
         out,
         args: program_args,
         edits,
+        tokenizer,
     })
 }
 
@@ -155,6 +166,14 @@ mod tests {
         assert!(!cli.json);
         assert!(parse_args(&["edit", "foo.aph"]).is_err());
         assert!(parse_args(&["edit", "foo.aph", "--json"]).is_err());
+    }
+
+    #[test]
+    fn tokens_takes_a_tokenizer() {
+        let cli = parse_args(&["tokens", "--tokenizer", "all", "foo.aph", "--json"]).unwrap();
+        assert_eq!(cli.tokenizer.as_deref(), Some("all"));
+        assert!(cli.json);
+        assert!(parse_args(&["check", "--tokenizer", "all", "foo.aph"]).is_err());
     }
 
     #[test]

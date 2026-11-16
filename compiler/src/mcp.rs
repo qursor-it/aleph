@@ -141,6 +141,13 @@ fn tools() -> Vec<Value> {
             }})),
         ),
         tool(
+            "tokens",
+            "aleph tokens: token counts (chars4, bytes, chars, words, aleph lexer)",
+            source_schema(
+                json!({"tokenizer": {"type": "string", "description": "name or all (default all)"}}),
+            ),
+        ),
+        tool(
             "run",
             "aleph run in a sandbox: empty temp dir as cwd, empty environment, timeout, \
              output capped at 1 MiB; absolute capability prefixes are rejected",
@@ -187,6 +194,15 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
                 _ => return Err(invalid_params("edit needs edits")),
             };
             vec!["--json".to_string(), edits]
+        }
+        "tokens" => {
+            let tokenizer = args
+                .get("tokenizer")
+                .and_then(Value::as_str)
+                .unwrap_or("all");
+            ["--json", "--tokenizer", tokenizer]
+                .map(str::to_string)
+                .to_vec()
         }
         "run" => string_list(args.get("args"))?,
         other => return Err(invalid_params(format!("unknown tool: {other}"))),
@@ -464,7 +480,7 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            ["spec", "check", "test", "fmt", "ast", "explain", "edit", "run"]
+            ["spec", "check", "test", "fmt", "ast", "explain", "edit", "tokens", "run"]
         );
 
         let response = call(json!({"jsonrpc":"2.0","id":1,"method":"resources/read",
