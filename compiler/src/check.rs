@@ -223,6 +223,8 @@ impl<'a> TypeChecker<'a> {
             ),
             TypeKind::Dict { key, val } => {
                 let key_ty = self.lower_type(key);
+                // Lowered before the key check so its errors are reported too.
+                let val_ty = self.lower_type(val);
                 if !matches!(key_ty, Type::I64 | Type::Bool | Type::Str | Type::Error) {
                     self.push_diag_expected_found(
                         key.id,
@@ -234,7 +236,7 @@ impl<'a> TypeChecker<'a> {
                     );
                     return Type::Error;
                 }
-                Type::Dict(Box::new(key_ty), Box::new(self.lower_type(val)))
+                Type::Dict(Box::new(key_ty), Box::new(val_ty))
             }
             TypeKind::Named { name } => {
                 if self.records.contains_key(name) {

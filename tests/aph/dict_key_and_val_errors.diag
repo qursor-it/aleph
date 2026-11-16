@@ -1,0 +1,2 @@
+{"code":"T004","severity":"error","file":"tests/aph/dict_key_and_val_errors.aph","line":1,"col":15,"node":"n4","msg":"type constraint not satisfied","expected":"key","found":"f64"}
+{"code":"T002","severity":"error","file":"tests/aph/dict_key_and_val_errors.aph","line":1,"col":19,"node":"n5","msg":"unknown type"}
