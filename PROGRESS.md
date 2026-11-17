@@ -583,3 +583,14 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - minor, not changed: env clone per arm with binders (interp), allocation of zero-field variants.
 - new task T-034 for a pre-existing clash between user `fn kind` and Tlön's `aleph_fn_kind`.
 - tests: 344 passed, clippy clean
+
+## 2026-11-17T16:30 T-029 review round 3
+- Opus review 9/10, no CRITICAL or IMPORTANT findings, so the target is met.
+- minors fixed:
+  - llms T005 rule names binders;
+  - explain_sum golden (text and JSON);
+  - P001 on a non-variant first arm carries `expected: variant name`;
+  - check resolves arm types like `if` does.
+- not done: no `aleph edit` unit test that touches `match`. It works when tried by hand (X009 on variant ids).
+- tests: 344 passed, clippy clean
+- next: T-030 scoped regions (ADR-0007), T-031, T-034

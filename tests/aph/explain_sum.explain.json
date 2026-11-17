@@ -1,0 +1,60 @@
+{
+  "file": "tests/aph/explain_sum.aph",
+  "capabilities": [],
+  "types": [
+    {
+      "name": "shape",
+      "fields": [],
+      "variants": [
+        {
+          "name": "circle",
+          "fields": [
+            {
+              "name": "r",
+              "type": "f64"
+            }
+          ]
+        },
+        {
+          "name": "rect",
+          "fields": [
+            {
+              "name": "w",
+              "type": "f64"
+            },
+            {
+              "name": "h",
+              "type": "f64"
+            }
+          ]
+        },
+        {
+          "name": "dot",
+          "fields": []
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "area",
+      "signature": "fn area s:shape -> f64",
+      "params": [
+        {
+          "name": "s",
+          "type": "shape"
+        }
+      ],
+      "ret": "f64",
+      "doc": "area of a shape",
+      "effectful": false,
+      "examples": [
+        "area circle 1.0 = 3.0",
+        "area dot = 0.0"
+      ],
+      "calls": [],
+      "builtins": []
+    }
+  ],
+  "entry": null
+}

@@ -985,7 +985,9 @@ impl<'a> ExprCtx<'a> {
             None => return Err(p001_eol(self.file, self.line, "expected variant name")),
         };
         let Some(sum) = first else {
-            return Err(self.diagnostic_at(index, "unexpected token"));
+            let mut diagnostic = self.diagnostic_at(index, "unexpected token");
+            diagnostic.expected = Some("variant name".to_string());
+            return Err(diagnostic);
         };
         let variants = &self.signatures.sums[sum];
         let mut arms = Vec::with_capacity(variants.len());

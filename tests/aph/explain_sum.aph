@@ -1,0 +1,6 @@
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+fn area s:shape -> f64
+ doc "area of a shape"
+ ex area circle 1.0 = 3.0
+ ex area dot = 0.0
+ match s circle r * 3.0 * r r rect w h * w h dot 0.0

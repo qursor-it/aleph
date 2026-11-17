@@ -573,6 +573,7 @@ impl<'a> TypeChecker<'a> {
                 _ => expected.cloned(),
             };
             let ty = self.check_expr(&arm.body, want.as_ref());
+            let ty = self.resolve(&ty);
             self.env = saved;
             if first.is_none() {
                 first = Some(ty);

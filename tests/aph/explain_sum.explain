@@ -1,0 +1,10 @@
+capabilities: none
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+fn area s:shape -> f64
+  doc: "area of a shape"
+  effectful: no
+  examples: area circle 1.0 = 3.0
+  examples: area dot = 0.0
+  calls: -
+  builtins: -
+entry: -
