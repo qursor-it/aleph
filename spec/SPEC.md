@@ -203,7 +203,7 @@ A `json` value is null, a bool, an integer (`i64`), a number (`f64`), a string, 
 
 | Name | Signature |
 |---|---|
-| `json x` | T -> json (T `unit` (null), `bool`, `i64`, `f64`, `str`, `list json` or `dict str json`; NaN/inf -> null) |
+| `json x` | T -> json (T `unit` (null), `bool`, `i64`, `f64`, `str`, `json` (as is), `list json` or `dict str json`; NaN/inf -> null; nesting > 256 -> R005) |
 | `jparse s` | str -> res json str |
 | `jbool j` / `jint j` / `jnum j` / `jstr j` | json -> opt bool / i64 / f64 / str (`jnum` also converts integers) |
 | `jlist j` | json -> opt list json |

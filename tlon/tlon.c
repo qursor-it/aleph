@@ -1767,11 +1767,47 @@ static void json_into(Buf *buffer, AlValue payload) {
     }
 }
 
+static uint32_t json_depth(AlValue json) {
+    return ((const AlJson *)(const void *)json.u.box)->depth;
+}
+
+/* Wrap a payload, computing its depth from its (already wrapped) children. */
+static AlValue json_make(AlValue payload) {
+    AlValue value;
+    AlJson *json = (AlJson *)aleph_alloc(sizeof(AlJson));
+    size_t index;
+    uint32_t depth = 0;
+    if (payload.tag == AL_LIST || payload.tag == AL_DICT) {
+        size_t step = payload.tag == AL_DICT ? 2 : 1;
+        size_t start = payload.tag == AL_DICT ? 1 : 0;
+        for (index = start; index < payload.u.list->len; index += step) {
+            uint32_t child = json_depth(payload.u.list->items[index]);
+            if (child > depth) {
+                depth = child;
+            }
+        }
+        depth += 1;
+    }
+    json->value = payload;
+    json->depth = depth;
+    value.tag = AL_JSON;
+    value.u.box = (AlBox *)(void *)json;
+    return value;
+}
+
 AlValue aleph_b_json(AlValue value) {
+    AlValue json;
+    if (value.tag == AL_JSON) {
+        return value;
+    }
     if (value.tag == AL_F64 && !isfinite(value.u.f64)) {
         value = aleph_unit();
     }
-    return boxed(AL_JSON, value);
+    json = json_make(value);
+    if (json_depth(json) > JSON_MAX_DEPTH) {
+        aleph_trap("R005", "allocation limit exceeded");
+    }
+    return json;
 }
 
 typedef struct JsonParser {
@@ -2032,40 +2068,57 @@ static bool json_string(JsonParser *parser, AlValue *out) {
     return true;
 }
 
-/* Pair index of `key` in sorted k0 v0 k1 v1 ... pairs, as dict_find. */
-static size_t pairs_find(const Values *pairs, AlValue key, bool *found) {
-    size_t low = 0;
-    size_t high = pairs->len / 2;
-    while (low < high) {
-        size_t mid = low + (high - low) / 2;
-        int order = value_order(pairs->items[2 * mid], key);
-        if (order == 0) {
-            *found = true;
-            return mid;
-        }
-        if (order < 0) {
-            low = mid + 1;
-        } else {
-            high = mid;
-        }
-    }
-    *found = false;
-    return low;
-}
-
-/* One `"key": value` member, inserted in key order into `pairs`. */
-static bool json_member(JsonParser *parser, size_t depth, Values *pairs) {
+/* An object member while parsing; sorted once when the object closes. */
+typedef struct JsonMember {
     AlValue key;
     AlValue val;
-    size_t key_at;
-    size_t at;
-    bool found;
+    size_t at; /* offset of the key's opening quote */
+} JsonMember;
+
+typedef struct Members {
+    JsonMember *items;
+    size_t len;
+    size_t cap;
+} Members;
+
+static void members_push(Members *members, JsonMember member) {
+    if (members->len == members->cap) {
+        size_t cap = members->cap == 0 ? 8 : members->cap * 2;
+        JsonMember *items;
+        if (cap > SIZE_MAX / 2 / sizeof(JsonMember)) {
+            out_of_memory();
+        }
+        items = (JsonMember *)realloc(members->items, cap * sizeof(JsonMember));
+        if (items == NULL) {
+            out_of_memory();
+        }
+        members->items = items;
+        members->cap = cap;
+    }
+    members->items[members->len] = member;
+    members->len += 1;
+}
+
+/* By key, then offset: equal keys stay in input order. */
+static int member_order(const void *left, const void *right) {
+    const JsonMember *a = (const JsonMember *)left;
+    const JsonMember *b = (const JsonMember *)right;
+    int order = value_order(a->key, b->key);
+    if (order != 0) {
+        return order;
+    }
+    return a->at < b->at ? -1 : (a->at > b->at ? 1 : 0);
+}
+
+/* One `"key": value` member, appended to `members`. */
+static bool json_member(JsonParser *parser, size_t depth, Members *members) {
+    JsonMember member;
     json_skip_ws(parser);
     if (json_peek(parser) != '"') {
         return json_unexpected(parser);
     }
-    key_at = parser->pos;
-    if (!json_string(parser, &key)) {
+    member.at = parser->pos;
+    if (!json_string(parser, &member.key)) {
         return false;
     }
     json_skip_ws(parser);
@@ -2073,20 +2126,46 @@ static bool json_member(JsonParser *parser, size_t depth, Values *pairs) {
         return json_unexpected(parser);
     }
     parser->pos += 1;
-    if (!json_value(parser, depth, &val)) {
+    if (!json_value(parser, depth, &member.val)) {
         return false;
     }
-    at = pairs_find(pairs, key, &found);
-    if (found) {
-        return json_fail(parser, "duplicate key", key_at);
+    members_push(members, member);
+    return true;
+}
+
+/* Sorts the members; a duplicate key is reported only after the object
+   parsed otherwise, at the smallest offset of a repeated key. */
+static bool json_members_take(JsonParser *parser, Members *members,
+                              AlValue *out) {
+    size_t index;
+    size_t duplicate = SIZE_MAX;
+    AlValue dict;
+    if (members->len > 1) {
+        qsort(members->items, members->len, sizeof(JsonMember), member_order);
     }
-    values_insert(pairs, 2 * at, val);
-    values_insert(pairs, 2 * at, key);
+    for (index = 1; index < members->len; index += 1) {
+        if (value_order(members->items[index - 1].key,
+                        members->items[index].key) == 0 &&
+            members->items[index].at < duplicate) {
+            duplicate = members->items[index].at;
+        }
+    }
+    if (duplicate != SIZE_MAX) {
+        free(members->items);
+        return json_fail(parser, "duplicate key", duplicate);
+    }
+    dict = aleph_list_new(2 * members->len);
+    for (index = 0; index < members->len; index += 1) {
+        dict.u.list->items[2 * index] = members->items[index].key;
+        dict.u.list->items[2 * index + 1] = members->items[index].val;
+    }
+    free(members->items);
+    *out = as_dict(dict);
     return true;
 }
 
 static bool json_object(JsonParser *parser, size_t depth, AlValue *out) {
-    Values pairs = {NULL, 0, 0};
+    Members members = {NULL, 0, 0};
     bool more = true;
     if (!json_open(parser, depth)) {
         return false;
@@ -2096,14 +2175,13 @@ static bool json_object(JsonParser *parser, size_t depth, AlValue *out) {
         more = false;
     }
     while (more) {
-        if (!json_member(parser, depth, &pairs) ||
+        if (!json_member(parser, depth, &members) ||
             !json_separator(parser, '}', &more)) {
-            free(pairs.items);
+            free(members.items);
             return false;
         }
     }
-    *out = as_dict(values_take(&pairs));
-    return true;
+    return json_members_take(parser, &members, out);
 }
 
 static void json_digits(JsonParser *parser) {
@@ -2214,7 +2292,7 @@ static bool json_value(JsonParser *parser, size_t depth, AlValue *out) {
     if (!ok) {
         return false;
     }
-    *out = boxed(AL_JSON, payload);
+    *out = json_make(payload);
     return true;
 }
 

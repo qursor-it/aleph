@@ -65,8 +65,9 @@ pub enum Value {
     Record(Rc<str>, Rc<Vec<Value>>),
     /// Key/value pairs sorted by key with [`compare_values`] (ADR-0032).
     Dict(Rc<Vec<(Value, Value)>>),
-    /// A JSON value wrapping its payload (ADR-0033, see [`crate::json`]).
-    Json(Rc<Value>),
+    /// A JSON value: its payload and nesting depth (ADR-0033, see
+    /// [`crate::json`]).
+    Json(Rc<Value>, u32),
     Fn(FnTarget),
 }
 
@@ -103,7 +104,7 @@ pub fn values_equal(left: &Value, right: &Value) -> bool {
                     .zip(b.iter())
                     .all(|((ak, av), (bk, bv))| values_equal(ak, bk) && values_equal(av, bv))
         }
-        (Value::Json(a), Value::Json(b)) => values_equal(a, b),
+        (Value::Json(a, _), Value::Json(b, _)) => values_equal(a, b),
         (Value::Fn(a), Value::Fn(b)) => a == b,
         _ => false,
     }
@@ -727,7 +728,10 @@ impl<'a> Interp<'a> {
             "lower" => Value::Str(Rc::from(as_str(&args[0]).to_ascii_lowercase().as_str())),
             "contains" => Value::Bool(as_str(&args[0]).contains(as_str(&args[1]))),
             "show" => Value::Str(Rc::from(show(&args[0]).as_str())),
-            "json" => json::wrap(args[0].clone()),
+            "json" => match json::wrap(args[0].clone()) {
+                Some(value) => value,
+                None => return Err(Trap::new("R005", "allocation limit exceeded", node, span)),
+            },
             "jparse" => match json::parse(as_str(&args[0])) {
                 Ok(value) => result_ok(value),
                 Err(message) => result_err(&message),
@@ -924,7 +928,7 @@ pub fn show(value: &Value) -> String {
             }
             text
         }
-        Value::Json(payload) => json::print(payload),
+        Value::Json(payload, _) => json::print(payload),
         Value::Fn(target) => match target {
             FnTarget::User(name) | FnTarget::Ctor(name) => format!("@{name}"),
             FnTarget::Builtin(name) => format!("@{name}"),

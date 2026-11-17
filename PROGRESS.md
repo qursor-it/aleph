@@ -533,3 +533,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0033 proposed; ADR-0026 amended
 - next: independent review of T-028; then T-029 sum types + match
 - agent: claude-opus-5.5 directly (OpenCode quota exhausted)
+
+## 2026-11-17T11:00 T-028 review round 1
+- independent review (fresh Claude Opus subagent, sanitizers + 400-case fuzz, no engine divergence): 7/10, IMPORTANT: object parse quadratic in keys (100k descending keys 26 s); program-built json nested without limit (interpreter stack overflow vs native segfault)
+- fixes: members collected and sorted once per object (duplicate key reported after the object parsed, smallest repeated-key offset); json values carry their depth, `json` traps R005 above 256 in both engines; `json` of a `json` returns it; ADR-0033: truncated `\u` = bad escape
+- tests: Rust/C case tables extended (-0.0, 1e15/1e16, \u0000, \/, duplicate order, 200k-key object), goldens run_json_deep (.err/.exit R005, differential) and json_example_fail (E002 on json)
+- tests: 335 passed; llms.txt 2042 est. tokens (budget 2050)

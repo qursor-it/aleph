@@ -1,23 +1,52 @@
 //! JSON values for the interpreter (ADR-0033).
 //!
-//! A JSON value is `Value::Json(payload)` where the payload is `Unit` (null),
-//! `Bool`, `I64`, `F64`, `Str`, a `List` of JSON values or a `Dict` from
-//! `Str` to JSON values. Tlön mirrors this module byte for byte.
+//! A JSON value is `Value::Json(payload, depth)` where the payload is `Unit`
+//! (null), `Bool`, `I64`, `F64`, `Str`, a `List` of JSON values or a `Dict`
+//! from `Str` to JSON values, and `depth` counts nested lists/objects (0 for
+//! a scalar). Tlön mirrors this module byte for byte.
 
 use std::rc::Rc;
 
 use crate::interp::{compare_values, Value};
 
-/// Maximum nesting of arrays and objects accepted by [`parse`].
+/// Maximum nesting of arrays and objects in any JSON value.
 pub const MAX_DEPTH: usize = 256;
 
-/// `json x`: wrap a jsonable value; a NaN or infinite `f64` becomes null.
-pub fn wrap(value: Value) -> Value {
+/// `json x`: wrap a jsonable value; a NaN or infinite `f64` becomes null and
+/// a `json` is returned as is. `None` when nesting would exceed
+/// [`MAX_DEPTH`] (R005).
+pub fn wrap(value: Value) -> Option<Value> {
     let payload = match value {
+        json @ Value::Json(..) => return Some(json),
         Value::F64(number) if !number.is_finite() => Value::Unit,
         other => other,
     };
-    Value::Json(Rc::new(payload))
+    let value = make(payload);
+    match value {
+        Value::Json(_, depth) if depth as usize > MAX_DEPTH => None,
+        value => Some(value),
+    }
+}
+
+/// Wrap a payload, computing its depth from its (already wrapped) children.
+fn make(payload: Value) -> Value {
+    let children = match &payload {
+        Value::List(items) => items.iter().map(depth).max().map(|d| d + 1),
+        Value::Dict(pairs) => pairs.iter().map(|(_, val)| depth(val)).max().map(|d| d + 1),
+        _ => Some(0),
+    };
+    let own = match &payload {
+        Value::List(_) | Value::Dict(_) => children.unwrap_or(1),
+        _ => 0,
+    };
+    Value::Json(Rc::new(payload), own)
+}
+
+fn depth(value: &Value) -> u32 {
+    match value {
+        Value::Json(_, depth) => *depth,
+        _ => panic!("type checker guarantees a json value"),
+    }
 }
 
 /// Compact JSON text (`show` on a `json` value).
@@ -81,7 +110,7 @@ fn print_str(out: &mut String, text: &str) {
 /// The payload of a `Value::Json`.
 pub fn inner(value: &Value) -> &Value {
     match value {
-        Value::Json(payload) => payload,
+        Value::Json(payload, _) => payload,
         _ => panic!("type checker guarantees a json value"),
     }
 }
@@ -143,7 +172,7 @@ impl Parser<'_> {
             Some(b'-' | b'0'..=b'9') => self.number()?,
             Some(_) => return Err(self.unexpected()),
         };
-        Ok(Value::Json(Rc::new(payload)))
+        Ok(make(payload))
     }
 
     fn literal(&mut self, word: &str, payload: Value) -> Result<Value, String> {
@@ -196,12 +225,14 @@ impl Parser<'_> {
         Ok(Value::List(Rc::new(items)))
     }
 
+    /// Members are collected in input order and sorted once at `}`, so a
+    /// duplicate key is reported only after the object parsed otherwise.
     fn object(&mut self, depth: usize) -> Result<Value, String> {
         self.open(depth)?;
-        let mut pairs: Vec<(Value, Value)> = Vec::new();
+        let mut members: Vec<(Value, Value, usize)> = Vec::new();
         if self.peek() == Some(b'}') {
             self.pos += 1;
-            return Ok(Value::Dict(Rc::new(pairs)));
+            return Ok(Value::Dict(Rc::new(Vec::new())));
         }
         loop {
             self.skip_ws();
@@ -216,14 +247,25 @@ impl Parser<'_> {
             }
             self.pos += 1;
             let val = self.value(depth)?;
-            match pairs.binary_search_by(|(probe, _)| compare_values(probe, &key)) {
-                Ok(_) => return Err(self.fail("duplicate key", key_at)),
-                Err(index) => pairs.insert(index, (key, val)),
-            }
+            members.push((key, val, key_at));
             if !self.separator(b'}')? {
                 break;
             }
         }
+        // By key, then offset: equal keys stay in input order.
+        members.sort_by(|a, b| compare_values(&a.0, &b.0).then(a.2.cmp(&b.2)));
+        let duplicate = members
+            .windows(2)
+            .filter(|pair| compare_values(&pair[0].0, &pair[1].0).is_eq())
+            .map(|pair| pair[1].2)
+            .min();
+        if let Some(at) = duplicate {
+            return Err(self.fail("duplicate key", at));
+        }
+        let pairs = members
+            .into_iter()
+            .map(|(key, val, _)| (key, val))
+            .collect();
         Ok(Value::Dict(Rc::new(pairs)))
     }
 
@@ -387,6 +429,10 @@ mod tests {
         assert_eq!(round("-9223372036854775808"), "-9223372036854775808");
         assert_eq!(round("\"\\ud83d\\ude00\\u0001\""), "\"😀\\u0001\"");
         assert_eq!(round("[1e2,1E-2,0.5]"), "[100.0,0.01,0.5]");
+        assert_eq!(
+            round("[-0.0,1e15,1e16,\"\\u0000\\/\"]"),
+            "[-0.0,1000000000000000.0,1e16,\"\\u0000/\"]"
+        );
     }
 
     #[test]
@@ -411,11 +457,48 @@ mod tests {
         assert_eq!(round(&deep), deep);
         let deeper = "[".repeat(MAX_DEPTH + 1);
         assert_eq!(round(&deeper), "json: too deep at byte 256");
+        assert_eq!(round("\"\\u00"), "json: bad escape at byte 1");
     }
 
     #[test]
     fn wrap_maps_non_finite_to_null() {
-        assert_eq!(print(inner(&wrap(Value::F64(f64::NAN)))), "null");
-        assert_eq!(print(inner(&wrap(Value::F64(1.0)))), "1.0");
+        let show = |value: Value| print(inner(&wrap(value).expect("shallow")));
+        assert_eq!(show(Value::F64(f64::NAN)), "null");
+        assert_eq!(show(Value::F64(1.0)), "1.0");
+        assert_eq!(show(wrap(Value::I64(1)).unwrap()), "1");
+    }
+
+    #[test]
+    fn wrap_limits_depth() {
+        let mut value = wrap(Value::Unit).unwrap();
+        for _ in 0..MAX_DEPTH {
+            value = wrap(Value::List(Rc::new(vec![value]))).expect("within the limit");
+        }
+        assert!(wrap(Value::List(Rc::new(vec![value]))).is_none());
+        let empty = wrap(Value::List(Rc::new(Vec::new()))).unwrap();
+        assert!(matches!(empty, Value::Json(_, 1)));
+    }
+
+    #[test]
+    fn large_objects_parse_in_linear_time() {
+        // Descending keys were quadratic with sorted insertion.
+        let members: Vec<String> = (0..200_000)
+            .rev()
+            .map(|n| format!("\"k{n:06}\":{n}"))
+            .collect();
+        let text = format!("{{{}}}", members.join(","));
+        let value = parse(&text).expect("valid");
+        let Value::Dict(pairs) = inner(&value) else {
+            panic!("object");
+        };
+        assert_eq!(pairs.len(), 200_000);
+        assert_eq!(
+            round("{\"b\":1,\"a\":2,\"b\":3,\"a\":4}"),
+            "json: duplicate key at byte 13"
+        );
+        assert_eq!(
+            round("{\"a\":1,\"a\":2,\"a\":3"),
+            "json: unexpected end at byte 18"
+        );
     }
 }

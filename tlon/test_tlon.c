@@ -346,6 +346,12 @@ static void test_json(void) {
     check_json("-9223372036854775808", "-9223372036854775808");
     check_json("\"\\ud83d\\ude00\\u0001\"", "\"\xf0\x9f\x98\x80\\u0001\"");
     check_json("[1e2,1E-2,0.5]", "[100.0,0.01,0.5]");
+    check_json("[-0.0,1e15,1e16,\"\\u0000\\/\"]",
+               "[-0.0,1000000000000000.0,1e16,\"\\u0000/\"]");
+    check_json("\"\\u00", "json: bad escape at byte 1");
+    check_json("{\"b\":1,\"a\":2,\"b\":3,\"a\":4}",
+               "json: duplicate key at byte 13");
+    check_json("{\"a\":1,\"a\":2,\"a\":3", "json: unexpected end at byte 18");
 
     check_json("", "json: unexpected end at byte 0");
     check_json("[1,]", "json: unexpected byte at byte 3");
@@ -377,6 +383,23 @@ static void test_json(void) {
     check(aleph_b_jint(aleph_b_json(aleph_f64(1.0))).tag == AL_NONE,
           "jint of an f64");
     check_show(aleph_b_jnum(aleph_b_json(i64v(3))), "some 3.0", "jnum of i64");
+    check_show(aleph_b_json(aleph_b_json(i64v(1))), "1", "json of json");
+    {
+        /* 256 levels are allowed; the 257th traps (tested in test_traps). */
+        AlValue value = aleph_b_json(aleph_unit());
+        int level;
+        for (level = 0; level < 256; level += 1) {
+            AlValue items[1];
+            items[0] = value;
+            value = aleph_b_json(aleph_list(items, 1));
+        }
+        check(((const AlJson *)(const void *)value.u.box)->depth == 256,
+              "json depth 256");
+        check(((const AlJson *)(const void *)aleph_b_json(aleph_list(NULL, 0))
+                   .u.box)
+                      ->depth == 1,
+              "empty list depth 1");
+    }
 }
 
 static void test_dict(void) {

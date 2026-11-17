@@ -44,7 +44,7 @@ pub enum Bound {
     Showable,
     /// A dict key type: `i64`, `bool` or `str` (ADR-0032).
     Key,
-    /// A type `json x` accepts: `unit`, `bool`, `i64`, `f64`, `str`,
+    /// A type `json x` accepts: `unit`, `bool`, `i64`, `f64`, `str`, `json`,
     /// `list json` or `dict str json` (ADR-0033).
     Jsonable,
 }

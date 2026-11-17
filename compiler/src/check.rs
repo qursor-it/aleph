@@ -1293,7 +1293,7 @@ fn satisfies(ty: &Type, bound: Bound) -> bool {
                 }
         }
         Bound::Jsonable => match ty {
-            Type::Unit | Type::Bool | Type::I64 | Type::F64 | Type::Str => true,
+            Type::Unit | Type::Bool | Type::I64 | Type::F64 | Type::Str | Type::Json => true,
             Type::List(elem) => **elem == Type::Json,
             Type::Dict(key, val) => **key == Type::Str && **val == Type::Json,
             _ => false,

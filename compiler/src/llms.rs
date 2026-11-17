@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x8c5c7559df4e1a80,
+        hash: 0x71507ae284b73267,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -142,7 +142,7 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. `json`: `json x` (x jsonable: unit bool i64 f64 str, list json, dict str json; NaN -> null). v0.2: sums, generics."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005). v0.2: sums, generics."
         ),
     );
     section(

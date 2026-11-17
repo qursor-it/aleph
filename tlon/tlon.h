@@ -42,8 +42,9 @@ typedef enum {
     AL_FN,
     /* `dict K V` (ADR-0032): u.list holds k0 v0 k1 v1 ..., keys ascending. */
     AL_DICT,
-    /* `json` (ADR-0033): u.box holds the payload: unit (null), bool, i64,
-       f64, str, a list of AL_JSON or an AL_DICT from str to AL_JSON. */
+    /* `json` (ADR-0033): u.box points to an AlJson whose first member is
+       the payload: unit (null), bool, i64, f64, str, a list of AL_JSON or
+       an AL_DICT from str to AL_JSON. */
     AL_JSON
 } AlTag;
 
@@ -82,6 +83,12 @@ struct AlList {
 struct AlBox {
     AlValue value;
 };
+
+/* An AL_JSON payload; starts like AlBox so `u.box->value` reads it. */
+typedef struct AlJson {
+    AlValue value;
+    uint32_t depth; /* nested lists/objects; 0 for a scalar */
+} AlJson;
 
 /* `name` must have static storage duration (generated code uses literals). */
 struct AlRecordInfo {

@@ -1,0 +1,4 @@
+fn one -> json
+ ex show one = "[1]"
+ ex one = json [json 1.0]
+ json [json 1]

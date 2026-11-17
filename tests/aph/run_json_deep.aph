@@ -1,0 +1,6 @@
+fn wrap a:json x:i64 -> json
+ ex show wrap json nil 0 = "[null]"
+ json [a]
+fn main -> unit
+ do print show count show fold @wrap json nil range 0 256
+ print show count show fold @wrap json nil range 0 257
