@@ -1,0 +1,22 @@
+fn field j:json k:str -> json
+ ex show field json put dict str json "a" json 1 "a" = "1"
+ ex show field json 1 "a" = "null"
+ else get else jdict j dict str json k json nil
+fn main -> res unit str
+ let j try jparse " {\"b\": [1, 2.5e0, -0, true, null], \"a\": \"x\\u00e9\\n\\ud83d\\ude00\"} "
+ do print show j
+ do print show field j "b"
+ do print show else jstr field j "a" "?"
+ do print show len else jlist field j "b" empty json
+ do print show keys else jdict j dict str json
+ do print show else jint json 7 0
+ do print show else jint json 7.5 0
+ do print show else jnum json 7 0.0
+ do print show else jbool json true false
+ do print show has jstr json 1
+ do print show json / 0.0 0.0
+ do print show json [json nil json -9223372036854775807 json 1.5 json "q\"\\\t"]
+ let n try jparse "[12345678901234567890, 1E2, 0.1, -0.0]"
+ do print show n
+ do print show == show json nil "null"
+ ok nil

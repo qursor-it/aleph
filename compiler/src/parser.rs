@@ -1183,6 +1183,8 @@ fn primitive_kind(name: &str) -> Option<ast::TypeKind> {
         Some(ast::TypeKind::Str)
     } else if is_type(name, "unit") {
         Some(ast::TypeKind::Unit)
+    } else if is_type(name, "json") {
+        Some(ast::TypeKind::Json)
     } else {
         None
     }

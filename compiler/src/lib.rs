@@ -9,6 +9,7 @@ pub mod edit;
 pub mod examples;
 pub mod explain;
 pub mod interp;
+pub mod json;
 pub mod lexer;
 pub mod lexicon;
 pub mod llms;

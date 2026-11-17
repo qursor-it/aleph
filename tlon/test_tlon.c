@@ -327,6 +327,58 @@ static void test_builtins(void) {
 /* Higher-order builtins and function values                           */
 /* ------------------------------------------------------------------ */
 
+/* Same cases as compiler/src/json.rs tests: the engines must agree. */
+static void check_json(const char *input, const char *expected) {
+    AlValue result = aleph_b_jparse(strv(input));
+    AlValue text = result.tag == AL_OK ? aleph_show(result.u.box->value)
+                                       : result.u.box->value;
+    check_str(text, expected, input);
+}
+
+static void test_json(void) {
+    char deep[2 * 256 + 2];
+    char deeper[258];
+    volatile double zero = 0.0;
+    check_json(" {\"b\" : [1, 2.5e0, -0, true, null], \"a\":\"x\\u00e9\\n\"} ",
+               "{\"a\":\"x\xc3\xa9\\n\",\"b\":[1,2.5,0,true,null]}");
+    check_json("1e400", "json: bad number at byte 0");
+    check_json("12345678901234567890", "1.2345678901234567e19");
+    check_json("-9223372036854775808", "-9223372036854775808");
+    check_json("\"\\ud83d\\ude00\\u0001\"", "\"\xf0\x9f\x98\x80\\u0001\"");
+    check_json("[1e2,1E-2,0.5]", "[100.0,0.01,0.5]");
+
+    check_json("", "json: unexpected end at byte 0");
+    check_json("[1,]", "json: unexpected byte at byte 3");
+    check_json("[1 2]", "json: unexpected byte at byte 3");
+    check_json("{\"a\":1", "json: unexpected end at byte 6");
+    check_json("tru", "json: unexpected byte at byte 0");
+    check_json("01", "json: unexpected byte at byte 1");
+    check_json("-", "json: bad number at byte 0");
+    check_json("1.", "json: bad number at byte 0");
+    check_json("[\"a\\x\"]", "json: bad escape at byte 3");
+    check_json("\"\\ud800\"", "json: bad escape at byte 1");
+    check_json("\"\\udc00\"", "json: bad escape at byte 1");
+    check_json("\"\\u12\"", "json: bad escape at byte 1");
+    check_json("\"a\nb\"", "json: unexpected byte at byte 2");
+    check_json("{\"a\":1,\"a\":2}", "json: duplicate key at byte 7");
+    check_json("{1:2}", "json: unexpected byte at byte 1");
+    check_json("1 x", "json: unexpected byte at byte 2");
+
+    memset(deep, '[', 256);
+    memset(deep + 256, ']', 256);
+    deep[512] = '\0';
+    check_json(deep, deep);
+    memset(deeper, '[', 257);
+    deeper[257] = '\0';
+    check_json(deeper, "json: too deep at byte 256");
+
+    check_show(aleph_b_json(aleph_f64(0.0 / zero)), "null", "json of NaN");
+    check_show(aleph_b_json(aleph_f64(1.0)), "1.0", "json of f64");
+    check(aleph_b_jint(aleph_b_json(aleph_f64(1.0))).tag == AL_NONE,
+          "jint of an f64");
+    check_show(aleph_b_jnum(aleph_b_json(i64v(3))), "some 3.0", "jnum of i64");
+}
+
 static void test_dict(void) {
     AlValue d = aleph_dict_empty();
     check_i64(aleph_b_size(d), 0, "dict empty size");
@@ -1023,6 +1075,7 @@ int main(int argc, char **argv) {
     test_show();
     test_builtins();
     test_dict();
+    test_json();
     test_higher_order();
     test_filesystem();
     test_effects();

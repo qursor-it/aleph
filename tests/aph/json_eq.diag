@@ -1,0 +1,1 @@
+{"code":"T004","severity":"error","file":"tests/aph/json_eq.aph","line":2,"col":16,"node":"n6","msg":"type constraint not satisfied","expected":"primitive","found":"json"}

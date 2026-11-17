@@ -116,6 +116,7 @@ pub(crate) fn print_type(ty: &ast::Type) -> String {
         TypeKind::Bool => type_name("boolean").to_string(),
         TypeKind::Str => type_name("string").to_string(),
         TypeKind::Unit => type_name("unit").to_string(),
+        TypeKind::Json => type_name("json").to_string(),
         TypeKind::List { elem } => format!("{} {}", type_name("list"), print_type(elem)),
         TypeKind::Opt { elem } => format!("{} {}", type_name("option"), print_type(elem)),
         TypeKind::Res { ok, err } => format!(

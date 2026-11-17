@@ -25,6 +25,7 @@ type        = "i64" | "f64" | "bool" | "str" | "unit"
             | "opt" " " type
             | "res" " " type " " type
             | "dict" " " type " " type             (* v0.2, ADR-0032 *)
+            | "json"                               (* v0.2, ADR-0033 *)
             | ident ;
 
 expr        = literal

@@ -495,6 +495,7 @@ bool aleph_values_equal(AlValue left, AlValue right) {
     case AL_SOME:
     case AL_OK:
     case AL_ERR:
+    case AL_JSON:
         return aleph_values_equal(left.u.box->value, right.u.box->value);
     case AL_RECORD:
         if (left.u.rec->n != right.u.rec->n) {
@@ -839,6 +840,7 @@ static void escape_literal(Buf *buffer, const AlStr *text) {
 
 static void show_into(Buf *buffer, AlValue value);
 static void literal_into(Buf *buffer, AlValue value);
+static void json_into(Buf *buffer, AlValue payload);
 
 static void show_into(Buf *buffer, AlValue value) {
     char number[64];
@@ -907,6 +909,9 @@ static void show_into(Buf *buffer, AlValue value) {
             buf_putc(buffer, ' ');
             literal_into(buffer, value.u.list->items[index]);
         }
+        break;
+    case AL_JSON:
+        json_into(buffer, value.u.box->value);
         break;
     }
 }
@@ -1671,6 +1676,583 @@ static bool parse_float_value(const char *text, size_t len, double *out) {
     free(copy);
     *out = value;
     return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* JSON (ADR-0033): mirrors compiler/src/json.rs byte for byte          */
+/* ------------------------------------------------------------------ */
+
+#define JSON_MAX_DEPTH 256
+
+static void json_str_into(Buf *buffer, const AlStr *text) {
+    size_t index;
+    char escape[8];
+    buf_putc(buffer, '"');
+    for (index = 0; index < text->len; index += 1) {
+        unsigned char byte = (unsigned char)text->data[index];
+        switch (byte) {
+        case '"':
+            buf_cstr(buffer, "\\\"");
+            break;
+        case '\\':
+            buf_cstr(buffer, "\\\\");
+            break;
+        case '\b':
+            buf_cstr(buffer, "\\b");
+            break;
+        case '\f':
+            buf_cstr(buffer, "\\f");
+            break;
+        case '\n':
+            buf_cstr(buffer, "\\n");
+            break;
+        case '\r':
+            buf_cstr(buffer, "\\r");
+            break;
+        case '\t':
+            buf_cstr(buffer, "\\t");
+            break;
+        default:
+            if (byte < 0x20) {
+                snprintf(escape, sizeof(escape), "\\u%04x", (unsigned)byte);
+                buf_cstr(buffer, escape);
+            } else {
+                buf_putc(buffer, (char)byte);
+            }
+        }
+    }
+    buf_putc(buffer, '"');
+}
+
+static void json_into(Buf *buffer, AlValue payload) {
+    size_t index;
+    switch (payload.tag) {
+    case AL_UNIT:
+        buf_cstr(buffer, "null");
+        break;
+    case AL_BOOL:
+        buf_cstr(buffer, payload.u.b ? "true" : "false");
+        break;
+    case AL_I64:
+    case AL_F64:
+        show_into(buffer, payload);
+        break;
+    case AL_STR:
+        json_str_into(buffer, payload.u.str);
+        break;
+    case AL_LIST:
+        buf_putc(buffer, '[');
+        for (index = 0; index < payload.u.list->len; index += 1) {
+            if (index > 0) {
+                buf_putc(buffer, ',');
+            }
+            json_into(buffer, payload.u.list->items[index].u.box->value);
+        }
+        buf_putc(buffer, ']');
+        break;
+    case AL_DICT:
+        buf_putc(buffer, '{');
+        for (index = 0; index < payload.u.list->len; index += 2) {
+            if (index > 0) {
+                buf_putc(buffer, ',');
+            }
+            json_str_into(buffer, payload.u.list->items[index].u.str);
+            buf_putc(buffer, ':');
+            json_into(buffer, payload.u.list->items[index + 1].u.box->value);
+        }
+        buf_putc(buffer, '}');
+        break;
+    default:
+        break;
+    }
+}
+
+AlValue aleph_b_json(AlValue value) {
+    if (value.tag == AL_F64 && !isfinite(value.u.f64)) {
+        value = aleph_unit();
+    }
+    return boxed(AL_JSON, value);
+}
+
+typedef struct JsonParser {
+    const unsigned char *data;
+    size_t len;
+    size_t pos;
+    char error[96];
+} JsonParser;
+
+/* Records the first error; returns false so callers can `return json_fail`. */
+static bool json_fail(JsonParser *parser, const char *reason, size_t at) {
+    snprintf(parser->error, sizeof(parser->error), "json: %s at byte %zu",
+             reason, at);
+    return false;
+}
+
+static bool json_unexpected(JsonParser *parser) {
+    if (parser->pos >= parser->len) {
+        return json_fail(parser, "unexpected end", parser->len);
+    }
+    return json_fail(parser, "unexpected byte", parser->pos);
+}
+
+static int json_peek(const JsonParser *parser) {
+    return parser->pos < parser->len ? parser->data[parser->pos] : -1;
+}
+
+static void json_skip_ws(JsonParser *parser) {
+    int byte = json_peek(parser);
+    while (byte == ' ' || byte == '\t' || byte == '\n' || byte == '\r') {
+        parser->pos += 1;
+        byte = json_peek(parser);
+    }
+}
+
+static bool json_value(JsonParser *parser, size_t depth, AlValue *out);
+
+/* A malloc'd growable array, so parsing leaves no garbage in the arena. */
+typedef struct Values {
+    AlValue *items;
+    size_t len;
+    size_t cap;
+} Values;
+
+static void values_insert(Values *values, size_t at, AlValue value) {
+    if (values->len == values->cap) {
+        size_t cap = values->cap == 0 ? 8 : values->cap * 2;
+        AlValue *items;
+        if (cap > SIZE_MAX / 2 / sizeof(AlValue)) {
+            out_of_memory();
+        }
+        items = (AlValue *)realloc(values->items, cap * sizeof(AlValue));
+        if (items == NULL) {
+            out_of_memory();
+        }
+        values->items = items;
+        values->cap = cap;
+    }
+    memmove(values->items + at + 1, values->items + at,
+            (values->len - at) * sizeof(AlValue));
+    values->items[at] = value;
+    values->len += 1;
+}
+
+static AlValue values_take(Values *values) {
+    AlValue list = aleph_list(values->items, values->len);
+    free(values->items);
+    return list;
+}
+
+static bool json_literal(JsonParser *parser, const char *word, AlValue payload,
+                         AlValue *out) {
+    size_t len = strlen(word);
+    if (parser->len - parser->pos < len ||
+        memcmp(parser->data + parser->pos, word, len) != 0) {
+        return json_fail(parser, "unexpected byte", parser->pos);
+    }
+    parser->pos += len;
+    *out = payload;
+    return true;
+}
+
+static bool json_open(JsonParser *parser, size_t depth) {
+    if (depth > JSON_MAX_DEPTH) {
+        return json_fail(parser, "too deep", parser->pos);
+    }
+    parser->pos += 1;
+    json_skip_ws(parser);
+    return true;
+}
+
+/* After an element: *more = true on ',', false on `close`. */
+static bool json_separator(JsonParser *parser, int close, bool *more) {
+    int byte;
+    json_skip_ws(parser);
+    byte = json_peek(parser);
+    if (byte == ',' || byte == close) {
+        parser->pos += 1;
+        *more = byte == ',';
+        return true;
+    }
+    return json_unexpected(parser);
+}
+
+static bool json_list(JsonParser *parser, size_t depth, AlValue *out) {
+    Values items = {NULL, 0, 0};
+    AlValue item;
+    bool more = true;
+    if (!json_open(parser, depth)) {
+        return false;
+    }
+    if (json_peek(parser) == ']') {
+        parser->pos += 1;
+        more = false;
+    }
+    while (more) {
+        if (!json_value(parser, depth, &item) ||
+            !json_separator(parser, ']', &more)) {
+            free(items.items);
+            return false;
+        }
+        values_insert(&items, items.len, item);
+    }
+    *out = values_take(&items);
+    return true;
+}
+
+static bool hex4(JsonParser *parser, uint32_t *code) {
+    size_t index;
+    uint32_t value = 0;
+    if (parser->len - parser->pos < 4) {
+        return false;
+    }
+    for (index = 0; index < 4; index += 1) {
+        int digit = parser->data[parser->pos + index];
+        value *= 16;
+        if (digit >= '0' && digit <= '9') {
+            value += (uint32_t)(digit - '0');
+        } else if (digit >= 'a' && digit <= 'f') {
+            value += (uint32_t)(digit - 'a' + 10);
+        } else if (digit >= 'A' && digit <= 'F') {
+            value += (uint32_t)(digit - 'A' + 10);
+        } else {
+            return false;
+        }
+    }
+    parser->pos += 4;
+    *code = value;
+    return true;
+}
+
+static void put_utf8(Buf *buffer, uint32_t code) {
+    if (code < 0x80) {
+        buf_putc(buffer, (char)code);
+    } else if (code < 0x800) {
+        buf_putc(buffer, (char)(0xc0 | (code >> 6)));
+        buf_putc(buffer, (char)(0x80 | (code & 0x3f)));
+    } else if (code < 0x10000) {
+        buf_putc(buffer, (char)(0xe0 | (code >> 12)));
+        buf_putc(buffer, (char)(0x80 | ((code >> 6) & 0x3f)));
+        buf_putc(buffer, (char)(0x80 | (code & 0x3f)));
+    } else {
+        buf_putc(buffer, (char)(0xf0 | (code >> 18)));
+        buf_putc(buffer, (char)(0x80 | ((code >> 12) & 0x3f)));
+        buf_putc(buffer, (char)(0x80 | ((code >> 6) & 0x3f)));
+        buf_putc(buffer, (char)(0x80 | (code & 0x3f)));
+    }
+}
+
+/* The rest of `\uXXXX` (and a following low surrogate escape). */
+static bool json_unicode(JsonParser *parser, size_t at, Buf *buffer) {
+    uint32_t high;
+    uint32_t low;
+    if (!hex4(parser, &high)) {
+        return json_fail(parser, "bad escape", at);
+    }
+    if (high >= 0xdc00 && high <= 0xdfff) {
+        return json_fail(parser, "bad escape", at);
+    }
+    if (high >= 0xd800 && high <= 0xdbff) {
+        if (parser->len - parser->pos < 2 ||
+            parser->data[parser->pos] != '\\' ||
+            parser->data[parser->pos + 1] != 'u') {
+            return json_fail(parser, "bad escape", at);
+        }
+        parser->pos += 2;
+        if (!hex4(parser, &low) || low < 0xdc00 || low > 0xdfff) {
+            return json_fail(parser, "bad escape", at);
+        }
+        high = 0x10000 + ((high - 0xd800) << 10) + (low - 0xdc00);
+    }
+    put_utf8(buffer, high);
+    return true;
+}
+
+static bool json_escape(JsonParser *parser, Buf *buffer) {
+    size_t at = parser->pos;
+    int byte;
+    parser->pos += 1;
+    byte = json_peek(parser);
+    if (byte < 0) {
+        return json_unexpected(parser);
+    }
+    parser->pos += 1;
+    switch (byte) {
+    case '"':
+    case '\\':
+    case '/':
+        buf_putc(buffer, (char)byte);
+        return true;
+    case 'b':
+        buf_putc(buffer, '\b');
+        return true;
+    case 'f':
+        buf_putc(buffer, '\f');
+        return true;
+    case 'n':
+        buf_putc(buffer, '\n');
+        return true;
+    case 'r':
+        buf_putc(buffer, '\r');
+        return true;
+    case 't':
+        buf_putc(buffer, '\t');
+        return true;
+    case 'u':
+        return json_unicode(parser, at, buffer);
+    default:
+        return json_fail(parser, "bad escape", at);
+    }
+}
+
+/* A string starting at the opening quote. */
+static bool json_string(JsonParser *parser, AlValue *out) {
+    Buf buffer = {NULL, 0, 0};
+    parser->pos += 1;
+    for (;;) {
+        int byte = json_peek(parser);
+        if (byte < 0 || byte < 0x20) {
+            free(buffer.data);
+            return json_unexpected(parser);
+        }
+        if (byte == '"') {
+            parser->pos += 1;
+            break;
+        }
+        if (byte == '\\') {
+            if (!json_escape(parser, &buffer)) {
+                free(buffer.data);
+                return false;
+            }
+        } else {
+            buf_putc(&buffer, (char)byte);
+            parser->pos += 1;
+        }
+    }
+    *out = take_buffer(&buffer);
+    return true;
+}
+
+/* Pair index of `key` in sorted k0 v0 k1 v1 ... pairs, as dict_find. */
+static size_t pairs_find(const Values *pairs, AlValue key, bool *found) {
+    size_t low = 0;
+    size_t high = pairs->len / 2;
+    while (low < high) {
+        size_t mid = low + (high - low) / 2;
+        int order = value_order(pairs->items[2 * mid], key);
+        if (order == 0) {
+            *found = true;
+            return mid;
+        }
+        if (order < 0) {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+    *found = false;
+    return low;
+}
+
+/* One `"key": value` member, inserted in key order into `pairs`. */
+static bool json_member(JsonParser *parser, size_t depth, Values *pairs) {
+    AlValue key;
+    AlValue val;
+    size_t key_at;
+    size_t at;
+    bool found;
+    json_skip_ws(parser);
+    if (json_peek(parser) != '"') {
+        return json_unexpected(parser);
+    }
+    key_at = parser->pos;
+    if (!json_string(parser, &key)) {
+        return false;
+    }
+    json_skip_ws(parser);
+    if (json_peek(parser) != ':') {
+        return json_unexpected(parser);
+    }
+    parser->pos += 1;
+    if (!json_value(parser, depth, &val)) {
+        return false;
+    }
+    at = pairs_find(pairs, key, &found);
+    if (found) {
+        return json_fail(parser, "duplicate key", key_at);
+    }
+    values_insert(pairs, 2 * at, val);
+    values_insert(pairs, 2 * at, key);
+    return true;
+}
+
+static bool json_object(JsonParser *parser, size_t depth, AlValue *out) {
+    Values pairs = {NULL, 0, 0};
+    bool more = true;
+    if (!json_open(parser, depth)) {
+        return false;
+    }
+    if (json_peek(parser) == '}') {
+        parser->pos += 1;
+        more = false;
+    }
+    while (more) {
+        if (!json_member(parser, depth, &pairs) ||
+            !json_separator(parser, '}', &more)) {
+            free(pairs.items);
+            return false;
+        }
+    }
+    *out = as_dict(values_take(&pairs));
+    return true;
+}
+
+static void json_digits(JsonParser *parser) {
+    while (json_peek(parser) >= '0' && json_peek(parser) <= '9') {
+        parser->pos += 1;
+    }
+}
+
+static bool json_digits_required(JsonParser *parser) {
+    size_t start = parser->pos;
+    json_digits(parser);
+    return parser->pos > start;
+}
+
+static bool json_number(JsonParser *parser, AlValue *out) {
+    size_t start = parser->pos;
+    bool integral = true;
+    int64_t integer;
+    double number;
+    int byte;
+    if (json_peek(parser) == '-') {
+        parser->pos += 1;
+    }
+    byte = json_peek(parser);
+    if (byte == '0') {
+        parser->pos += 1;
+    } else if (byte >= '1' && byte <= '9') {
+        json_digits(parser);
+    } else {
+        return json_fail(parser, "bad number", start);
+    }
+    if (json_peek(parser) == '.') {
+        integral = false;
+        parser->pos += 1;
+        if (!json_digits_required(parser)) {
+            return json_fail(parser, "bad number", start);
+        }
+    }
+    byte = json_peek(parser);
+    if (byte == 'e' || byte == 'E') {
+        integral = false;
+        parser->pos += 1;
+        byte = json_peek(parser);
+        if (byte == '+' || byte == '-') {
+            parser->pos += 1;
+        }
+        if (!json_digits_required(parser)) {
+            return json_fail(parser, "bad number", start);
+        }
+    }
+    if (integral && parse_int_value((const char *)parser->data + start,
+                                    parser->pos - start, &integer)) {
+        *out = aleph_i64(integer);
+        return true;
+    }
+    {
+        /* The grammar is checked above; strtod rounds correctly. */
+        size_t len = parser->pos - start;
+        char *copy = (char *)malloc(len + 1);
+        if (copy == NULL) {
+            out_of_memory();
+        }
+        memcpy(copy, parser->data + start, len);
+        copy[len] = '\0';
+        number = strtod(copy, NULL);
+        free(copy);
+    }
+    if (!isfinite(number)) {
+        return json_fail(parser, "bad number", start);
+    }
+    *out = aleph_f64(number);
+    return true;
+}
+
+static bool json_value(JsonParser *parser, size_t depth, AlValue *out) {
+    AlValue payload;
+    bool ok;
+    json_skip_ws(parser);
+    switch (json_peek(parser)) {
+    case -1:
+        return json_unexpected(parser);
+    case '[':
+        ok = json_list(parser, depth + 1, &payload);
+        break;
+    case '{':
+        ok = json_object(parser, depth + 1, &payload);
+        break;
+    case '"':
+        ok = json_string(parser, &payload);
+        break;
+    case 't':
+        ok = json_literal(parser, "true", aleph_bool(true), &payload);
+        break;
+    case 'f':
+        ok = json_literal(parser, "false", aleph_bool(false), &payload);
+        break;
+    case 'n':
+        ok = json_literal(parser, "null", aleph_unit(), &payload);
+        break;
+    default:
+        if (json_peek(parser) == '-' ||
+            (json_peek(parser) >= '0' && json_peek(parser) <= '9')) {
+            ok = json_number(parser, &payload);
+        } else {
+            return json_unexpected(parser);
+        }
+    }
+    if (!ok) {
+        return false;
+    }
+    *out = boxed(AL_JSON, payload);
+    return true;
+}
+
+AlValue aleph_b_jparse(AlValue text) {
+    JsonParser parser;
+    AlValue value;
+    parser.data = (const unsigned char *)text.u.str->data;
+    parser.len = text.u.str->len;
+    parser.pos = 0;
+    parser.error[0] = '\0';
+    if (!json_value(&parser, 0, &value)) {
+        return aleph_err(aleph_str(parser.error));
+    }
+    json_skip_ws(&parser);
+    if (parser.pos < parser.len) {
+        json_fail(&parser, "unexpected byte", parser.pos);
+        return aleph_err(aleph_str(parser.error));
+    }
+    return aleph_ok(value);
+}
+
+static AlValue json_field(AlValue json, AlTag tag) {
+    AlValue payload = json.u.box->value;
+    return payload.tag == tag ? aleph_some(payload) : aleph_none();
+}
+
+AlValue aleph_b_jbool(AlValue json) { return json_field(json, AL_BOOL); }
+AlValue aleph_b_jint(AlValue json) { return json_field(json, AL_I64); }
+AlValue aleph_b_jstr(AlValue json) { return json_field(json, AL_STR); }
+AlValue aleph_b_jlist(AlValue json) { return json_field(json, AL_LIST); }
+AlValue aleph_b_jdict(AlValue json) { return json_field(json, AL_DICT); }
+
+AlValue aleph_b_jnum(AlValue json) {
+    AlValue payload = json.u.box->value;
+    if (payload.tag == AL_I64) {
+        return aleph_some(aleph_f64((double)payload.u.i64));
+    }
+    return json_field(json, AL_F64);
 }
 
 AlValue aleph_b_int(AlValue text) {

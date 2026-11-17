@@ -1,0 +1,5 @@
+fn main -> res unit str
+ do print "before"
+ let j try jparse "{\"a\": 1, \"a\": 2}"
+ do print show j
+ ok nil

@@ -12,7 +12,7 @@ One space between tokens. Column 0 = item; one leading space = `fn` body line. i
 Order: `use` sorted by full canonical line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). Item `fn`/`type` names are unique, not builtin/type names (P001).
 
 ## 4. Types
-`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. v0.2: JSON, sums, generics.
+`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. `json`: `json x` (x jsonable: unit bool i64 f64 str, list json, dict str json; NaN -> null). v0.2: sums, generics.
 
 ## 5. Expressions
 Prefix, fixed arity, no parentheses; call arity from signatures, constructors and builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool. `@f` is a function value, only as a higher-order argument.
@@ -31,7 +31,15 @@ float str->res f64 str
 fold (B,A->B),B,list A->B
 get dict A B,A->opt B
 int str->res i64 str
+jbool json->opt bool
+jdict json->opt dict str json
+jint json->opt i64
+jlist json->opt list json
+jnum json->opt f64
 join list str,str->str
+jparse str->res json str
+json T->json (T jsonable)
+jstr json->opt str
 keys dict A B->list A
 len list T->i64
 lower str->str
@@ -42,7 +50,7 @@ put dict A B,A,B->dict A B
 range i64,i64->list i64
 read str->res str str ! fs.read
 rev list T->list T
-show T->str (T primitive or list of primitive)
+show T->str (T primitive, list of primitive or json)
 size dict A B->i64
 slice list T,i64,i64->list T
 sort list T->list T (T primitive)
@@ -54,10 +62,10 @@ vals dict A B->list B
 write str,str->res unit str ! fs.write
 
 ## 8. Capabilities (ADR-0008)
-Deny by default. `use fs.read "PREFIX"` / `use fs.write "PREFIX"`. `net.host`/`env`/`time` parse in v0.1 but have no builtins until v0.2. Relative/absolute POSIX prefixes, normalized (empty/`.` dropped), `..` never covered. Empty prefix, `..`, or a filesystem capability without a path -> C003. Literals checked statically (C001/C002); computed paths at run time (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 division by zero, R003 capability, R004 stack, R005 allocation.
+Deny by default. `use fs.read "PREFIX"` / `use fs.write "PREFIX"`. `net.host`/`env`/`time`: no builtins yet. Relative/absolute POSIX prefixes, normalized (empty/`.` dropped), `..` never covered. Empty prefix, `..`, or a filesystem capability without a path -> C003. Literals checked statically (C001/C002); computed paths at run time (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 division by zero, R003 capability, R004 stack, R005 allocation.
 
 ## Semantics
-T005: params/lets may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples run hermetically (fs denied -> R003, empty args, discarded output). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (`a>=b` empty, >10,000,000 elements -> R005); `sort` ascending; `count` bytes; `split s ""` -> Unicode chars (`split "" ""` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err "invalid int"`; `float` `-?[0-9]+\.[0-9]+` else `err "invalid float"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.
+T005: params/lets may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples run hermetically (fs denied -> R003, empty args, discarded output). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (`a>=b` empty, >10,000,000 elements -> R005); `sort` ascending; `count` bytes; `split s ""` -> Unicode chars (`split "" ""` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err "invalid int"`; `float` `-?[0-9]+\.[0-9]+` else `err "invalid float"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.
 
 ## 9. Diagnostics (ADR-0011)
 JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: L001-L002 P001-P003 F001 T001-T008 T010 E001-E002 C001-C003 R001-R005 X001-X011.

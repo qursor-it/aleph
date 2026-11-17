@@ -45,6 +45,7 @@ pub const TYPES: &[(&str, &str)] = &[
     ("option", "opt"),
     ("result", "res"),
     ("dict", "dict"),
+    ("json", "json"),
 ];
 
 /// Operator and punctuation spellings: `(concept, spelling)`. Mirrors the
@@ -91,7 +92,8 @@ pub const CAPABILITIES: &[&str] = &["fs.read", "fs.write", "net.host", "env", "t
 pub const BUILTINS: &[&str] = &[
     "len", "at", "push", "slice", "rev", "sort", "range", "sum", "map", "filter", "fold", "cat",
     "count", "split", "join", "trim", "upper", "lower", "contains", "show", "int", "float", "args",
-    "print", "eprint", "read", "write", "put", "get", "del", "keys", "vals", "size",
+    "print", "eprint", "read", "write", "put", "get", "del", "keys", "vals", "size", "json",
+    "jparse", "jbool", "jint", "jnum", "jstr", "jlist", "jdict",
 ];
 
 /// Spelling of a keyword given its concept name, e.g. `keyword("function") == Some("fn")`.

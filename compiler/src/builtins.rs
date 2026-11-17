@@ -29,6 +29,8 @@ pub enum Ty {
     Res(&'static Ty, &'static Ty),
     /// `dict K V` (ADR-0032).
     Dict(&'static Ty, &'static Ty),
+    /// `json` (ADR-0033).
+    Json,
     Var(TyVar),
     Fn(&'static [&'static Ty], &'static Ty),
 }
@@ -38,10 +40,13 @@ pub enum Ty {
 pub enum Bound {
     /// Any of `i64`, `f64`, `bool`, `str`.
     Primitive,
-    /// A primitive or a list of a primitive.
+    /// A primitive, a list of a primitive, or `json` (ADR-0033).
     Showable,
     /// A dict key type: `i64`, `bool` or `str` (ADR-0032).
     Key,
+    /// A type `json x` accepts: `unit`, `bool`, `i64`, `f64`, `str`,
+    /// `list json` or `dict str json` (ADR-0033).
+    Jsonable,
 }
 
 /// Whether a builtin is pure or has observable effects (SPEC §5.1).
@@ -95,6 +100,16 @@ static FILTER_FN: Ty = Ty::Fn(&[&A], &BOOL);
 static FOLD_FN: Ty = Ty::Fn(&[&B, &A], &B);
 static DICT_AB: Ty = Ty::Dict(&A, &B);
 static OPT_B: Ty = Ty::Opt(&B);
+static JSON: Ty = Ty::Json;
+static RES_JSON_STR: Ty = Ty::Res(&JSON, &STR);
+static OPT_BOOL: Ty = Ty::Opt(&BOOL);
+static OPT_I64: Ty = Ty::Opt(&I64);
+static OPT_F64: Ty = Ty::Opt(&F64);
+static OPT_STR: Ty = Ty::Opt(&STR);
+static LIST_JSON: Ty = Ty::List(&JSON);
+static OPT_LIST_JSON: Ty = Ty::Opt(&LIST_JSON);
+static DICT_STR_JSON: Ty = Ty::Dict(&STR, &JSON);
+static OPT_DICT_STR_JSON: Ty = Ty::Opt(&DICT_STR_JSON);
 
 /// All builtins (SPEC §5.1), sorted by name.
 pub static BUILTINS: &[BuiltinSpec] = &[
@@ -207,9 +222,81 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "jbool",
+        params: &[&JSON],
+        ret: &OPT_BOOL,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "jdict",
+        params: &[&JSON],
+        ret: &OPT_DICT_STR_JSON,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "jint",
+        params: &[&JSON],
+        ret: &OPT_I64,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "jlist",
+        params: &[&JSON],
+        ret: &OPT_LIST_JSON,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "jnum",
+        params: &[&JSON],
+        ret: &OPT_F64,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "join",
         params: &[&LIST_STR, &STR],
         ret: &STR,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "jparse",
+        params: &[&STR],
+        ret: &RES_JSON_STR,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "json",
+        params: &[&T],
+        ret: &JSON,
+        bounds: &[(TyVar::T, Bound::Jsonable)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "jstr",
+        params: &[&JSON],
+        ret: &OPT_STR,
         bounds: &[],
         effect: Effect::Pure,
         capability: None,
@@ -458,6 +545,15 @@ mod tests {
             ("keys", 1),
             ("vals", 1),
             ("size", 1),
+            // ADR-0033
+            ("json", 1),
+            ("jparse", 1),
+            ("jbool", 1),
+            ("jint", 1),
+            ("jnum", 1),
+            ("jstr", 1),
+            ("jlist", 1),
+            ("jdict", 1),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {

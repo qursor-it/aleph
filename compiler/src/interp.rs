@@ -24,6 +24,7 @@ use crate::ast::{
 };
 use crate::builtins;
 use crate::diag::Diagnostic;
+use crate::json;
 use crate::lexicon;
 
 /// The maximum number of nested user function calls (R004).
@@ -64,6 +65,8 @@ pub enum Value {
     Record(Rc<str>, Rc<Vec<Value>>),
     /// Key/value pairs sorted by key with [`compare_values`] (ADR-0032).
     Dict(Rc<Vec<(Value, Value)>>),
+    /// A JSON value wrapping its payload (ADR-0033, see [`crate::json`]).
+    Json(Rc<Value>),
     Fn(FnTarget),
 }
 
@@ -100,6 +103,7 @@ pub fn values_equal(left: &Value, right: &Value) -> bool {
                     .zip(b.iter())
                     .all(|((ak, av), (bk, bv))| values_equal(ak, bk) && values_equal(av, bv))
         }
+        (Value::Json(a), Value::Json(b)) => values_equal(a, b),
         (Value::Fn(a), Value::Fn(b)) => a == b,
         _ => false,
     }
@@ -723,6 +727,21 @@ impl<'a> Interp<'a> {
             "lower" => Value::Str(Rc::from(as_str(&args[0]).to_ascii_lowercase().as_str())),
             "contains" => Value::Bool(as_str(&args[0]).contains(as_str(&args[1]))),
             "show" => Value::Str(Rc::from(show(&args[0]).as_str())),
+            "json" => json::wrap(args[0].clone()),
+            "jparse" => match json::parse(as_str(&args[0])) {
+                Ok(value) => result_ok(value),
+                Err(message) => result_err(&message),
+            },
+            "jbool" => json_field(&args[0], |payload| matches!(payload, Value::Bool(_))),
+            "jint" => json_field(&args[0], |payload| matches!(payload, Value::I64(_))),
+            "jnum" => match json::inner(&args[0]) {
+                Value::I64(number) => Value::Opt(Some(Rc::new(Value::F64(*number as f64)))),
+                payload @ Value::F64(_) => Value::Opt(Some(Rc::new(payload.clone()))),
+                _ => Value::Opt(None),
+            },
+            "jstr" => json_field(&args[0], |payload| matches!(payload, Value::Str(_))),
+            "jlist" => json_field(&args[0], |payload| matches!(payload, Value::List(_))),
+            "jdict" => json_field(&args[0], |payload| matches!(payload, Value::Dict(_))),
             "int" => match parse_int(as_str(&args[0])) {
                 Some(number) => result_ok(Value::I64(number)),
                 None => result_err("invalid int"),
@@ -905,6 +924,7 @@ pub fn show(value: &Value) -> String {
             }
             text
         }
+        Value::Json(payload) => json::print(payload),
         Value::Fn(target) => match target {
             FnTarget::User(name) | FnTarget::Ctor(name) => format!("@{name}"),
             FnTarget::Builtin(name) => format!("@{name}"),
@@ -925,6 +945,12 @@ fn show_literal(value: &Value) -> String {
         Value::Str(text) => format!("\"{}\"", ast::escape_str(text)),
         _ => show(value),
     }
+}
+
+/// `some payload` when the json payload passes `kind`, else `none`.
+fn json_field(value: &Value, kind: fn(&Value) -> bool) -> Value {
+    let payload = json::inner(value);
+    Value::Opt(kind(payload).then(|| Rc::new(payload.clone())))
 }
 
 fn as_i64(value: &Value) -> i64 {
@@ -1012,7 +1038,7 @@ fn compare_ordering(op: BinOp, ordering: Option<Ordering>) -> bool {
     }
 }
 
-fn compare_values(left: &Value, right: &Value) -> Ordering {
+pub(crate) fn compare_values(left: &Value, right: &Value) -> Ordering {
     match (left, right) {
         (Value::I64(a), Value::I64(b)) => a.cmp(b),
         // Every NaN sorts after +inf whatever its sign bit: the sign of

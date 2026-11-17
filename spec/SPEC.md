@@ -101,6 +101,7 @@ TYPE := i64 | f64 | bool | str | unit
       | opt TYPE
       | res TYPE TYPE
       | dict TYPE TYPE             (v0.2, ADR-0032: key i64, bool or str)
+      | json                       (v0.2, ADR-0033)
       | ident                      (user record type)
 ```
 
@@ -110,7 +111,8 @@ Type syntax is prefix with fixed arity, like expressions: `res list i64 str` = r
 - No implicit conversions, no subtyping, no overloading of user functions.
 - Builtins may be generic (e.g. `len` over any `list T`); user functions are monomorphic in v0.1.
 - `dict K V` (v0.2, ADR-0032 Proposed): immutable map, key type `i64`, `bool` or `str` (else T004); see §5.2.
-- JSON value type, sum types, user generics: v0.2.
+- `json` (v0.2, ADR-0033 Proposed): a JSON value; see §5.3.
+- Sum types, user generics: v0.2.
 
 ## 5. Expressions
 
@@ -166,7 +168,7 @@ Pure:
 | `trim s` | str -> str |
 | `upper s` / `lower s` | str -> str (ASCII) |
 | `contains s sub` | str, str -> bool |
-| `show x` | primitive or list of primitives -> str |
+| `show x` | primitive, list of primitives or `json` -> str |
 | `int s` | str -> res i64 str |
 | `float s` | str -> res f64 str |
 | `args` | -> list str (command line arguments; always allowed) |
@@ -180,7 +182,7 @@ Effectful:
 | `read path` | str -> res str str | `fs.read` covering path |
 | `write path s` | str, str -> res unit str | `fs.write` covering path |
 
-`fetch`, `now`, `env`, `json`: v0.2.
+`fetch`, `now`, `env`: v0.2.
 
 ### 5.2 Dicts (v0.2, ADR-0032 Proposed)
 
@@ -194,6 +196,18 @@ Effectful:
 | `keys d` | dict K V -> list K (ascending) |
 | `vals d` | dict K V -> list V (key order) |
 | `size d` | dict K V -> i64 |
+
+### 5.3 JSON (v0.2, ADR-0033 Proposed)
+
+A `json` value is null, a bool, an integer (`i64`), a number (`f64`), a string, a `list json` or an object (`dict str json`). `json` is not primitive or comparable; `show` prints compact JSON (no whitespace, keys ascending, numbers as `show`). `jparse` accepts RFC 8259 text; a number without fraction or exponent that fits `i64` is an integer; errors are `json: <reason> at byte <n>` (see ADR-0033).
+
+| Name | Signature |
+|---|---|
+| `json x` | T -> json (T `unit` (null), `bool`, `i64`, `f64`, `str`, `list json` or `dict str json`; NaN/inf -> null) |
+| `jparse s` | str -> res json str |
+| `jbool j` / `jint j` / `jnum j` / `jstr j` | json -> opt bool / i64 / f64 / str (`jnum` also converts integers) |
+| `jlist j` | json -> opt list json |
+| `jdict j` | json -> opt dict str json |
 
 ## 6. Runtime semantics (Tlön v0.1)
 

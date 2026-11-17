@@ -41,7 +41,10 @@ typedef enum {
     AL_RECORD,
     AL_FN,
     /* `dict K V` (ADR-0032): u.list holds k0 v0 k1 v1 ..., keys ascending. */
-    AL_DICT
+    AL_DICT,
+    /* `json` (ADR-0033): u.box holds the payload: unit (null), bool, i64,
+       f64, str, a list of AL_JSON or an AL_DICT from str to AL_JSON. */
+    AL_JSON
 } AlTag;
 
 typedef struct AlValue AlValue;
@@ -360,6 +363,14 @@ AlValue aleph_b_del(AlValue dict, AlValue key);
 AlValue aleph_b_keys(AlValue dict);
 AlValue aleph_b_vals(AlValue dict);
 AlValue aleph_b_size(AlValue dict);
+AlValue aleph_b_json(AlValue value);
+AlValue aleph_b_jparse(AlValue text);
+AlValue aleph_b_jbool(AlValue json);
+AlValue aleph_b_jint(AlValue json);
+AlValue aleph_b_jnum(AlValue json);
+AlValue aleph_b_jstr(AlValue json);
+AlValue aleph_b_jlist(AlValue json);
+AlValue aleph_b_jdict(AlValue json);
 AlValue aleph_b_range(AlValue start, AlValue end);
 AlValue aleph_b_sum(AlValue xs);
 AlValue aleph_b_map(AlValue function, AlValue xs);

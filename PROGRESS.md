@@ -522,3 +522,14 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - passed (>=9, no CRITICAL/IMPORTANT): T-026, T-027. Review cap (3 cycles) reached for T-023/T-024/T-025; round-3 fixes not re-reviewed
 - tests: 330 passed
 - next: optional 4th review round (user decision); T-028 JSON
+
+## 2026-11-17T09:30 T-028 done
+- `json` type (ADR-0033): lexicon type `json`, parser/AST `TypeKind::Json`, checker `Type::Json`, `Bound::Jsonable`; `show` accepts json (compact JSON, keys ascending)
+- pure builtins `json x` (unit/bool/i64/f64/str/list json/dict str json; NaN/inf -> null), `jparse` (RFC 8259, i64 integers else f64, depth 256, duplicate keys rejected, errors `json: <reason> at byte <n>`), accessors `jbool jint jnum jstr jlist jdict` -> opt
+- interpreter: `compiler/src/json.rs` (parser/printer), `Value::Json(Rc<Value>)`; Tlön: `AL_JSON` boxed payload, same parser in C (malloc'd scratch arrays, no arena garbage while parsing); the C test `test_json` uses the same case table as the Rust unit tests
+- SPEC §4/§5.1/§5.3, grammar, lexicon; llms.txt (2036 est. tokens): ADR-0026 amended, budget 1950 -> 2050 (v0.2 builtins do not fit; user may want to revisit)
+- goldens: run_json (.out), run_json_error (.out/.err/.exit, differential), json_eq/json_bad_value/json_key (.diag T004)
+- tests: 333 passed
+- decisions: ADR-0033 proposed; ADR-0026 amended
+- next: independent review of T-028; then T-029 sum types + match
+- agent: claude-opus-5.5 directly (OpenCode quota exhausted)

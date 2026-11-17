@@ -29,6 +29,7 @@ pub enum Type {
     Bool,
     Str,
     Unit,
+    Json,
     List(Box<Type>),
     Opt(Box<Type>),
     Res(Box<Type>, Box<Type>),
@@ -49,6 +50,7 @@ impl fmt::Display for Type {
             Type::Bool => formatter.write_str(lexicon::type_name("boolean").expect("bool")),
             Type::Str => formatter.write_str(lexicon::type_name("string").expect("str")),
             Type::Unit => formatter.write_str(lexicon::type_name("unit").expect("unit")),
+            Type::Json => formatter.write_str(lexicon::type_name("json").expect("json")),
             Type::List(elem) => write!(
                 formatter,
                 "{} {}",
@@ -215,6 +217,7 @@ impl<'a> TypeChecker<'a> {
             TypeKind::Bool => Type::Bool,
             TypeKind::Str => Type::Str,
             TypeKind::Unit => Type::Unit,
+            TypeKind::Json => Type::Json,
             TypeKind::List { elem } => Type::List(Box::new(self.lower_type(elem))),
             TypeKind::Opt { elem } => Type::Opt(Box::new(self.lower_type(elem))),
             TypeKind::Res { ok, err } => Type::Res(
@@ -333,7 +336,8 @@ impl<'a> TypeChecker<'a> {
             | (Type::F64, Type::F64)
             | (Type::Bool, Type::Bool)
             | (Type::Str, Type::Str)
-            | (Type::Unit, Type::Unit) => true,
+            | (Type::Unit, Type::Unit)
+            | (Type::Json, Type::Json) => true,
             (Type::Record(a), Type::Record(b)) => a == b,
             (Type::List(a), Type::List(b)) | (Type::Opt(a), Type::Opt(b)) => self.unify_inner(a, b),
             (Type::Res(a_ok, a_err), Type::Res(b_ok, b_err))
@@ -612,6 +616,7 @@ impl<'a> TypeChecker<'a> {
             BuiltinTy::Bool => Type::Bool,
             BuiltinTy::Str => Type::Str,
             BuiltinTy::Unit => Type::Unit,
+            BuiltinTy::Json => Type::Json,
             BuiltinTy::List(elem) => Type::List(Box::new(self.instantiate(elem, slots))),
             BuiltinTy::Opt(elem) => Type::Opt(Box::new(self.instantiate(elem, slots))),
             BuiltinTy::Res(ok, err) => Type::Res(
@@ -1283,9 +1288,16 @@ fn satisfies(ty: &Type, bound: Bound) -> bool {
             is_primitive(ty)
                 || match ty {
                     Type::List(elem) => is_primitive(elem),
+                    Type::Json => true,
                     _ => false,
                 }
         }
+        Bound::Jsonable => match ty {
+            Type::Unit | Type::Bool | Type::I64 | Type::F64 | Type::Str => true,
+            Type::List(elem) => **elem == Type::Json,
+            Type::Dict(key, val) => **key == Type::Str && **val == Type::Json,
+            _ => false,
+        },
     }
 }
 
@@ -1296,6 +1308,7 @@ fn deferred_text(kind: DeferredKind) -> String {
         }
         DeferredKind::Builtin(Bound::Showable) => "showable".to_string(),
         DeferredKind::Builtin(Bound::Key) => "key".to_string(),
+        DeferredKind::Builtin(Bound::Jsonable) => "jsonable".to_string(),
         DeferredKind::Numeric => "numeric".to_string(),
         DeferredKind::I64 => "i64".to_string(),
     }

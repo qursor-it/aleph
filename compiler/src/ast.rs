@@ -348,6 +348,8 @@ pub enum TypeKind {
     Bool,
     Str,
     Unit,
+    /// `json` (ADR-0033).
+    Json,
     List {
         elem: Box<Type>,
     },
@@ -625,6 +627,7 @@ fn assign_type(ty: &mut Type, next: &mut u32) {
         | TypeKind::Bool
         | TypeKind::Str
         | TypeKind::Unit
+        | TypeKind::Json
         | TypeKind::Named { .. } => {}
     }
 }
@@ -742,6 +745,7 @@ fn collect_type(ty: &Type, ids: &mut Vec<NodeId>) {
         | TypeKind::Bool
         | TypeKind::Str
         | TypeKind::Unit
+        | TypeKind::Json
         | TypeKind::Named { .. } => {}
     }
 }

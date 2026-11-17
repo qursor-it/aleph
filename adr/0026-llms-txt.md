@@ -61,7 +61,9 @@ plus canonical examples, generated from the repository sources.
 - **Token estimate.** No tokenizer exists (T-026), so the test estimates tokens
   as `ceil(chars / 4)` over the rendered UTF-8 text and requires at most 1950,
   leaving margin under the 2000 target. This is a budget check, not a claim
-  about any particular tokenizer.
+  about any particular tokenizer. Amended for T-028 (ADR-0033): the v0.2
+  builtins (dict, JSON) do not fit; the limit is now 2050, about 2.5% over
+  the v0.1 target. Every further raise needs the same explicit amendment.
 - **Determinism.** `render()` uses only static tables, ordered iteration and
   `include_str!`; it does not read the filesystem or environment and is stable
   across runs.

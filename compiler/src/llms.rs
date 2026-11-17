@@ -39,12 +39,12 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x9fb062a7ca633a70,
+        hash: 0x8c5c7559df4e1a80,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
         contents: GRAMMAR,
-        hash: 0x6ecc3b1421174d82,
+        hash: 0xe487b5b6d5c21a51,
     },
     SourceDigest {
         path: "spec/diagnostics.md",
@@ -134,7 +134,7 @@ pub fn render() -> String {
     );
     let primitives = lexicon::TYPES
         .iter()
-        .filter(|(_, name)| !matches!(*name, "list" | "opt" | "res" | "dict"))
+        .filter(|(_, name)| !matches!(*name, "list" | "opt" | "res" | "dict" | "json"))
         .map(|(_, name)| *name)
         .collect::<Vec<_>>()
         .join(" ");
@@ -142,7 +142,7 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. v0.2: JSON, sums, generics."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. `json`: `json x` (x jsonable: unit bool i64 f64 str, list json, dict str json; NaN -> null). v0.2: sums, generics."
         ),
     );
     section(
@@ -154,12 +154,12 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("8."),
-        "Deny by default. `use fs.read \"PREFIX\"` / `use fs.write \"PREFIX\"`. `net.host`/`env`/`time` parse in v0.1 but have no builtins until v0.2. Relative/absolute POSIX prefixes, normalized (empty/`.` dropped), `..` never covered. Empty prefix, `..`, or a filesystem capability without a path -> C003. Literals checked statically (C001/C002); computed paths at run time (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 division by zero, R003 capability, R004 stack, R005 allocation.",
+        "Deny by default. `use fs.read \"PREFIX\"` / `use fs.write \"PREFIX\"`. `net.host`/`env`/`time`: no builtins yet. Relative/absolute POSIX prefixes, normalized (empty/`.` dropped), `..` never covered. Empty prefix, `..`, or a filesystem capability without a path -> C003. Literals checked statically (C001/C002); computed paths at run time (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 division by zero, R003 capability, R004 stack, R005 allocation.",
     );
     section(
         &mut out,
         "## Semantics",
-        "T005: params/lets may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples run hermetically (fs denied -> R003, empty args, discarded output). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (`a>=b` empty, >10,000,000 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.",
+        "T005: params/lets may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples run hermetically (fs denied -> R003, empty args, discarded output). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (`a>=b` empty, >10,000,000 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.",
     );
     section(&mut out, spec_heading("9."), &diagnostics_section());
     section(
@@ -267,7 +267,9 @@ fn signature(spec: &builtins::BuiltinSpec) -> String {
 fn bound_text(var: TyVar, bound: Bound) -> String {
     let restriction = match bound {
         Bound::Primitive => "primitive",
-        Bound::Showable => "primitive or list of primitive",
+        Bound::Showable => "primitive, list of primitive or json",
+        // Defined once in section 4.
+        Bound::Jsonable => "jsonable",
         // Stated once in section 4 instead of on every dict builtin.
         Bound::Key => "i64/bool/str",
     };
@@ -281,6 +283,7 @@ fn ty(value: &Ty) -> String {
         Ty::Bool => "bool".to_string(),
         Ty::Str => "str".to_string(),
         Ty::Unit => "unit".to_string(),
+        Ty::Json => "json".to_string(),
         Ty::List(inner) => format!("list {}", ty(inner)),
         Ty::Opt(inner) => format!("opt {}", ty(inner)),
         Ty::Res(ok, err) => format!("res {} {}", ty(ok), ty(err)),
@@ -405,7 +408,7 @@ mod tests {
         assert!(render().contains("`dict K V` (K i64/bool/str"));
         assert_eq!(
             signature(builtins::lookup("show").unwrap()),
-            "T->str (T primitive or list of primitive)"
+            "T->str (T primitive, list of primitive or json)"
         );
     }
 }
