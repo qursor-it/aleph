@@ -361,6 +361,14 @@ static void test_json(void) {
     check_json("01", "json: unexpected byte at byte 1");
     check_json("-", "json: bad number at byte 0");
     check_json("1.", "json: bad number at byte 0");
+    {
+        char longer[1030];
+        memset(longer, '1', sizeof longer);
+        longer[0] = '[';
+        longer[1026] = ']';
+        longer[1027] = '\0';
+        check_json(longer, "json: bad number at byte 1");
+    }
     check_json("[\"a\\x\"]", "json: bad escape at byte 3");
     check_json("\"\\ud800\"", "json: bad escape at byte 1");
     check_json("\"\\udc00\"", "json: bad escape at byte 1");

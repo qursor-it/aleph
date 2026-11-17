@@ -104,7 +104,8 @@ pub fn values_equal(left: &Value, right: &Value) -> bool {
                     .zip(b.iter())
                     .all(|((ak, av), (bk, bv))| values_equal(ak, bk) && values_equal(av, bv))
         }
-        (Value::Json(a, _), Value::Json(b, _)) => values_equal(a, b),
+        // Equal when `show` prints the same text, so `-0.0` differs from `0.0`.
+        (Value::Json(a, _), Value::Json(b, _)) => crate::json::print(a) == crate::json::print(b),
         (Value::Fn(a), Value::Fn(b)) => a == b,
         _ => false,
     }

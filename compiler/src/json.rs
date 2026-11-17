@@ -11,6 +11,9 @@ use crate::interp::{compare_values, Value};
 
 /// Maximum nesting of arrays and objects in any JSON value.
 pub const MAX_DEPTH: usize = 256;
+/// Longest number token `jparse` converts: Rust's float parser gives up on
+/// huge exponents, so longer tokens would diverge from `strtod` (ADR-0033).
+pub const MAX_NUMBER: usize = 1024;
 
 /// `json x`: wrap a jsonable value; a NaN or infinite `f64` becomes null and
 /// a `json` is returned as is. `None` when nesting would exceed
@@ -382,6 +385,9 @@ impl Parser<'_> {
                 return Err(bad(self));
             }
         }
+        if self.pos - start > MAX_NUMBER {
+            return Err(bad(self));
+        }
         let text = std::str::from_utf8(&self.bytes[start..self.pos]).expect("ascii number");
         if integral {
             if let Ok(number) = text.parse::<i64>() {
@@ -445,6 +451,10 @@ mod tests {
         assert_eq!(round("01"), "json: unexpected byte at byte 1");
         assert_eq!(round("-"), "json: bad number at byte 0");
         assert_eq!(round("1."), "json: bad number at byte 0");
+        let long = "0.".to_string() + &"0".repeat(1010) + "15e1000";
+        assert_eq!(round(&long), "1.5e-11");
+        let longer = "[".to_string() + &"1".repeat(MAX_NUMBER + 1) + "]";
+        assert_eq!(round(&longer), "json: bad number at byte 1");
         assert_eq!(round("[\"a\\x\"]"), "json: bad escape at byte 3");
         assert_eq!(round("\"\\ud800\""), "json: bad escape at byte 1");
         assert_eq!(round("\"\\udc00\""), "json: bad escape at byte 1");

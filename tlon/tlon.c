@@ -2046,7 +2046,7 @@ static bool json_string(JsonParser *parser, AlValue *out) {
     parser->pos += 1;
     for (;;) {
         int byte = json_peek(parser);
-        if (byte < 0 || byte < 0x20) {
+        if (byte < 0x20) {
             free(buffer.data);
             return json_unexpected(parser);
         }
@@ -2196,6 +2196,9 @@ static bool json_digits_required(JsonParser *parser) {
     return parser->pos > start;
 }
 
+/* Longest number token converted; matches the Rust engine (ADR-0033). */
+#define JSON_MAX_NUMBER 1024
+
 static bool json_number(JsonParser *parser, AlValue *out) {
     size_t start = parser->pos;
     bool integral = true;
@@ -2231,6 +2234,9 @@ static bool json_number(JsonParser *parser, AlValue *out) {
         if (!json_digits_required(parser)) {
             return json_fail(parser, "bad number", start);
         }
+    }
+    if (parser->pos - start > JSON_MAX_NUMBER) {
+        return json_fail(parser, "bad number", start);
     }
     if (integral && parse_int_value((const char *)parser->data + start,
                                     parser->pos - start, &integer)) {

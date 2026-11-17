@@ -1,0 +1,3 @@
+fn z -> json
+ ex z = json 0.0
+ json neg 0.0

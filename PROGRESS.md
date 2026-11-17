@@ -544,3 +544,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - fresh Opus reviewer (sanitizers, ~85 edge inputs, hostile sizes, line-by-line Rust/C comparison): 8.5/10, no CRITICAL/IMPORTANT, no parity break
 - minors fixed: AlJson embeds AlBox (strict aliasing); ADR-0033 states -0 -> 0, big integers -> f64, jint of 1.0 none, R005 reuse for depth; golden run_json_file (jparse on file input incl. number edges, raw tab, duplicates, both engines)
 - tests: 335 passed
+
+## 2026-11-17T13:30 T-028 review round 3
+- Opus review 8/10: one IMPORTANT finding. Numbers with ~1M digits and huge exponents parsed differently, because Rust's f64 parser stops at exponents past ~65536 and strtod does not. Fix: both engines reject number tokens longer than 1024 bytes as `bad number`.
+- minor: examples compared `json` with IEEE `==` (`0.0` = `-0.0`); now compared by printed text. Golden json_negzero.
+- minor: `show` on JSON with shared subtrees can be exponentially large. Documented as a known limit in ADR-0033, not capped.
+- tests: 335 passed, clippy clean
+- next: review cap (3 cycles) reached; the round-3 fixes were not re-reviewed. Next task: T-029.

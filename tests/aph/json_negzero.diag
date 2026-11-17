@@ -1,0 +1,1 @@
+{"code":"E002","severity":"error","file":"tests/aph/json_negzero.aph","line":2,"col":2,"node":"n3","msg":"example failed","expected":"0.0","found":"-0.0"}
