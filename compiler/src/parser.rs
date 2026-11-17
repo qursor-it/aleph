@@ -982,7 +982,7 @@ impl<'a> ExprCtx<'a> {
         let first = match self.tokens.get(index).map(|token| &token.kind) {
             Some(TokenKind::Ident(name)) => self.signatures.variant_sum.get(name),
             Some(_) => None,
-            None => return Err(p001_eol(self.file, self.line, "expected variant")),
+            None => return Err(p001_eol(self.file, self.line, "expected variant name")),
         };
         let Some(sum) = first else {
             return Err(self.diagnostic_at(index, "unexpected token"));
@@ -998,7 +998,7 @@ impl<'a> ExprCtx<'a> {
                     diagnostic.expected = Some(variant.clone());
                     return Err(diagnostic);
                 }
-                None => return Err(p001_eol(self.file, self.line, "expected variant")),
+                None => return Err(p001_eol(self.file, self.line, "expected variant name")),
             }
             index += 1;
             let mut inner = env.clone();

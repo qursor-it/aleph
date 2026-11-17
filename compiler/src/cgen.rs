@@ -629,7 +629,11 @@ impl<'a> Generator<'a> {
                     self.match_arm_open(value, arms.len(), index, &arm.variant, indent);
                     for (k, binder) in arm.binders.iter().enumerate() {
                         let field = format!("t_n{}.u.rec->fields[{k}]", value.id.0);
-                        self.line(indent + 1, &format!("AlValue l_{binder} = {field};"));
+                        // `(void)` keeps an unused binder from warning under -Wall.
+                        self.line(
+                            indent + 1,
+                            &format!("AlValue l_{binder} = {field}; (void)l_{binder};"),
+                        );
                     }
                     self.emit_expr(&arm.body, depth + 1, indent + 1);
                     self.assign(indent + 1, id, &format!("t_n{}", arm.body.id.0));
@@ -1263,7 +1267,7 @@ impl Generator<'_> {
                         self.line(
                             indent + 1,
                             &format!(
-                                "{} l_{binder} = {};",
+                                "{} l_{binder} = {}; (void)l_{binder};",
                                 binder_repr.c_type(),
                                 binder_repr.unbox(&field)
                             ),

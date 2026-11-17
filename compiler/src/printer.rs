@@ -508,7 +508,7 @@ fn main -> res unit str
         if depth == 0 {
             return gen_leaf(rng, fns, env);
         }
-        match rng.below(22) {
+        match rng.below(24) {
             0..=6 => gen_leaf(rng, fns, env),
             7 => expr(ExprKind::UnOp {
                 op: if rng.below(2) == 0 {
@@ -589,6 +589,37 @@ fn main -> res unit str
                 callee_kind: CalleeKind::Ctor,
                 args: (0..2).map(|_| gen_expr(rng, fns, env, depth - 1)).collect(),
             }),
+            21 => {
+                let (callee, arity) = [("circle", 1), ("dot", 0)][rng.below(2) as usize];
+                expr(ExprKind::Call {
+                    callee: callee.to_string(),
+                    callee_kind: CalleeKind::Ctor,
+                    args: (0..arity)
+                        .map(|_| gen_expr(rng, fns, env, depth - 1))
+                        .collect(),
+                })
+            }
+            22 => {
+                // Binder names are unique along any path, so they never shadow (T005).
+                let binder = format!("m{depth}");
+                let mut inner = env.to_vec();
+                inner.push(binder.clone());
+                expr(ExprKind::Match {
+                    value: Box::new(gen_expr(rng, fns, env, depth - 1)),
+                    arms: vec![
+                        ast::Arm {
+                            variant: "circle".to_string(),
+                            binders: vec![binder],
+                            body: gen_expr(rng, fns, &inner, depth - 1),
+                        },
+                        ast::Arm {
+                            variant: "dot".to_string(),
+                            binders: Vec::new(),
+                            body: gen_expr(rng, fns, env, depth - 1),
+                        },
+                    ],
+                })
+            }
             _ => {
                 let spec = &builtins::BUILTINS[rng.below(builtins::BUILTINS.len() as u64) as usize];
                 expr(ExprKind::Call {
@@ -703,21 +734,47 @@ fn main -> res unit str
             })
             .collect();
 
-        let types = vec![TypeDef {
-            id: NodeId::UNASSIGNED,
-            span: span(),
-            name: "point".to_string(),
-            fields: vec!["x", "y"]
-                .into_iter()
-                .map(|name| ast::Field {
-                    id: NodeId::UNASSIGNED,
-                    span: span(),
-                    name: name.to_string(),
-                    ty: ty(TypeKind::F64),
-                })
-                .collect(),
-            variants: Vec::new(),
-        }];
+        let types = vec![
+            TypeDef {
+                id: NodeId::UNASSIGNED,
+                span: span(),
+                name: "point".to_string(),
+                fields: vec!["x", "y"]
+                    .into_iter()
+                    .map(|name| ast::Field {
+                        id: NodeId::UNASSIGNED,
+                        span: span(),
+                        name: name.to_string(),
+                        ty: ty(TypeKind::F64),
+                    })
+                    .collect(),
+                variants: Vec::new(),
+            },
+            TypeDef {
+                id: NodeId::UNASSIGNED,
+                span: span(),
+                name: "shape".to_string(),
+                fields: Vec::new(),
+                variants: vec![("circle", true), ("dot", false)]
+                    .into_iter()
+                    .map(|(name, has_field)| ast::Variant {
+                        id: NodeId::UNASSIGNED,
+                        span: span(),
+                        name: name.to_string(),
+                        fields: if has_field {
+                            vec![ast::Field {
+                                id: NodeId::UNASSIGNED,
+                                span: span(),
+                                name: "r".to_string(),
+                                ty: ty(TypeKind::F64),
+                            }]
+                        } else {
+                            Vec::new()
+                        },
+                    })
+                    .collect(),
+            },
+        ];
 
         File {
             id: NodeId::UNASSIGNED,
@@ -730,12 +787,14 @@ fn main -> res unit str
 
     #[test]
     fn parse_print_round_trips_generated_asts() {
+        let mut matches = 0;
         for case in 0..500u64 {
             let mut rng = Rng(0x5eed_0000 ^ case);
             let mut file = gen_file(&mut rng);
             file.finish();
 
             let text = print_file(&file);
+            matches += text.matches(" match ").count();
             let output = parser::parse("gen.aph", &text);
             assert!(
                 output.diagnostics.is_empty(),
@@ -748,5 +807,9 @@ fn main -> res unit str
                 "case {case}: AST round trip failed\n{text}\ngenerated: {file:#?}\nreparsed: {reparsed:#?}"
             );
         }
+        assert!(
+            matches > 100,
+            "only {matches} generated `match` expressions"
+        );
     }
 }

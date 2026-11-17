@@ -47,3 +47,4 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-029 Sum types + `match` (Proposed ADR first)
 - [ ] T-030 Scoped regions in Tlön — ADR-0007
 - [ ] T-031 `net.host` + `fetch`, `time`, `env` capabilities
+- [ ] T-034 Generated C: user fn names share the `aleph_fn_*` prefix with Tlön (`fn kind` clashes with `aleph_fn_kind` in tlon.h, X004); use a distinct prefix or rename the runtime symbol

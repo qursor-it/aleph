@@ -573,3 +573,13 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
   - the interpreter skips the env copy for arms without binders.
 - Not changed, noted: linear dispatch over variants (fine at 500 variants); nullary variants allocate per construction (same as empty records).
 - tests: 344 passed, clippy clean
+
+## 2026-11-17T15:30 T-029 review round 2
+- Opus review 8.5/10.
+- IMPORTANT, fixed: the random-AST round-trip test generated no sums or `match`. It now generates a `shape` sum, variant constructors, and `match` with unique binders, and asserts that more than 100 `match` expressions were generated.
+- minor, fixed:
+  - generated C marks binders `(void)`, so no unused-variable warnings;
+  - wording is now "expected variant name" everywhere.
+- minor, not changed: env clone per arm with binders (interp), allocation of zero-field variants.
+- new task T-034 for a pre-existing clash between user `fn kind` and Tlön's `aleph_fn_kind`.
+- tests: 344 passed, clippy clean
