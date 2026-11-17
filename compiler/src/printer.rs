@@ -56,13 +56,24 @@ fn quoted(value: &str) -> String {
 
 pub(crate) fn print_typedef(item: &ast::TypeDef) -> String {
     let mut text = format!("{} {}", keyword("record"), item.name);
-    for field in &item.fields {
+    print_fields(&mut text, &item.fields);
+    for variant in &item.variants {
+        text.push(' ');
+        text.push_str(punctuation("bar"));
+        text.push(' ');
+        text.push_str(&variant.name);
+        print_fields(&mut text, &variant.fields);
+    }
+    text
+}
+
+fn print_fields(text: &mut String, fields: &[ast::Field]) {
+    for field in fields {
         text.push(' ');
         text.push_str(&field.name);
         text.push(':');
         text.push_str(&print_type(&field.ty));
     }
-    text
 }
 
 pub(crate) fn print_fn(function: &ast::Fn) -> Vec<String> {
@@ -201,6 +212,20 @@ pub fn print_expr(expr: &ast::Expr) -> String {
         ),
         ExprKind::Has { value } => format!("{} {}", keyword("isome"), print_expr(value)),
         ExprKind::IsOk { value } => format!("{} {}", keyword("isokay"), print_expr(value)),
+        ExprKind::Match { value, arms } => {
+            let mut text = format!("{} {}", keyword("match"), print_expr(value));
+            for arm in arms {
+                text.push(' ');
+                text.push_str(&arm.variant);
+                for binder in &arm.binders {
+                    text.push(' ');
+                    text.push_str(binder);
+                }
+                text.push(' ');
+                text.push_str(&print_expr(&arm.body));
+            }
+            text
+        }
     }
 }
 
@@ -269,6 +294,8 @@ mod tests {
             "fn add a:i64 b:i64 -> i64\n doc \"sum\"\n ex add 2 3 = 5\n let s + a b\n s\n",
             "fn main -> unit\n do print \"hi\"\n nil\n",
             "use fs.read \"data\"\ntype point x:f64 y:f64\nfn main -> unit\n nil\n",
+            "type shape | circle r:f64 | rect w:f64 h:f64 | dot\nfn area s:shape -> f64\n match s circle r * r r rect w h * w h dot 0.0\n",
+            "type t | a x:list t | b\nfn f v:t -> i64\n + 1 match v a xs len xs b 0\n",
         ];
 
         for source in snippets {
@@ -689,6 +716,7 @@ fn main -> res unit str
                     ty: ty(TypeKind::F64),
                 })
                 .collect(),
+            variants: Vec::new(),
         }];
 
         File {

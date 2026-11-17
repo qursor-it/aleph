@@ -92,7 +92,8 @@ impl fmt::Display for Type {
 #[derive(Debug, Clone, Default)]
 pub struct CheckOutput {
     pub diagnostics: Vec<Diagnostic>,
-    /// Record name to its fields, in declaration order.
+    /// Constructor (record type or sum variant) name to its fields, in
+    /// declaration order.
     pub records: BTreeMap<String, Vec<(String, Type)>>,
     /// Function name to its parameter types and return type.
     pub signatures: BTreeMap<String, (Vec<Type>, Type)>,
@@ -128,6 +129,10 @@ struct TypeChecker<'a> {
     ast: &'a ast::File,
     diagnostics: Vec<Diagnostic>,
     records: BTreeMap<String, Vec<(String, Type)>>,
+    /// Variant name to its sum type name (ADR-0034).
+    variant_sum: BTreeMap<String, String>,
+    /// Sum type names.
+    sums: BTreeSet<String>,
     signatures: BTreeMap<String, (Vec<Type>, Type)>,
     subst: Vec<Option<Type>>,
     next_var: u32,
@@ -146,6 +151,8 @@ impl<'a> TypeChecker<'a> {
             ast,
             diagnostics: Vec::new(),
             records: BTreeMap::new(),
+            variant_sum: BTreeMap::new(),
+            sums: BTreeSet::new(),
             signatures: BTreeMap::new(),
             subst: Vec::new(),
             next_var: 0,
@@ -160,17 +167,27 @@ impl<'a> TypeChecker<'a> {
     fn run(mut self) -> CheckOutput {
         let ast = self.ast;
 
-        // Record names first, so fields may refer to records defined later.
+        // Type names first, so fields may refer to types defined later.
         for item in &ast.types {
-            self.records.insert(item.name.clone(), Vec::new());
+            if item.variants.is_empty() {
+                self.records.insert(item.name.clone(), Vec::new());
+            } else {
+                self.sums.insert(item.name.clone());
+                for variant in &item.variants {
+                    self.variant_sum
+                        .insert(variant.name.clone(), item.name.clone());
+                }
+            }
         }
         for item in &ast.types {
-            let fields = item
-                .fields
-                .iter()
-                .map(|field| (field.name.clone(), self.lower_type(&field.ty)))
-                .collect();
-            self.records.insert(item.name.clone(), fields);
+            let fields = self.lower_fields(&item.fields);
+            if item.variants.is_empty() {
+                self.records.insert(item.name.clone(), fields);
+            }
+            for variant in &item.variants {
+                let fields = self.lower_fields(&variant.fields);
+                self.records.insert(variant.name.clone(), fields);
+            }
         }
 
         for function in &ast.fns {
@@ -210,6 +227,23 @@ impl<'a> TypeChecker<'a> {
 
     // -- Lowering -----------------------------------------------------------
 
+    fn lower_fields(&mut self, fields: &[ast::Field]) -> Vec<(String, Type)> {
+        fields
+            .iter()
+            .map(|field| (field.name.clone(), self.lower_type(&field.ty)))
+            .collect()
+    }
+
+    /// The type a constructor returns: its sum for a variant, else the record.
+    fn ctor_type(&self, name: &str) -> Type {
+        Type::Record(
+            self.variant_sum
+                .get(name)
+                .cloned()
+                .unwrap_or(name.to_string()),
+        )
+    }
+
     fn lower_type(&mut self, ty: &ast::Type) -> Type {
         match &ty.kind {
             TypeKind::I64 => Type::I64,
@@ -242,7 +276,9 @@ impl<'a> TypeChecker<'a> {
                 Type::Dict(Box::new(key_ty), Box::new(val_ty))
             }
             TypeKind::Named { name } => {
-                if self.records.contains_key(name) {
+                let is_record =
+                    self.records.contains_key(name) && !self.variant_sum.contains_key(name);
+                if is_record || self.sums.contains(name) {
                     Type::Record(name.clone())
                 } else {
                     self.push_diag(ty.id, ty.span, "T002", "unknown type");
@@ -513,7 +549,36 @@ impl<'a> TypeChecker<'a> {
             ExprKind::Else { value, default } => self.check_else(expr, value, default, expected),
             ExprKind::Has { value } => self.check_has(value),
             ExprKind::IsOk { value } => self.check_isok(value),
+            ExprKind::Match { value, arms } => self.check_match(value, arms, expected),
         }
+    }
+
+    /// `match`: the scrutinee has the arms' sum type; the expected type flows
+    /// into the first arm, whose type then flows into the others (as `if`).
+    fn check_match(&mut self, value: &Expr, arms: &[ast::Arm], expected: Option<&Type>) -> Type {
+        let sum = arms
+            .first()
+            .map(|arm| self.ctor_type(&arm.variant))
+            .unwrap_or(Type::Error);
+        self.check_expr(value, Some(&sum));
+        let mut first: Option<Type> = None;
+        for arm in arms {
+            let fields = self.records.get(&arm.variant).cloned().unwrap_or_default();
+            let saved = self.env.clone();
+            for (binder, (_, ty)) in arm.binders.iter().zip(fields) {
+                self.env.insert(binder.clone(), ty);
+            }
+            let want = match &first {
+                Some(ty) if !contains_error(ty) => Some(ty.clone()),
+                _ => expected.cloned(),
+            };
+            let ty = self.check_expr(&arm.body, want.as_ref());
+            self.env = saved;
+            if first.is_none() {
+                first = Some(ty);
+            }
+        }
+        first.unwrap_or(Type::Error)
     }
 
     fn check_cond(&mut self, cond: &Expr) {
@@ -540,7 +605,7 @@ impl<'a> TypeChecker<'a> {
         }
         if let Some(fields) = self.records.get(name).cloned() {
             let params = fields.into_iter().map(|(_, ty)| ty).collect();
-            return Type::Fn(params, Box::new(Type::Record(name.to_string())));
+            return Type::Fn(params, Box::new(self.ctor_type(name)));
         }
         if let Some(spec) = builtins::lookup(name) {
             if spec.effect == Effect::Effectful {
@@ -585,7 +650,7 @@ impl<'a> TypeChecker<'a> {
                 for (arg, (_, ty)) in args.iter().zip(&fields) {
                     self.check_expr(arg, Some(ty));
                 }
-                Type::Record(callee.to_string())
+                self.ctor_type(callee)
             }
             CalleeKind::Builtin => {
                 let Some(spec) = builtins::lookup(callee) else {
@@ -1651,6 +1716,61 @@ mod tests {
 
         let output = check_source("fn f -> i64\n let x ok 1\n x\n");
         assert_eq!(codes(&output), ["T010"]);
+    }
+
+    const SHAPE: &str = "type shape | circle r:f64 | rect w:f64 h:f64 | dot\n";
+
+    #[test]
+    fn sums_type_variants_and_match() {
+        let output = check_source(&format!(
+            "{SHAPE}fn f s:shape -> f64\n match s circle r r rect w h * w h dot 0.0\n"
+        ));
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+        assert_eq!(
+            output.records.get("rect"),
+            Some(&vec![
+                ("w".to_string(), Type::F64),
+                ("h".to_string(), Type::F64)
+            ])
+        );
+        assert!(!output.records.contains_key("shape"));
+
+        // A variant constructs the sum; the expected type flows into the arms.
+        let output = check_source(&format!(
+            "{SHAPE}fn f -> list shape\n [dot circle 1.0]\nfn g s:shape -> opt i64\n match s circle r none i64 rect w h some 1 dot none i64\n"
+        ));
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+    }
+
+    #[test]
+    fn sum_errors() {
+        // Scrutinee of another type.
+        let output = check_source(&format!(
+            "{SHAPE}fn f x:i64 -> i64\n match x circle r 1 rect w h 2 dot 3\n"
+        ));
+        assert_eq!(codes(&output), ["T001"]);
+        // Arms of different types.
+        let output = check_source(&format!(
+            "{SHAPE}fn f s:shape -> i64\n match s circle r 1 rect w h \"x\" dot 3\n"
+        ));
+        assert_eq!(codes(&output), ["T001"]);
+        // A variant is not a type; a sum is not comparable, showable or a record.
+        let output = check_source(&format!("{SHAPE}fn f x:dot -> i64\n 1\n"));
+        assert_eq!(codes(&output), ["T002"]);
+        let output = check_source(&format!("{SHAPE}fn f s:shape -> bool\n == s s\n"));
+        assert_eq!(codes(&output), ["T004"]);
+        let output = check_source(&format!("{SHAPE}fn f s:shape -> str\n show s\n"));
+        assert_eq!(codes(&output), ["T004"]);
+        let output = check_source(&format!("{SHAPE}fn f s:shape -> f64\n .r s\n"));
+        assert_eq!(codes(&output), ["T003"]);
+    }
+
+    #[test]
+    fn recursive_sums_are_allowed() {
+        let output = check_source(
+            "type tree | leaf | node l:tree v:i64 r:tree\nfn f t:tree -> i64\n match t leaf 0 node l v r + v + f l f r\n",
+        );
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
     }
 
     #[test]

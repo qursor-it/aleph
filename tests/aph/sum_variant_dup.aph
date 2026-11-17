@@ -1,0 +1,2 @@
+type color | red | dot
+type shape | circle r:f64 | rect w:f64 h:f64 | dot

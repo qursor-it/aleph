@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/sum_arm_types.aph","line":4,"col":30,"node":"n22","msg":"type mismatch","expected":"f64","found":"str"}

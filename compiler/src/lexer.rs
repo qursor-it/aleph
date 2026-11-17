@@ -57,6 +57,8 @@ pub enum TokenKind {
     RBracket,
     Eq,
     Arrow,
+    /// `|`, separating sum variants (ADR-0034).
+    Bar,
     /// Symbolic binary operator; `and`/`or`/`not`/`neg` lex as
     /// [`TokenKind::Keyword`] — use [`lexicon::is_binop`] / [`lexicon::is_unop`].
     Op(String),
@@ -152,6 +154,7 @@ impl<'a> LineScanner<'a> {
         let mut expect_capname = false;
         let fnref_mark = lexicon::operator("fnref").expect("fnref punctuation");
         let field_mark = lexicon::operator("field").expect("field punctuation");
+        let bar_mark = lexicon::operator("bar").expect("bar punctuation");
 
         while self.pos < self.len() {
             let byte = self.byte(self.pos);
@@ -199,6 +202,10 @@ impl<'a> LineScanner<'a> {
                 let start = self.pos;
                 self.pos += 1;
                 tokens.push(self.token(TokenKind::Eq, start, self.pos));
+            } else if byte == bar_mark.as_bytes()[0] {
+                let start = self.pos;
+                self.pos += 1;
+                tokens.push(self.token(TokenKind::Bar, start, self.pos));
             } else if byte == fnref_mark.as_bytes()[0] {
                 if let Some(token) = self.fnref() {
                     tokens.push(token);
@@ -683,6 +690,24 @@ mod tests {
             kinds("fn f -> i64"),
             vec![kw("function"), ident("f"), TokenKind::Arrow, ident("i64"),]
         );
+    }
+
+    #[test]
+    fn bar_and_match() {
+        assert_eq!(
+            kinds("type t | a x:i64 | b"),
+            vec![
+                kw("record"),
+                ident("t"),
+                TokenKind::Bar,
+                ident("a"),
+                TokenKind::Param("x".to_string()),
+                ident("i64"),
+                TokenKind::Bar,
+                ident("b"),
+            ]
+        );
+        assert_eq!(kinds("match s"), vec![kw("match"), ident("s")]);
     }
 
     #[test]

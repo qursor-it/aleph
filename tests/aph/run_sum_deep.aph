@@ -1,0 +1,16 @@
+type nat | s n:nat | z
+fn height x:nat -> i64
+ ex height z = 0
+ ex height s s z = 2
+ match x s n + 1 height n z 0
+fn succ x:nat i:i64 -> nat
+ ex height succ z 5 = 1
+ s x
+fn walk x:nat -> res i64 str
+ ex walk z = err "bottom"
+ ex walk s z = err "bottom"
+ match x s n ok + 1 try walk n z err "bottom"
+fn main -> unit
+ do print show isok walk fold @succ z range 0 3331
+ do print show height fold @succ z range 0 4998
+ print show height fold @succ z range 0 4999

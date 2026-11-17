@@ -8,7 +8,9 @@ file        = { use_item NL } { type_item NL } { fn_item } ;
 use_item    = "use" " " capname [ " " string ] ;
 capname     = "fs.read" | "fs.write" | "net.host" | "env" | "time" ;
 
-type_item   = "type" " " ident { " " field } ;
+type_item   = "type" " " ident { " " field }
+            | "type" " " ident variant { variant } ;  (* sum, ADR-0034 *)
+variant     = " " "|" " " ident { " " field } ;
 field       = ident ":" type ;
 
 fn_item     = "fn" " " ident { " " param } " " "->" " " type NL
@@ -41,7 +43,9 @@ expr        = literal
             | "dict" " " type " " type             (* empty dict, ADR-0032 *)
             | ( "some" | "ok" | "err" | "try" | "has" | "isok" ) " " expr
             | "else" " " expr " " expr
-            | "." ident " " expr ;
+            | "." ident " " expr
+            | "match" " " expr arm { arm } ;         (* ADR-0034 *)
+arm         = " " ident { " " ident } " " expr ;    (* variant, binders, body *)
 
 call        = ident { " " expr } ;                   (* exactly arity(ident) args *)
 unop        = "not" | "neg" ;

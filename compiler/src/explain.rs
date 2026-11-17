@@ -22,7 +22,8 @@
 //!
 //! - A capability is `capabilities: CAP [ "path"]`, one line each; `none`
 //!   means no capability was declared.
-//! - A type is `type NAME [ field:TYPE]...` with declared field order.
+//! - A type is `type NAME [ field:TYPE]...` with declared field order, or
+//!   for a sum `type NAME | VARIANT [ field:TYPE]...`... (ADR-0034).
 //! - A function header is the canonical `fn NAME [param:TYPE]... -> TYPE`.
 //! - `doc` is quoted and escaped (`"..."`; `\n`, `\t`, `\"`, `\\`) or `-`
 //!   when absent, so null and the empty string stay distinguishable.
@@ -58,9 +59,19 @@ pub struct CapabilityInfo {
     pub path: Option<String>,
 }
 
-/// One record type.
+/// One record or sum type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TypeInfo {
+    pub name: String,
+    pub fields: Vec<FieldInfo>,
+    /// Sum variants (ADR-0034); omitted for a record.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<VariantInfo>,
+}
+
+/// One sum variant with its fields.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VariantInfo {
     pub name: String,
     pub fields: Vec<FieldInfo>,
 }
@@ -117,12 +128,13 @@ pub fn report(file: &str, ast: &ast::File) -> Report {
             .into_iter()
             .map(|item| TypeInfo {
                 name: item.name.clone(),
-                fields: item
-                    .fields
+                fields: field_infos(&item.fields),
+                variants: item
+                    .variants
                     .iter()
-                    .map(|field| FieldInfo {
-                        name: field.name.clone(),
-                        ty: printer::print_type(&field.ty),
+                    .map(|variant| VariantInfo {
+                        name: variant.name.clone(),
+                        fields: field_infos(&variant.fields),
                     })
                     .collect(),
             })
@@ -138,6 +150,16 @@ pub fn report(file: &str, ast: &ast::File) -> Report {
             .any(|function| function.name == "main")
             .then(|| "main".to_string()),
     }
+}
+
+fn field_infos(fields: &[ast::Field]) -> Vec<FieldInfo> {
+    fields
+        .iter()
+        .map(|field| FieldInfo {
+            name: field.name.clone(),
+            ty: printer::print_type(&field.ty),
+        })
+        .collect()
 }
 
 fn function_info(
@@ -253,11 +275,13 @@ pub fn to_text(report: &Report) -> String {
 
     for item in &report.types {
         let mut line = format!("{} {}", keyword("record"), item.name);
-        for field in &item.fields {
+        push_fields(&mut line, &item.fields);
+        for variant in &item.variants {
             line.push(' ');
-            line.push_str(&field.name);
-            line.push(':');
-            line.push_str(&field.ty);
+            line.push_str(operator("bar"));
+            line.push(' ');
+            line.push_str(&variant.name);
+            push_fields(&mut line, &variant.fields);
         }
         lines.push(line);
     }
@@ -289,6 +313,15 @@ pub fn to_text(report: &Report) -> String {
     let mut text = lines.join("\n");
     text.push('\n');
     text
+}
+
+fn push_fields(line: &mut String, fields: &[FieldInfo]) {
+    for field in fields {
+        line.push(' ');
+        line.push_str(&field.name);
+        line.push(':');
+        line.push_str(&field.ty);
+    }
 }
 
 fn keyword(concept: &str) -> &'static str {
@@ -392,6 +425,7 @@ mod tests {
                         ty: "list i64".to_string(),
                     },
                 ],
+                variants: Vec::new(),
             }]
         );
         // File order is canonical order: `main` last.

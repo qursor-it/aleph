@@ -207,11 +207,31 @@ pub struct TypeDef {
     #[serde(flatten)]
     pub span: Span,
     pub name: String,
+    /// Record fields; empty for a sum type.
     pub fields: Vec<Field>,
+    /// Sum variants (ADR-0034); empty for a record.
+    pub variants: Vec<Variant>,
 }
 
 // when adding a field to a node, add it here (round-trip tests depend on it)
 impl PartialEq for TypeDef {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.fields == other.fields && self.variants == other.variants
+    }
+}
+
+/// One variant of a sum type: a constructor with its fields (ADR-0034).
+#[derive(Debug, Clone, Serialize)]
+pub struct Variant {
+    pub id: NodeId,
+    #[serde(flatten)]
+    pub span: Span,
+    pub name: String,
+    pub fields: Vec<Field>,
+}
+
+// when adding a field to a node, add it here (round-trip tests depend on it)
+impl PartialEq for Variant {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.fields == other.fields
     }
@@ -480,6 +500,19 @@ pub enum ExprKind {
     IsOk {
         value: Box<Expr>,
     },
+    /// `match e ARM..`: one arm per variant, in declaration order (ADR-0034).
+    Match {
+        value: Box<Expr>,
+        arms: Vec<Arm>,
+    },
+}
+
+/// One `match` arm: the variant, one binder per field, and the body.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Arm {
+    pub variant: String,
+    pub binders: Vec<String>,
+    pub body: Expr,
 }
 
 impl File {
@@ -551,7 +584,7 @@ impl Use {
 
 /// Assign node ids in deterministic pre-order from `n0` (ADR-0003).
 ///
-/// Order: `File`, uses, type definitions and their fields/types, then
+/// Order: `File`, uses, type definitions and their fields/variants/types, then
 /// functions: `Fn`, params/types, return type, examples, statements, result.
 ///
 /// Call this *after* [`File::canonicalize`], or use [`File::finish`], which
@@ -582,7 +615,15 @@ fn assign_file(file: &mut File, next: &mut u32) {
 
 fn assign_typedef(item: &mut TypeDef, next: &mut u32) {
     item.id = fresh(next);
-    for field in &mut item.fields {
+    assign_fields(&mut item.fields, next);
+    for variant in &mut item.variants {
+        variant.id = fresh(next);
+        assign_fields(&mut variant.fields, next);
+    }
+}
+
+fn assign_fields(fields: &mut [Field], next: &mut u32) {
+    for field in fields {
         field.id = fresh(next);
         assign_type(&mut field.ty, next);
     }
@@ -669,6 +710,12 @@ fn assign_expr(expr: &mut Expr, next: &mut u32) {
             assign_expr(value, next);
             assign_expr(default, next);
         }
+        ExprKind::Match { value, arms } => {
+            assign_expr(value, next);
+            for arm in arms {
+                assign_expr(&mut arm.body, next);
+            }
+        }
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Str { .. }
@@ -700,7 +747,15 @@ fn collect_file(file: &File, ids: &mut Vec<NodeId>) {
 
 fn collect_typedef(item: &TypeDef, ids: &mut Vec<NodeId>) {
     ids.push(item.id);
-    for field in &item.fields {
+    collect_fields(&item.fields, ids);
+    for variant in &item.variants {
+        ids.push(variant.id);
+        collect_fields(&variant.fields, ids);
+    }
+}
+
+fn collect_fields(fields: &[Field], ids: &mut Vec<NodeId>) {
+    for field in fields {
         ids.push(field.id);
         collect_type(&field.ty, ids);
     }
@@ -787,6 +842,12 @@ fn collect_expr(expr: &Expr, ids: &mut Vec<NodeId>) {
             collect_expr(value, ids);
             collect_expr(default, ids);
         }
+        ExprKind::Match { value, arms } => {
+            collect_expr(value, ids);
+            for arm in arms {
+                collect_expr(&arm.body, ids);
+            }
+        }
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Str { .. }
@@ -800,8 +861,8 @@ fn collect_expr(expr: &Expr, ids: &mut Vec<NodeId>) {
 /// Walk `expr` in pre-order, calling `visit` on every expression node.
 ///
 /// Children are visited left to right: call arguments, binary operands, unary
-/// operand, `if` condition then branches, list elements, wrapped values and
-/// `else` value then default. Types inside `empty`/`none` are not expressions.
+/// operand, `if` condition then branches, list elements, wrapped values,
+/// `else` value then default, and `match` scrutinee then arm bodies. Types inside `empty`/`none` are not expressions.
 pub fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
     visit(expr);
     match &expr.kind {
@@ -835,6 +896,12 @@ pub fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
         ExprKind::Else { value, default } => {
             walk_expr(value, visit);
             walk_expr(default, visit);
+        }
+        ExprKind::Match { value, arms } => {
+            walk_expr(value, visit);
+            for arm in arms {
+                walk_expr(&arm.body, visit);
+            }
         }
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
@@ -885,6 +952,12 @@ pub fn walk_expr_mut(expr: &mut Expr, visit: &mut impl FnMut(&mut Expr)) {
         ExprKind::Else { value, default } => {
             walk_expr_mut(value, visit);
             walk_expr_mut(default, visit);
+        }
+        ExprKind::Match { value, arms } => {
+            walk_expr_mut(value, visit);
+            for arm in arms {
+                walk_expr_mut(&mut arm.body, visit);
+            }
         }
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
@@ -1171,12 +1244,14 @@ mod tests {
                     span: span(),
                     name: "z".to_string(),
                     fields: Vec::new(),
+                    variants: Vec::new(),
                 },
                 TypeDef {
                     id: NodeId::UNASSIGNED,
                     span: span(),
                     name: "a".to_string(),
                     fields: Vec::new(),
+                    variants: Vec::new(),
                 },
             ],
             fns: ["main", "zeta", "alpha"]

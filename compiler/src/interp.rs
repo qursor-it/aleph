@@ -170,7 +170,8 @@ pub struct Interp<'a> {
     out: &'a mut dyn Write,
     err: &'a mut dyn Write,
     fns: BTreeMap<&'a str, &'a ast::Fn>,
-    records: BTreeMap<&'a str, &'a ast::TypeDef>,
+    /// Constructor (record type or sum variant) name to its fields.
+    records: BTreeMap<&'a str, &'a [ast::Field]>,
     call_depth: usize,
     eval_depth: usize,
     /// When set, every `read`/`write` call traps with R003 without touching
@@ -191,11 +192,15 @@ impl<'a> Interp<'a> {
             .iter()
             .map(|function| (function.name.as_str(), function))
             .collect();
-        let records = file
-            .types
-            .iter()
-            .map(|item| (item.name.as_str(), item))
-            .collect();
+        let mut records = BTreeMap::new();
+        for item in &file.types {
+            if item.variants.is_empty() {
+                records.insert(item.name.as_str(), item.fields.as_slice());
+            }
+            for variant in &item.variants {
+                records.insert(variant.name.as_str(), variant.fields.as_slice());
+            }
+        }
         Self {
             file,
             args,
@@ -345,7 +350,6 @@ impl<'a> Interp<'a> {
                     .get(type_name.as_ref())
                     .unwrap_or_else(|| panic!("unknown record `{type_name}`"));
                 let index = item
-                    .fields
                     .iter()
                     .position(|field| &field.name == name)
                     .unwrap_or_else(|| panic!("unknown field `{name}`"));
@@ -384,6 +388,20 @@ impl<'a> Interp<'a> {
                 eval_value!(self, value, env),
                 Value::Res(Ok(_))
             )))),
+            ExprKind::Match { value, arms } => {
+                let Value::Record(variant, fields) = eval_value!(self, value, env) else {
+                    panic!("type checker guarantees a sum value for match");
+                };
+                let arm = arms
+                    .iter()
+                    .find(|arm| *arm.variant == *variant)
+                    .unwrap_or_else(|| panic!("no arm for variant `{variant}`"));
+                let mut inner = env.clone();
+                for (binder, field) in arm.binders.iter().zip(fields.iter()) {
+                    inner.insert(binder.clone(), field.clone());
+                }
+                self.eval(&arm.body, &inner)
+            }
         }
     }
 
@@ -559,7 +577,7 @@ impl<'a> Interp<'a> {
             .records
             .get(name)
             .unwrap_or_else(|| panic!("unknown record `{name}`"));
-        debug_assert_eq!(item.fields.len(), args.len(), "arity of record `{name}`");
+        debug_assert_eq!(item.len(), args.len(), "arity of record `{name}`");
         Value::Record(Rc::from(name), Rc::new(args))
     }
 
@@ -1250,6 +1268,28 @@ mod tests {
             &Value::Fn(FnTarget::User("f".to_string())),
             &Value::Fn(FnTarget::User("f".to_string()))
         ));
+    }
+
+    #[test]
+    fn variants_are_records_named_by_variant_and_match_dispatches() {
+        let shape = "type shape | circle r:i64 | rect w:i64 h:i64 | dot\n";
+        assert!(values_equal(
+            &probe(&format!("{shape}fn probe -> shape\n rect 2 3\n")),
+            &Value::Record(Rc::from("rect"), Rc::new(vec![i64_value(2), i64_value(3)]))
+        ));
+        assert_eq!(
+            literal(&probe(&format!(
+                "{shape}fn probe -> list shape\n [circle 1 dot]\n"
+            ))),
+            "[circle 1 dot]"
+        );
+        let area = format!(
+            "{shape}fn area s:shape -> i64\n match s circle r * 3 * r r rect w h * w h dot 0\n"
+        );
+        for (arg, want) in [("circle 2", 12), ("rect 2 5", 10), ("dot", 0)] {
+            let source = format!("{area}fn probe -> i64\n area {arg}\n");
+            assert!(values_equal(&probe(&source), &i64_value(want)), "{arg}");
+        }
     }
 
     #[test]

@@ -551,3 +551,16 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - minor: `show` on JSON with shared subtrees can be exponentially large. Documented as a known limit in ADR-0033, not capped.
 - tests: 335 passed, clippy clean
 - next: review cap (3 cycles) reached; the round-3 fixes were not re-reviewed. Next task: T-029.
+
+## 2026-11-17T15:30 T-029 done
+- sum types and `match` (ADR-0034): `type NAME | V F.. | ..`, variants are constructors (arity = field count) returning the sum; `match e ARM..` with one arm per variant in declaration order (`V b1..bk body`), exhaustive by construction
+- lexer `|` (TokenKind::Bar), lexicon keyword `match` and punctuation `bar`; AST `TypeDef.variants` (Variant nodes), `ExprKind::Match` with `Arm {variant, binders, body}` (no id); ids pre-order (match, scrutinee, arm bodies); printer round-trips
+- parser: pass 1 registers variants as constructors plus sum/variant maps; clashes P001; `match` P001 for wrong/other/missing arms and non-ident binders, T005 for shadowing binders
+- checker: sum names lower to `Type::Record(sum)`, variants live in `records` (constructor fields); scrutinee checked against the sum (T001), expected type flows into the first arm, its type into the rest (as `if`); `==`/`show`/dict key give T004, `.f` T003
+- interp: variant = `Value::Record(variant, fields)`, match clones env with binders; cgen: one `AlRecordInfo` per variant, match = if/else chain on `rec->info` (last arm plain `else`), binders declared in the arm block, fast path unboxes binders; no Tlön change
+- explain text/JSON (`variants` only on sums), SPEC §2/§3.2/§4/§5, grammar, llms.txt (2050 est. tokens = budget; prose trimmed, budget unchanged)
+- goldens: run_sum_tree, run_sum_expr, run_sum_deep (.err/.exit R004 through match + try in an arm near the depth limit, both engines); diag sum_arm_order, sum_arm_other, sum_scrutinee, sum_arm_types, sum_binder_shadow, sum_variant_dup, sum_variant_fn, sum_variant_type, sum_eq, sum_example_fail, sum_field
+- tests: 344 passed, clippy clean
+- decisions: ADR-0034 (Proposed, amended: P001 for name clashes, T003 for `.f`)
+- next: independent review of T-029; llms.txt is exactly at the 2050 budget, the next feature needs trimming or a budget decision; then T-030
+- agent: claude-opus-5.5 directly

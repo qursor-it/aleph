@@ -1,0 +1,4 @@
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+fn area x:f64 -> f64
+ ex area 1.0 = 1.0
+ match x circle r r rect w h * w h dot 0.0

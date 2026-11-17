@@ -1,0 +1,14 @@
+type tree | leaf | node l:tree v:i64 r:tree
+fn cat3 a:list i64 b:list i64 c:list i64 -> list i64
+ ex cat3 [1] [2] [3] = [1 2 3]
+ fold @push fold @push a b c
+fn inorder t:tree -> list i64
+ ex inorder leaf = empty i64
+ match t leaf empty i64 node l v r cat3 inorder l [v] inorder r
+fn insert t:tree x:i64 -> tree
+ ex inorder insert insert leaf 2 1 = [1 2]
+ match t leaf node leaf x leaf node l v r if < x v node insert l x v r node l v insert r x
+fn main -> unit
+ let t fold @insert leaf [5 3 8 1 4 9 2]
+ do print show inorder t
+ nil

@@ -122,12 +122,20 @@ impl<'a> Generator<'a> {
         if self.file.types.is_empty() {
             return;
         }
+        // One info per constructor: a record type, or each sum variant.
+        let mut infos = Vec::new();
         for item in &self.file.types {
+            if item.variants.is_empty() {
+                infos.push((item.name.as_str(), item.fields.len()));
+            }
+            for variant in &item.variants {
+                infos.push((variant.name.as_str(), variant.fields.len()));
+            }
+        }
+        for (name, count) in infos {
             let line = format!(
-                "static const AlRecordInfo RI_{} = {{{}, {}}};",
-                item.name,
-                c_string(&item.name),
-                item.fields.len()
+                "static const AlRecordInfo RI_{name} = {{{}, {count}}};",
+                c_string(name)
             );
             self.line(0, &line);
         }
@@ -241,11 +249,11 @@ impl<'a> Generator<'a> {
                 arity: function.params.len(),
             };
         }
-        if let Some(item) = self.file.types.iter().find(|item| item.name == name) {
+        if let Some(fields) = self.checked.records.get(name) {
             return RefInfo {
                 name: name.to_string(),
                 kind: RefKind::Ctor,
-                arity: item.fields.len(),
+                arity: fields.len(),
             };
         }
         let spec = builtins::lookup(name).expect("checker guarantees a callable");
@@ -615,9 +623,42 @@ impl<'a> Generator<'a> {
                     &format!("aleph_bool(t_n{}.tag == AL_OK)", value.id.0),
                 );
             }
+            ExprKind::Match { value, arms } => {
+                self.emit_expr(value, depth + 1, indent);
+                for (index, arm) in arms.iter().enumerate() {
+                    self.match_arm_open(value, arms.len(), index, &arm.variant, indent);
+                    for (k, binder) in arm.binders.iter().enumerate() {
+                        let field = format!("t_n{}.u.rec->fields[{k}]", value.id.0);
+                        self.line(indent + 1, &format!("AlValue l_{binder} = {field};"));
+                    }
+                    self.emit_expr(&arm.body, depth + 1, indent + 1);
+                    self.assign(indent + 1, id, &format!("t_n{}", arm.body.id.0));
+                }
+                self.line(indent, "}");
+            }
         }
 
         self.line(indent, "aleph_eval_leave();");
+    }
+
+    /// Open the C block of arm `index`: dispatch on the record info pointer;
+    /// the last arm is the plain `else` (the checker makes `match` exhaustive).
+    fn match_arm_open(
+        &mut self,
+        value: &Expr,
+        count: usize,
+        index: usize,
+        variant: &str,
+        indent: usize,
+    ) {
+        let test = format!("if (t_n{}.u.rec->info == &RI_{variant}) {{", value.id.0);
+        let text = match (index, index + 1 == count) {
+            (0, true) => "{".to_string(),
+            (0, false) => test,
+            (_, true) => "} else {".to_string(),
+            (_, false) => format!("}} else {test}"),
+        };
+        self.line(indent, &text);
     }
 
     fn assign(&mut self, indent: usize, id: u32, value: &str) {
@@ -891,6 +932,9 @@ fn children(expr: &Expr) -> Vec<&Expr> {
         | ExprKind::Has { value }
         | ExprKind::IsOk { value } => vec![value],
         ExprKind::Else { value, default } => vec![value, default],
+        ExprKind::Match { value, arms } => std::iter::once(&**value)
+            .chain(arms.iter().map(|arm| &arm.body))
+            .collect(),
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Str { .. }
@@ -1202,6 +1246,34 @@ impl Generator<'_> {
                     "AL_OK"
                 };
                 self.assign(indent, id, &format!("{}.tag == {tag}", Self::temp(value)));
+            }
+            ExprKind::Match { value, arms } => {
+                self.fast_expr(value, depth + 1, indent);
+                for (index, arm) in arms.iter().enumerate() {
+                    self.match_arm_open(value, arms.len(), index, &arm.variant, indent);
+                    let fields = self
+                        .checked
+                        .records
+                        .get(&arm.variant)
+                        .cloned()
+                        .unwrap_or_default();
+                    for (k, (binder, (_, ty))) in arm.binders.iter().zip(&fields).enumerate() {
+                        let binder_repr = Repr::of(ty);
+                        let field = format!("{}.u.rec->fields[{k}]", Self::temp(value));
+                        self.line(
+                            indent + 1,
+                            &format!(
+                                "{} l_{binder} = {};",
+                                binder_repr.c_type(),
+                                binder_repr.unbox(&field)
+                            ),
+                        );
+                    }
+                    self.fast_expr(&arm.body, depth + 1, indent + 1);
+                    let body = self.convert(&arm.body, repr);
+                    self.assign(indent + 1, id, &body);
+                }
+                self.line(indent, "}");
             }
         }
     }

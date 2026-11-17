@@ -32,6 +32,7 @@ pub const KEYWORDS: &[(&str, &str)] = &[
     ("lor", "or"),
     ("lnot", "not"),
     ("negate", "neg"),
+    ("match", "match"),
 ];
 
 /// Type spellings: `(concept, spelling)`.
@@ -65,6 +66,7 @@ pub const OPERATORS: &[(&str, &str)] = &[
     ("arrow", "->"),
     ("fnref", "@"),
     ("field", "."),
+    ("bar", "|"),
 ];
 
 /// Binary operators (arity 2, SPEC §5).
@@ -83,7 +85,12 @@ pub const BINARY_OPERATORS: &[(&str, &str)] = &[
 ];
 
 /// Punctuation spellings that are not operators.
-pub const PUNCTUATION: &[(&str, &str)] = &[("arrow", "->"), ("fnref", "@"), ("field", ".")];
+pub const PUNCTUATION: &[(&str, &str)] = &[
+    ("arrow", "->"),
+    ("fnref", "@"),
+    ("field", "."),
+    ("bar", "|"),
+];
 
 /// Capability names accepted after `use` (SPEC §3.1, grammar `capname`).
 pub const CAPABILITIES: &[&str] = &["fs.read", "fs.write", "net.host", "env", "time"];
@@ -172,7 +179,7 @@ pub fn is_capability(name: &str) -> bool {
     CAPABILITIES.contains(&name)
 }
 
-/// Whether `spelling` is punctuation (`->`, `@`, `.`).
+/// Whether `spelling` is punctuation (`->`, `@`, `.`, `|`).
 pub fn is_punctuation(spelling: &str) -> bool {
     PUNCTUATION.iter().any(|(_, value)| *value == spelling)
 }

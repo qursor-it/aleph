@@ -1,0 +1,4 @@
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+fn rect -> i64
+ ex rect = 1
+ 1

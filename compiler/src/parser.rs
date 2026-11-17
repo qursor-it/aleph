@@ -28,11 +28,25 @@ pub struct ParseOutput {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Function signatures and record constructor arities collected in pass 1.
+/// Function signatures and constructor arities collected in pass 1.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct Signatures {
     functions: BTreeMap<String, usize>,
+    /// Constructor arities: record types and sum variants.
     records: BTreeMap<String, usize>,
+    /// Sum type name to its variant names, in declaration order (ADR-0034).
+    sums: BTreeMap<String, Vec<String>>,
+    /// Variant name to its sum type name.
+    variant_sum: BTreeMap<String, String>,
+}
+
+impl Signatures {
+    /// Whether `name` is already a function, record, sum or variant name.
+    fn defines(&self, name: &str) -> bool {
+        self.functions.contains_key(name)
+            || self.records.contains_key(name)
+            || self.sums.contains_key(name)
+    }
 }
 
 /// Lex `source`, then parse it. Lexical errors stop parsing: the token stream
@@ -153,25 +167,11 @@ impl<'a> Parser<'a> {
                 }
             } else if is_keyword(first, "record") {
                 match parse_typedef(self.file, line) {
-                    Ok(item) if is_reserved_name(&item.name) => {
-                        let name_token = &line.tokens[1];
-                        self.diagnostics
-                            .push(*p001(self.file, name_token, "reserved name"));
-                        self.body_state = BodyState::Skip;
-                    }
-                    Ok(item)
-                        if self.signatures.records.contains_key(&item.name)
-                            || self.signatures.functions.contains_key(&item.name) =>
-                    {
-                        let name_token = &line.tokens[1];
-                        self.diagnostics.push(*duplicate(self.file, name_token));
-                        self.body_state = BodyState::Skip;
-                    }
                     Ok(item) => {
-                        self.signatures
-                            .records
-                            .insert(item.name.clone(), item.fields.len());
-                        self.ast.types.push(item);
+                        if let Err(diagnostic) = self.add_typedef(item, &line.tokens[1]) {
+                            self.diagnostics.push(*diagnostic);
+                            self.body_state = BodyState::Skip;
+                        }
                     }
                     Err(diagnostic) => {
                         self.diagnostics.push(*diagnostic);
@@ -186,10 +186,7 @@ impl<'a> Parser<'a> {
                             .push(*p001(self.file, name_token, "reserved name"));
                         self.body_state = BodyState::Skip;
                     }
-                    Ok(item)
-                        if self.signatures.functions.contains_key(&item.name)
-                            || self.signatures.records.contains_key(&item.name) =>
-                    {
+                    Ok(item) if self.signatures.defines(&item.name) => {
                         let name_token = &line.tokens[1];
                         self.diagnostics.push(*duplicate(self.file, name_token));
                         self.body_state = BodyState::Skip;
@@ -213,6 +210,44 @@ impl<'a> Parser<'a> {
                     .push(*p001(self.file, first, "unexpected token"));
             }
         }
+    }
+
+    /// Register a parsed `type` item: its name and every variant name must be
+    /// new and not reserved (P001).
+    fn add_typedef(&mut self, item: ast::TypeDef, name_token: &Token) -> PResult<()> {
+        if is_reserved_name(&item.name) {
+            return Err(p001(self.file, name_token, "reserved name"));
+        }
+        if self.signatures.defines(&item.name) {
+            return Err(duplicate(self.file, name_token));
+        }
+        let mut seen = BTreeSet::from([item.name.clone()]);
+        for variant in &item.variants {
+            if is_reserved_name(&variant.name) {
+                return Err(p001_span(self.file, variant.span, "reserved name"));
+            }
+            if self.signatures.defines(&variant.name) || !seen.insert(variant.name.clone()) {
+                return Err(p001_span(self.file, variant.span, "duplicate definition"));
+            }
+        }
+        if item.variants.is_empty() {
+            self.signatures
+                .records
+                .insert(item.name.clone(), item.fields.len());
+        } else {
+            let names: Vec<String> = item.variants.iter().map(|v| v.name.clone()).collect();
+            for variant in &item.variants {
+                self.signatures
+                    .records
+                    .insert(variant.name.clone(), variant.fields.len());
+                self.signatures
+                    .variant_sum
+                    .insert(variant.name.clone(), item.name.clone());
+            }
+            self.signatures.sums.insert(item.name.clone(), names);
+        }
+        self.ast.types.push(item);
+        Ok(())
     }
 }
 
@@ -699,6 +734,8 @@ impl<'a> ExprCtx<'a> {
             self.parse_type_arg(pos, env, depth, span, false)
         } else if is_keyword(token, "optnone") {
             self.parse_type_arg(pos, env, depth, span, true)
+        } else if is_keyword(token, "match") {
+            self.parse_match(pos, env, depth, span)
         } else if lexicon::is_binop(name) {
             match binop_from_spelling(name) {
                 Some(op) => self.parse_binop(pos, op, env, depth, span),
@@ -932,6 +969,71 @@ impl<'a> ExprCtx<'a> {
         ))
     }
 
+    /// `match e ARM..`: the first arm's variant fixes the sum type, which then
+    /// fixes how many arms follow, their order and their binder counts.
+    fn parse_match(
+        &self,
+        pos: usize,
+        env: &Env,
+        depth: usize,
+        span: ast::Span,
+    ) -> PResult<(ast::Expr, usize)> {
+        let (value, mut index) = self.parse(pos + 1, env, depth + 1)?;
+        let first = match self.tokens.get(index).map(|token| &token.kind) {
+            Some(TokenKind::Ident(name)) => self.signatures.variant_sum.get(name),
+            Some(_) => None,
+            None => return Err(p001_eol(self.file, self.line, "expected variant")),
+        };
+        let Some(sum) = first else {
+            return Err(self.diagnostic_at(index, "unexpected token"));
+        };
+        let variants = &self.signatures.sums[sum];
+        let mut arms = Vec::with_capacity(variants.len());
+        for variant in variants {
+            match self.tokens.get(index).map(|token| &token.kind) {
+                Some(TokenKind::Ident(name)) if name == variant => {}
+                Some(_) => return Err(self.diagnostic_at(index, "unexpected token")),
+                None => return Err(p001_eol(self.file, self.line, "expected variant")),
+            }
+            index += 1;
+            let mut inner = env.clone();
+            let mut binders = Vec::new();
+            for _ in 0..self.signatures.records[variant] {
+                let Some(token) = self.tokens.get(index) else {
+                    return Err(p001_eol(self.file, self.line, "expected binding name"));
+                };
+                let TokenKind::Ident(binder) = &token.kind else {
+                    return Err(p001(self.file, token, "expected binding name"));
+                };
+                if inner.contains(binder) || is_callable(self.signatures, binder) {
+                    return Err(t005(self.file, span_of(token)));
+                }
+                inner.insert(binder.clone());
+                binders.push(binder.clone());
+                index += 1;
+            }
+            let (body, next) = self.parse(index, &inner, depth + 1)?;
+            index = next;
+            arms.push(ast::Arm {
+                variant: variant.clone(),
+                binders,
+                body,
+            });
+        }
+        let kind = ast::ExprKind::Match {
+            value: Box::new(value),
+            arms,
+        };
+        Ok((
+            ast::Expr {
+                id: NodeId::UNASSIGNED,
+                span,
+                kind,
+            },
+            index,
+        ))
+    }
+
     fn parse_list(
         &self,
         pos: usize,
@@ -1161,6 +1263,7 @@ fn can_start_expr(token: &Token) -> bool {
                 || is_keyword(token, "isome")
                 || is_keyword(token, "isokay")
                 || is_keyword(token, "emptylist")
+                || is_keyword(token, "match")
                 || lexicon::is_binop(token_spelling(token))
                 || lexicon::is_unop(token_spelling(token))
         }
@@ -1206,6 +1309,10 @@ fn eol_col(line: &Line) -> u32 {
 
 fn p001(file: &str, token: &Token, msg: &str) -> Box<Diagnostic> {
     Box::new(Diagnostic::error("P001", file, token.line, token.col, msg))
+}
+
+fn p001_span(file: &str, span: ast::Span, msg: &str) -> Box<Diagnostic> {
+    Box::new(Diagnostic::error("P001", file, span.line, span.col, msg))
 }
 
 fn p001_eol(file: &str, line: &Line, msg: &str) -> Box<Diagnostic> {
@@ -1272,9 +1379,49 @@ fn parse_typedef(file: &str, line: &Line) -> PResult<ast::TypeDef> {
         _ => return Err(p001(file, name_token, "expected type name")),
     };
 
+    let mut item = ast::TypeDef {
+        id: NodeId::UNASSIGNED,
+        span: span_of(type_token),
+        name,
+        fields: Vec::new(),
+        variants: Vec::new(),
+    };
+    if !matches!(tokens.get(2).map(|token| &token.kind), Some(TokenKind::Bar)) {
+        item.fields = parse_fields(file, line, &tokens[2..])?;
+        return Ok(item);
+    }
+
+    // A sum: `| NAME FIELD..` repeated (ADR-0034).
+    let mut index = 2;
+    while index < tokens.len() {
+        // tokens[index] is a `|`.
+        let Some(variant_token) = tokens.get(index + 1) else {
+            return Err(p001_eol(file, line, "expected variant name"));
+        };
+        let TokenKind::Ident(variant_name) = &variant_token.kind else {
+            return Err(p001(file, variant_token, "expected variant name"));
+        };
+        let start = index + 2;
+        let mut end = start;
+        while end < tokens.len() && !matches!(tokens[end].kind, TokenKind::Bar) {
+            end += 1;
+        }
+        item.variants.push(ast::Variant {
+            id: NodeId::UNASSIGNED,
+            span: span_of(variant_token),
+            name: variant_name.clone(),
+            fields: parse_fields(file, line, &tokens[start..end])?,
+        });
+        index = end;
+    }
+    Ok(item)
+}
+
+/// `ident:TYPE` fields of a record or a variant.
+fn parse_fields(file: &str, line: &Line, tokens: &[Token]) -> PResult<Vec<ast::Field>> {
     let mut fields = Vec::new();
     let mut field_names = BTreeSet::new();
-    let mut index = 2;
+    let mut index = 0;
     while index < tokens.len() {
         let param_token = &tokens[index];
         let field_name = match &param_token.kind {
@@ -1304,13 +1451,7 @@ fn parse_typedef(file: &str, line: &Line) -> PResult<ast::TypeDef> {
             ty,
         });
     }
-
-    Ok(ast::TypeDef {
-        id: NodeId::UNASSIGNED,
-        span: span_of(type_token),
-        name,
-        fields,
-    })
+    Ok(fields)
 }
 
 fn parse_fn(file: &str, line: &Line) -> PResult<ast::Fn> {
@@ -2186,6 +2327,118 @@ fn main -> res unit str
         assert_eq!(diagnostic.code, "P003");
         assert_eq!(diagnostic.msg, "unknown function");
         assert_eq!(diagnostic.found.as_deref(), Some("nope"));
+    }
+
+    const SHAPE: &str = "type shape | circle r:f64 | rect w:f64 h:f64 | dot\n";
+
+    #[test]
+    fn sum_headers_collect_variants_as_constructors() {
+        let file = parse_ok(SHAPE);
+        let shape = &file.types[0];
+        assert!(shape.fields.is_empty());
+        let names: Vec<_> = shape.variants.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(names, ["circle", "rect", "dot"]);
+        assert_eq!(shape.variants[1].fields.len(), 2);
+        assert_eq!(
+            (shape.variants[1].span.line, shape.variants[1].span.col),
+            (1, 29)
+        );
+        // Ids: type, then each variant before its fields and their types.
+        assert_eq!(shape.id, NodeId(1));
+        assert_eq!(shape.variants[0].id, NodeId(2));
+        assert_eq!(shape.variants[0].fields[0].id, NodeId(3));
+        assert_eq!(shape.variants[1].id, NodeId(5));
+        assert_eq!(shape.variants[2].id, NodeId(10));
+
+        let file = parse_ok(&format!("{SHAPE}fn f -> shape\n rect 1.0 dot\n"));
+        let ast::ExprKind::Call {
+            callee_kind, args, ..
+        } = &function(&file, "f").result.kind
+        else {
+            panic!("expected ctor call");
+        };
+        assert_eq!(*callee_kind, ast::CalleeKind::Ctor);
+        assert_eq!(args.len(), 2);
+    }
+
+    #[test]
+    fn sum_header_errors() {
+        let cases = [
+            ("type t |\n", (1, 9), "expected variant name"),
+            ("type t | | a\n", (1, 10), "expected variant name"),
+            ("type t | a b\n", (1, 12), "expected field"),
+            ("type t | a x:i64 | a\n", (1, 20), "duplicate definition"),
+            ("type t | t\n", (1, 10), "duplicate definition"),
+            ("type t | len\n", (1, 10), "reserved name"),
+            ("type t x:i64 | a\n", (1, 14), "unexpected token"),
+            (
+                "fn a -> i64\n 1\ntype t | a\n",
+                (3, 10),
+                "duplicate definition",
+            ),
+            (
+                "type t | a\nfn a -> i64\n 1\n",
+                (2, 4),
+                "duplicate definition",
+            ),
+            ("type t | a\ntype a\n", (2, 6), "duplicate definition"),
+        ];
+        for (source, at, msg) in cases {
+            let diagnostic = one_error(source);
+            assert_eq!(diagnostic.code, "P001", "{source:?}");
+            assert_eq!((diagnostic.line, diagnostic.col), at, "{source:?}");
+            assert_eq!(diagnostic.msg, msg, "{source:?}");
+        }
+    }
+
+    #[test]
+    fn match_arms_follow_the_declaration_order() {
+        let source = format!(
+            "{SHAPE}fn f s:shape -> f64\n + 1.0 match s circle r r rect w h * w h dot 0.0\n"
+        );
+        let file = parse_ok(&source);
+        let ast::ExprKind::BinOp { rhs, .. } = &function(&file, "f").result.kind else {
+            panic!("expected binop");
+        };
+        let ast::ExprKind::Match { value, arms } = &rhs.kind else {
+            panic!("expected match");
+        };
+        assert!(matches!(value.kind, ast::ExprKind::Var { .. }));
+        let shape: Vec<_> = arms
+            .iter()
+            .map(|arm| (arm.variant.as_str(), arm.binders.len()))
+            .collect();
+        assert_eq!(shape, [("circle", 1), ("rect", 2), ("dot", 0)]);
+        // Pre-order ids: match, scrutinee, then each arm body.
+        assert_eq!(value.id.0, rhs.id.0 + 1);
+        assert_eq!(arms[0].body.id.0, rhs.id.0 + 2);
+    }
+
+    #[test]
+    fn match_errors() {
+        let head = format!("{SHAPE}type color | red\nfn f s:shape -> f64\n");
+        let cases = [
+            // wrong order, other sum, not a variant, missing arm, bad binder
+            ("match s rect w h w circle r r dot 0.0", (4, 10), "P001"),
+            ("match s circle r r red 1.0 dot 0.0", (4, 21), "P001"),
+            ("match s 1.0", (4, 10), "P001"),
+            ("match s circle r r rect w h w", (4, 31), "P001"),
+            ("match s circle nil 1.0 rect w h w dot 0.0", (4, 17), "P001"),
+            // binder shadows a param, a callable, or another binder
+            ("match s circle s 1.0 rect w h w dot 0.0", (4, 17), "T005"),
+            ("match s circle len 1.0 rect w h w dot 0.0", (4, 17), "T005"),
+            ("match s circle r r rect w w w dot 0.0", (4, 28), "T005"),
+        ];
+        for (body, at, code) in cases {
+            let source = format!("{head} {body}\n");
+            let diagnostic = one_error(&source);
+            assert_eq!(diagnostic.code, code, "{body:?}");
+            assert_eq!((diagnostic.line, diagnostic.col), at, "{body:?}");
+        }
+        // Binders are local to their arm.
+        parse_ok(&format!(
+            "{SHAPE}fn f s:shape -> f64\n let k match s circle r r rect w h w dot 0.0\n let r 1.0\n + k r\n"
+        ));
     }
 
     #[test]

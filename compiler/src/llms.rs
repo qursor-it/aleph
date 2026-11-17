@@ -39,12 +39,12 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x71507ae284b73267,
+        hash: 0xcfd294b4eaaaa7be,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
         contents: GRAMMAR,
-        hash: 0xe487b5b6d5c21a51,
+        hash: 0x4e14ec3b092fe8d7,
     },
     SourceDigest {
         path: "spec/diagnostics.md",
@@ -130,7 +130,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("3."),
-        "Order: `use` sorted by full canonical line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). Item `fn`/`type` names are unique, not builtin/type names (P001).",
+        "Order: `use` by full line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type names (P001).",
     );
     let primitives = lexicon::TYPES
         .iter()
@@ -142,13 +142,13 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins may be generic. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005). v0.2: sums, generics."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005). v0.2: generics."
         ),
     );
     section(
         &mut out,
         spec_heading("5."),
-        "Prefix, fixed arity, no parentheses; call arity from signatures, constructors and builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool. `@f` is a function value, only as a higher-order argument.",
+        "No parentheses; call arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: one arm per variant of e's sum, in order, a binder per field, same type. `@f`: function value, only as higher-order argument.",
     );
     section(&mut out, spec_heading("5.1"), &builtins_table());
     section(
@@ -216,9 +216,7 @@ fn keyword_list() -> String {
 
 /// Markdown table of `builtins::BUILTINS` (name, signature, effect, capability).
 fn builtins_table() -> String {
-    let mut out = String::from(
-        "One per line: `name signature`; effectful ones end with `!` and their capability, if any.\n",
-    );
+    let mut out = String::from("`name signature`; effectful: `!` then capability, if any.\n");
     for spec in builtins::BUILTINS {
         let capability = match spec.capability {
             Some(Capability::FsRead) => " fs.read",

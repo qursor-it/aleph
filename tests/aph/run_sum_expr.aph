@@ -1,0 +1,47 @@
+type expr | num v:i64 | add a:expr b:expr | mul a:expr b:expr | many xs:list expr
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+type wrap | box s:shape
+fn area s:shape -> f64
+ ex area rect 2.0 3.0 = 6.0
+ ex area dot = 0.0
+ match s circle r * 3.0 * r r rect w h * w h dot 0.0
+fn eval e:expr -> i64
+ ex eval add num 1 mul num 2 num 3 = 7
+ ex eval many [num 1 num 2] = 3
+ match e num v v add a b + eval a eval b mul a b * eval a eval b many xs fold @plus 0 map @eval xs
+fn inner x:wrap -> f64
+ ex inner box circle 1.0 = 1.0
+ ex inner box dot = -1.0
+ match x box s match s circle r r rect a b + a b dot -1.0
+fn name s:shape -> str
+ ex name dot = "dot"
+ ex name circle 2.0 = "big circle"
+ match s circle r if > r 1.0 "big circle" "circle" rect w h "rect" dot "dot"
+fn plus a:i64 b:i64 -> i64
+ ex plus 1 2 = 3
+ + a b
+fn ratio a:f64 b:f64 -> res f64 str
+ ex ratio 1.0 2.0 = ok 0.5
+ ex ratio 1.0 0.0 = err "zero"
+ if == b 0.0 err "zero" ok / a b
+fn safe s:shape -> res f64 str
+ ex safe dot = err "dot"
+ ex safe rect 1.0 2.0 = ok 0.5
+ ex safe rect 1.0 0.0 = err "zero"
+ match s circle r ok r rect w h ok try ratio w h dot err "dot"
+fn main -> unit
+ let e add num 2 many [num 3 mul num 4 num 5]
+ do print show eval e
+ let shapes [circle 2.0 rect 1.5 2.0 dot]
+ do print show map @area shapes
+ do print join map @name shapes ","
+ do print show map @area map @circle [1.0 0.5]
+ let k match else at shapes 1 dot circle r 1 rect w h 2 dot 3
+ do print show k
+ do print show if > k 1 match dot circle r 10 rect w h 20 dot 30 0
+ do print show plus match num 7 num v v add a b 0 mul a b 0 many xs len xs 1
+ do print show [match box rect 1.0 1.0 box s 1 2]
+ do print show inner box rect 2.0 0.25
+ do match else at shapes 0 dot circle r print "circle" rect w h print "rect" dot print "dot"
+ do print show else safe rect 3.0 0.0 -1.0
+ nil

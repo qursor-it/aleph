@@ -1,0 +1,4 @@
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+fn grow s:shape -> shape
+ ex grow circle 1.0 = circle 3.0
+ match s circle r circle * 2.0 r rect w h rect * 2.0 w * 2.0 h dot dot

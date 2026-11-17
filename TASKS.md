@@ -44,6 +44,6 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 
 - [x] T-027 `dict K V` type and builtins (Proposed ADR first)
 - [x] T-028 JSON parse/print (Proposed ADR first)
-- [ ] T-029 Sum types + `match` (Proposed ADR first)
+- [x] T-029 Sum types + `match` (Proposed ADR first)
 - [ ] T-030 Scoped regions in Tlön — ADR-0007
 - [ ] T-031 `net.host` + `fetch`, `time`, `env` capabilities

@@ -1,0 +1,2 @@
+type circle x:i64
+type shape | circle r:f64 | dot

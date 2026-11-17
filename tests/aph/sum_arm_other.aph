@@ -1,0 +1,5 @@
+type color | red | green
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+fn area s:shape -> f64
+ ex area dot = 0.0
+ match s circle r r red 1.0 dot 0.0

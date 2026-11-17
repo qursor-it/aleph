@@ -35,12 +35,12 @@ Token classes:
 | fnref | `@ident` | reference to a function as a value |
 | field | `.ident` | field access operator, arity 1 |
 | param | `ident:` | in fn headers, immediately followed (no space) by a type |
-| punct | `[` `]` `=` `->` | `[` and `]` attach to the first/last list element: `[1 2 3]` |
+| punct | `[` `]` `=` `->` `\|` | `[` and `]` attach to the first/last list element: `[1 2 3]`; `\|` only separates sum variants |
 | op | `+ - * / % == != < <= > >=` | see §5 |
 
 Keywords (reserved, see `lexicon.toml`; the spellings are provisional and will be optimized against real tokenizers — ADR-0005):
 
-`fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg`
+`fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match`
 
 ## 3. Top-level items and canonical order
 
@@ -71,7 +71,19 @@ type point x:f64 y:f64
 - Defines a record `point` with fields `x`, `y`.
 - Constructor: the type name used as a function, arity = number of fields: `point 1.0 2.0`.
 - Field access: `.x p`.
-- Sum types and user generics: v0.2.
+- User generics: v0.2.
+
+Sum types (v0.2, ADR-0034 Proposed):
+
+```
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+```
+
+- Defines the sum `shape` with variants `circle`, `rect`, `dot` (at least one); a variant is a name followed by fields, as a record.
+- Each variant is a constructor returning `shape`, arity = its field count: `circle 1.0`, `dot`. The sum name itself is not a constructor.
+- Variant names share the namespace of functions, types and builtins (P001 on a clash). Types may be recursive.
+- Sum values are not primitive, comparable, showable or dict keys; `.f` does not apply (T003). Examples compare them structurally and print them as constructor calls (`circle 1.0`).
+- Deconstruct with `match` (§5).
 
 ### 3.3 Functions: `fn`
 
@@ -102,7 +114,7 @@ TYPE := i64 | f64 | bool | str | unit
       | res TYPE TYPE
       | dict TYPE TYPE             (v0.2, ADR-0032: key i64, bool or str)
       | json                       (v0.2, ADR-0033)
-      | ident                      (user record type)
+      | ident                      (user record or sum type)
 ```
 
 Type syntax is prefix with fixed arity, like expressions: `res list i64 str` = result of (list of i64) or str.
@@ -112,7 +124,8 @@ Type syntax is prefix with fixed arity, like expressions: `res list i64 str` = r
 - Builtins may be generic (e.g. `len` over any `list T`); user functions are monomorphic in v0.1.
 - `dict K V` (v0.2, ADR-0032 Proposed): immutable map, key type `i64`, `bool` or `str` (else T004); see §5.2.
 - `json` (v0.2, ADR-0033 Proposed): a JSON value; see §5.3.
-- Sum types, user generics: v0.2.
+- Sum types (v0.2, ADR-0034 Proposed): see §3.2.
+- User generics: v0.2.
 
 ## 5. Expressions
 
@@ -141,6 +154,7 @@ All expressions are prefix with fixed arity. There are no parentheses. The parse
 | `else e d` | 2 | e: `opt T` or `res T E`, d: T; yields T |
 | `has e` | 1 | e: `opt T`; bool |
 | `isok e` | 1 | e: `res T E`; bool |
+| `match e ARM..` | 1 + one arm per variant | e: sum S (T001); arms in S's declaration order, each `VARIANT b1 .. bk body` with one binder per field (k = field count); all bodies same type T; yields T. Wrong/missing arm: P001. Binders are local to their arm; shadowing: T005 (v0.2, ADR-0034) |
 
 Evaluation is strict, arguments left to right (ADR-0009).
 

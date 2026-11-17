@@ -1,0 +1,1 @@
+{"code":"T004","severity":"error","file":"tests/aph/sum_eq.aph","line":4,"col":5,"node":"n23","msg":"type constraint not satisfied","expected":"primitive","found":"shape"}

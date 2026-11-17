@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/sum_scrutinee.aph","line":4,"col":8,"node":"n20","msg":"type mismatch","expected":"shape","found":"f64"}

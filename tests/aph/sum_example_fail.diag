@@ -1,0 +1,1 @@
+{"code":"E002","severity":"error","file":"tests/aph/sum_example_fail.aph","line":3,"col":2,"node":"n15","msg":"example failed","expected":"circle 3.0","found":"circle 2.0"}

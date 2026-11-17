@@ -1,0 +1,4 @@
+type shape | circle r:f64 | rect w:f64 h:f64 | dot
+fn width s:shape -> f64
+ ex width dot = 0.0
+ .w s
