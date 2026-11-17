@@ -539,3 +539,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - fixes: members collected and sorted once per object (duplicate key reported after the object parsed, smallest repeated-key offset); json values carry their depth, `json` traps R005 above 256 in both engines; `json` of a `json` returns it; ADR-0033: truncated `\u` = bad escape
 - tests: Rust/C case tables extended (-0.0, 1e15/1e16, \u0000, \/, duplicate order, 200k-key object), goldens run_json_deep (.err/.exit R005, differential) and json_example_fail (E002 on json)
 - tests: 335 passed; llms.txt 2042 est. tokens (budget 2050)
+
+## 2026-11-17T11:40 T-028 review round 2
+- fresh Opus reviewer (sanitizers, ~85 edge inputs, hostile sizes, line-by-line Rust/C comparison): 8.5/10, no CRITICAL/IMPORTANT, no parity break
+- minors fixed: AlJson embeds AlBox (strict aliasing); ADR-0033 states -0 -> 0, big integers -> f64, jint of 1.0 none, R005 reuse for depth; golden run_json_file (jparse on file input incl. number edges, raw tab, duplicates, both engines)
+- tests: 335 passed

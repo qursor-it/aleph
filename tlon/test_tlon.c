@@ -393,10 +393,9 @@ static void test_json(void) {
             items[0] = value;
             value = aleph_b_json(aleph_list(items, 1));
         }
-        check(((const AlJson *)(const void *)value.u.box)->depth == 256,
+        check(((const AlJson *)value.u.box)->depth == 256,
               "json depth 256");
-        check(((const AlJson *)(const void *)aleph_b_json(aleph_list(NULL, 0))
-                   .u.box)
+        check(((const AlJson *)aleph_b_json(aleph_list(NULL, 0)).u.box)
                       ->depth == 1,
               "empty list depth 1");
     }

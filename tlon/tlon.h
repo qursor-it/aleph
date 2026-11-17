@@ -84,9 +84,11 @@ struct AlBox {
     AlValue value;
 };
 
-/* An AL_JSON payload; starts like AlBox so `u.box->value` reads it. */
+/* An AL_JSON payload. `u.box` points to the `box` member, so
+   `u.box->value` reads the payload; the depth is reached by converting
+   back to the enclosing struct (its first member). */
 typedef struct AlJson {
-    AlValue value;
+    AlBox box;
     uint32_t depth; /* nested lists/objects; 0 for a scalar */
 } AlJson;
 

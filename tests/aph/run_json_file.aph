@@ -1,0 +1,14 @@
+use fs.read "data"
+fn full s:str -> bool
+ ex full "" = false
+ > count s 0
+fn line s:str -> str
+ ex line "1" = "1"
+ ex line "[" = "error"
+ let r jparse s
+ if isok r show else r json nil "error"
+fn main -> res unit str
+ let text try read "data/edges.json"
+ let docs filter @full split text "\n"
+ do print join map @line docs "\n"
+ ok nil

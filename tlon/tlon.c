@@ -1768,7 +1768,7 @@ static void json_into(Buf *buffer, AlValue payload) {
 }
 
 static uint32_t json_depth(AlValue json) {
-    return ((const AlJson *)(const void *)json.u.box)->depth;
+    return ((const AlJson *)json.u.box)->depth;
 }
 
 /* Wrap a payload, computing its depth from its (already wrapped) children. */
@@ -1788,10 +1788,10 @@ static AlValue json_make(AlValue payload) {
         }
         depth += 1;
     }
-    json->value = payload;
+    json->box.value = payload;
     json->depth = depth;
     value.tag = AL_JSON;
-    value.u.box = (AlBox *)(void *)json;
+    value.u.box = &json->box;
     return value;
 }
 
