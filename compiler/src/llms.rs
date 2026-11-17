@@ -142,13 +142,13 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005). v0.2: generics."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
         ),
     );
     section(
         &mut out,
         spec_heading("5."),
-        "No parentheses; call arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: one arm per variant of e's sum, in order, a binder per field, same type. `@f`: function value, only as higher-order argument.",
+        "No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`: fn value, only as higher-order arg.",
     );
     section(&mut out, spec_heading("5.1"), &builtins_table());
     section(

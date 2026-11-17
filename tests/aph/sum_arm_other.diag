@@ -1,1 +1,1 @@
-{"code":"P001","severity":"error","file":"tests/aph/sum_arm_other.aph","line":5,"col":21,"msg":"unexpected token"}
+{"code":"P001","severity":"error","file":"tests/aph/sum_arm_other.aph","line":5,"col":21,"msg":"unexpected token","expected":"rect"}

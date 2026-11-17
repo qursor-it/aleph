@@ -1,0 +1,5 @@
+type pt x:i64
+type shape | circle r:i64 | dot
+fn measure s:shape -> i64
+ ex measure dot = 0
+ match s circle r match s circle q q dot r dot 0

@@ -1,0 +1,200 @@
+{
+  "id": "n0",
+  "line": 1,
+  "col": 1,
+  "uses": [],
+  "types": [
+    {
+      "id": "n1",
+      "line": 1,
+      "col": 1,
+      "name": "pt",
+      "fields": [
+        {
+          "id": "n2",
+          "line": 1,
+          "col": 9,
+          "name": "x",
+          "ty": {
+            "id": "n3",
+            "line": 1,
+            "col": 11,
+            "kind": "i64"
+          }
+        }
+      ],
+      "variants": []
+    },
+    {
+      "id": "n4",
+      "line": 2,
+      "col": 1,
+      "name": "shape",
+      "fields": [],
+      "variants": [
+        {
+          "id": "n5",
+          "line": 2,
+          "col": 14,
+          "name": "circle",
+          "fields": [
+            {
+              "id": "n6",
+              "line": 2,
+              "col": 21,
+              "name": "r",
+              "ty": {
+                "id": "n7",
+                "line": 2,
+                "col": 23,
+                "kind": "i64"
+              }
+            }
+          ]
+        },
+        {
+          "id": "n8",
+          "line": 2,
+          "col": 29,
+          "name": "dot",
+          "fields": []
+        }
+      ]
+    }
+  ],
+  "fns": [
+    {
+      "id": "n9",
+      "line": 3,
+      "col": 1,
+      "name": "measure",
+      "params": [
+        {
+          "id": "n10",
+          "line": 3,
+          "col": 12,
+          "name": "s",
+          "ty": {
+            "id": "n11",
+            "line": 3,
+            "col": 14,
+            "kind": "named",
+            "name": "shape"
+          }
+        }
+      ],
+      "ret": {
+        "id": "n12",
+        "line": 3,
+        "col": 23,
+        "kind": "i64"
+      },
+      "doc": null,
+      "examples": [
+        {
+          "id": "n13",
+          "line": 4,
+          "col": 2,
+          "lhs": {
+            "id": "n14",
+            "line": 4,
+            "col": 5,
+            "kind": "call",
+            "callee": "measure",
+            "callee_kind": "fn",
+            "args": [
+              {
+                "id": "n15",
+                "line": 4,
+                "col": 13,
+                "kind": "call",
+                "callee": "dot",
+                "callee_kind": "ctor",
+                "args": []
+              }
+            ]
+          },
+          "rhs": {
+            "id": "n16",
+            "line": 4,
+            "col": 19,
+            "kind": "int",
+            "value": 0
+          }
+        }
+      ],
+      "stmts": [],
+      "result": {
+        "id": "n17",
+        "line": 5,
+        "col": 2,
+        "kind": "match",
+        "value": {
+          "id": "n18",
+          "line": 5,
+          "col": 8,
+          "kind": "var",
+          "name": "s"
+        },
+        "arms": [
+          {
+            "variant": "circle",
+            "binders": [
+              "r"
+            ],
+            "body": {
+              "id": "n19",
+              "line": 5,
+              "col": 19,
+              "kind": "match",
+              "value": {
+                "id": "n20",
+                "line": 5,
+                "col": 25,
+                "kind": "var",
+                "name": "s"
+              },
+              "arms": [
+                {
+                  "variant": "circle",
+                  "binders": [
+                    "q"
+                  ],
+                  "body": {
+                    "id": "n21",
+                    "line": 5,
+                    "col": 36,
+                    "kind": "var",
+                    "name": "q"
+                  }
+                },
+                {
+                  "variant": "dot",
+                  "binders": [],
+                  "body": {
+                    "id": "n22",
+                    "line": 5,
+                    "col": 42,
+                    "kind": "var",
+                    "name": "r"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "variant": "dot",
+            "binders": [],
+            "body": {
+              "id": "n23",
+              "line": 5,
+              "col": 48,
+              "kind": "int",
+              "value": 0
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -564,3 +564,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - decisions: ADR-0034 (Proposed, amended: P001 for name clashes, T003 for `.f`)
 - next: independent review of T-029; llms.txt is exactly at the 2050 budget, the next feature needs trimming or a budget decision; then T-030
 - agent: claude-opus-5.5 directly
+
+## 2026-11-17T14:30 T-029 review round 1
+- Opus review 8.5/10, minors only. Fixed:
+  - ast golden `ast_sum`;
+  - P001 at a wrong arm now carries `expected` (the variant due there);
+  - llms.txt restores "builtins generic, user fns not", still within 2050;
+  - the interpreter skips the env copy for arms without binders.
+- Not changed, noted: linear dispatch over variants (fine at 500 variants); nullary variants allocate per construction (same as empty records).
+- tests: 344 passed, clippy clean

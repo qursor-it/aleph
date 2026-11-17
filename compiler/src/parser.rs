@@ -992,7 +992,12 @@ impl<'a> ExprCtx<'a> {
         for variant in variants {
             match self.tokens.get(index).map(|token| &token.kind) {
                 Some(TokenKind::Ident(name)) if name == variant => {}
-                Some(_) => return Err(self.diagnostic_at(index, "unexpected token")),
+                Some(_) => {
+                    // Arms follow declaration order, so the wanted variant is known.
+                    let mut diagnostic = self.diagnostic_at(index, "unexpected token");
+                    diagnostic.expected = Some(variant.clone());
+                    return Err(diagnostic);
+                }
                 None => return Err(p001_eol(self.file, self.line, "expected variant")),
             }
             index += 1;

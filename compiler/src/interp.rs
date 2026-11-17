@@ -396,6 +396,9 @@ impl<'a> Interp<'a> {
                     .iter()
                     .find(|arm| *arm.variant == *variant)
                     .unwrap_or_else(|| panic!("no arm for variant `{variant}`"));
+                if arm.binders.is_empty() {
+                    return self.eval(&arm.body, env);
+                }
                 let mut inner = env.clone();
                 for (binder, field) in arm.binders.iter().zip(fields.iter()) {
                     inner.insert(binder.clone(), field.clone());
