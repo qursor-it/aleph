@@ -594,3 +594,11 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - not done: no `aleph edit` unit test that touches `match`. It works when tried by hand (X009 on variant ids).
 - tests: 344 passed, clippy clean
 - next: T-030 scoped regions (ADR-0007), T-031, T-034
+
+## 2026-11-18T16:30 ADR-0036 builtins done (by Bernardo)
+- builtins `abs min max starts ends uniq map2` (ADR-0036): table, bound `numeric`, interpreter, Tlön runtime, SPEC §5.1, lexicon, llms.txt
+- goldens: run_builtins_adr36, run_trap_abs, type_t004_abs, ex_builtins_adr36; runtime tests test_adr36
+- ADR-0026 amended: llms.txt token budget 2050 -> 2110
+- why: token pilot of 18 Nov (`experiments/pilot/tokens/` on exp/protocols): missing builtins become typed helpers; HumanEval median Aleph/Python 1.23 -> 1.08 with these builtins
+- tests: all passed, clippy clean
+- next: ADR-0035 is left for T-044 (ord/chr); inline lambdas are the bigger lever (1.08 -> 0.81) and get their own ADR

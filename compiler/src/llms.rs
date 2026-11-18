@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xcfd294b4eaaaa7be,
+        hash: 0xee0a6776f12cbf1b,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -270,6 +270,7 @@ fn bound_text(var: TyVar, bound: Bound) -> String {
         Bound::Jsonable => "jsonable",
         // Stated once in section 4 instead of on every dict builtin.
         Bound::Key => "i64/bool/str",
+        Bound::Numeric => "i64 or f64",
     };
     format!("{var:?} {restriction}")
 }

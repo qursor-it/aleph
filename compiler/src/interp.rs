@@ -822,6 +822,62 @@ impl<'a> Interp<'a> {
                     Err(error) => result_err(&io_error_text(&error)),
                 }
             }
+            "abs" => match &args[0] {
+                Value::I64(number) => Value::I64(
+                    number
+                        .checked_abs()
+                        .ok_or_else(|| Trap::new("R001", "integer overflow", node, span))?,
+                ),
+                Value::F64(number) => Value::F64(number.abs()),
+                _ => panic!("type checker guarantees a numeric argument"),
+            },
+            "min" | "max" => {
+                let take_right = match (&args[0], &args[1]) {
+                    (Value::I64(left), Value::I64(right)) => {
+                        if name == "min" {
+                            right < left
+                        } else {
+                            right > left
+                        }
+                    }
+                    (Value::F64(left), Value::F64(right)) => {
+                        if name == "min" {
+                            right < left
+                        } else {
+                            right > left
+                        }
+                    }
+                    _ => panic!("type checker guarantees matching numeric arguments"),
+                };
+                if take_right {
+                    args[1].clone()
+                } else {
+                    args[0].clone()
+                }
+            }
+            "starts" => Value::Bool(as_str(&args[0]).starts_with(as_str(&args[1]))),
+            "ends" => Value::Bool(as_str(&args[0]).ends_with(as_str(&args[1]))),
+            "uniq" => {
+                let mut values = as_list(&args[0]).as_ref().clone();
+                values.sort_by(compare_values);
+                values.dedup_by(|right, left| compare_values(left, right).is_eq());
+                Value::List(Rc::new(values))
+            }
+            "map2" => {
+                let target = as_fn(&args[0]);
+                let left = as_list(&args[1]);
+                let right = as_list(&args[2]);
+                let mut mapped = Vec::with_capacity(left.len().min(right.len()));
+                for (a, b) in left.iter().zip(right.iter()) {
+                    mapped.push(self.call_target(
+                        target,
+                        vec![a.clone(), b.clone()],
+                        node,
+                        span,
+                    )?);
+                }
+                Value::List(Rc::new(mapped))
+            }
             _ => panic!("builtin `{name}` has no interpreter implementation"),
         };
         Ok(value)

@@ -1,0 +1,1 @@
+{"code":"T004","severity":"error","file":"tests/aph/type_t004_abs.aph","line":2,"col":2,"node":"n3","msg":"type constraint not satisfied","expected":"numeric","found":"str"}
