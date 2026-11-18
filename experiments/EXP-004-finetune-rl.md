@@ -22,7 +22,7 @@ An open-weights model can be taught Aleph directly, removing the need for `llms.
 ## Setup
 
 - **Base model**: one open-weights code model of 7–8B parameters, the same one used in EXP-002.
-- **Data**: the Orbis corpus, generated from task statements: verified Aleph programs plus repair triples (broken program, JSON diagnostics, fixed program). A Python corpus of the same size, from the same statements, verified by tests. No task of the EXP-002 suite, and no near-duplicate of one, enters training data.
+- **Data**: the Orbis corpus, generated from task statements: verified Aleph programs plus repair triples (broken program, JSON diagnostics, fixed program). A Python corpus of the same size, from the same statements, verified by tests. No task of the EXP-002 suite or of HumanEval-Aleph, and no near-duplicate of one, enters training data (HumanEval-Aleph is derived from MultiPL-E, whose licence forbids using it as training data).
 - **Training**:
   1. supervised fine-tuning on each corpus, same number of steps;
   2. RL from the fine-tuned checkpoint (a group-relative policy-gradient method), same number of steps and samples. Reward: hidden tests passed, plus `aleph check` clean and no capability violation for Aleph; tests passed and no file access outside the declared set (EXP-002 sandbox) for Python.

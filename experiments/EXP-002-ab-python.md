@@ -25,6 +25,7 @@ Given the same task, model and budget, how does an agent writing Aleph compare w
 
 - **Language version**: a frozen tag, `v0.2-experiment` ("experiment-ready": dict, JSON, sum types with match, and the rest of the v0.2 list). The version does not change during the run.
 - **Task suite**: 50 tasks in Aleph's scope: text, files, data, JSON, small algorithms. Each task has a natural-language statement, input files, hidden tests (inputs and expected output) and a declared set of files it may read and write. Tasks are written before any agent is run and are not tuned to any language.
+- **Public benchmark**: the same conditions also run on HumanEval translated into Aleph (`experiments/benchmarks/humaneval/`, 156 of 161 problems, method of MultiPL-E), so Aleph can be compared with the results MultiPL-E has published for other languages on the same problems. Python and bash use MultiPL-E's own translations.
 - **Conditions**:
   1. Python;
   2. bash (only for the tasks where bash is a natural choice, marked in advance);

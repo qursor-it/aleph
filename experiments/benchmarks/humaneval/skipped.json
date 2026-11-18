@@ -1,0 +1,22 @@
+[
+  {
+    "task_id": "HumanEval/22",
+    "reason": "Any or Union type"
+  },
+  {
+    "task_id": "HumanEval/103",
+    "reason": "Any or Union type"
+  },
+  {
+    "task_id": "HumanEval/125",
+    "reason": "Any or Union type"
+  },
+  {
+    "task_id": "HumanEval/137",
+    "reason": "Any or Union type"
+  },
+  {
+    "task_id": "HumanEval/148",
+    "reason": "variable-length tuple"
+  }
+]
