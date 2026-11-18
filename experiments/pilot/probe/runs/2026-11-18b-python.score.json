@@ -1,0 +1,101 @@
+[
+ {
+  "name": "HumanEval_13_greatest_common_divisor",
+  "status": "pass",
+  "tokens": {
+   "input": 8702,
+   "cached_input": 3712,
+   "output": 101,
+   "reasoning": 125
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_159_eat",
+  "status": "pass",
+  "tokens": {
+   "input": 10844,
+   "cached_input": 1792,
+   "output": 315,
+   "reasoning": 97
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_23_strlen",
+  "status": "pass",
+  "tokens": {
+   "input": 10593,
+   "cached_input": 1792,
+   "output": 47,
+   "reasoning": 105
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_30_get_positive",
+  "status": "pass",
+  "tokens": {
+   "input": 10678,
+   "cached_input": 1792,
+   "output": 141,
+   "reasoning": 0
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_34_unique",
+  "status": "pass",
+  "tokens": {
+   "input": 8714,
+   "cached_input": 3712,
+   "output": 89,
+   "reasoning": 29
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_35_max_element",
+  "status": "pass",
+  "tokens": {
+   "input": 8720,
+   "cached_input": 3712,
+   "output": 94,
+   "reasoning": 227
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_55_fib",
+  "status": "pass",
+  "tokens": {
+   "input": 10603,
+   "cached_input": 1792,
+   "output": 102,
+   "reasoning": 289
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_66_digitSum",
+  "status": "pass",
+  "tokens": {
+   "input": 10680,
+   "cached_input": 1792,
+   "output": 134,
+   "reasoning": 327
+  },
+  "timed_out": false
+ },
+ {
+  "name": "HumanEval_150_x_or_y",
+  "status": "pass",
+  "tokens": {
+   "input": 10644,
+   "cached_input": 1792,
+   "output": 190,
+   "reasoning": 75
+  },
+  "timed_out": false
+ }
+]
