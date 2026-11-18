@@ -1,0 +1,72 @@
+# Aleph (short reference)
+
+Aleph is a small typed language for agents. Write code; a formatter fixes layout and the order of items, and the compiler reports any rule you break.
+
+## 2. Lexical structure
+One space between tokens. Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match`.
+
+## 3. Items
+`type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`). Body lines of a `fn` start with one space: optional `doc "..."`, then at least one `ex CALL = VALUE` (examples are run as tests), then `let NAME E` / `do E`, then the result `E`. A param or `let` may not reuse the name of a function or builtin. Order of items and formatting do not matter.
+
+## 4. Types
+`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
+
+## 5. Expressions
+No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`: fn value, only as higher-order arg.
+
+### 5.1 Builtins (v0.1)
+`name signature`; effectful: `!` then capability, if any.
+args ()->list str
+at list T,i64->opt T
+cat str,str->str
+contains str,str->bool
+count str->i64
+del dict A B,A->dict A B
+eprint str->unit !
+filter (A->bool),list A->list A
+float str->res f64 str
+fold (B,A->B),B,list A->B
+get dict A B,A->opt B
+int str->res i64 str
+jbool json->opt bool
+jdict json->opt dict str json
+jint json->opt i64
+jlist json->opt list json
+jnum json->opt f64
+join list str,str->str
+jparse str->res json str
+json T->json (T jsonable)
+jstr json->opt str
+keys dict A B->list A
+len list T->i64
+lower str->str
+map (A->B),list A->list B
+print str->unit !
+push list T,T->list T
+put dict A B,A,B->dict A B
+range i64,i64->list i64
+read str->res str str ! fs.read
+rev list T->list T
+show T->str (T primitive, list of primitive or json)
+size dict A B->i64
+slice list T,i64,i64->list T
+sort list T->list T (T primitive)
+split str,str->list str
+sum list i64->i64
+trim str->str
+upper str->str
+vals dict A B->list B
+write str,str->res unit str ! fs.write
+
+## Notes
+`at` out of range -> `none`; `slice` clamps; `range a b` half-open; `count` counts bytes; `split s ""` splits into characters; `sort` ascending; recursion deeper than 10,000 calls traps. No loops: use recursion, `range`, `map`, `filter`, `fold`.
+
+## Example
+```
+fn evens xs:list i64 -> list i64
+ ex evens [1 2 3 4] = [2 4]
+ filter @iseven xs
+fn iseven n:i64 -> bool
+ ex iseven 2 = true
+ == % n 2 0
+```

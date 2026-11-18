@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aleph experiment result",
+  "type": "object",
+  "required": ["id", "date", "compiler_commit", "summary", "metrics", "raw_data"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^EXP-[0-9]{3}$" },
+    "date": { "type": "string", "format": "date" },
+    "compiler_commit": { "type": "string", "description": "git commit or tag of the compiler used" },
+    "models": { "type": "array", "items": { "type": "string" }, "description": "exact model names and versions" },
+    "tokenizers": { "type": "array", "items": { "type": "string" } },
+    "summary": { "type": "string", "description": "one or two sentences, plain English, no claims beyond the metrics" },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "verdict"],
+        "properties": {
+          "id": { "type": "string" },
+          "verdict": { "enum": ["supported", "not supported", "inconclusive"] },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "value"],
+        "properties": {
+          "name": { "type": "string" },
+          "value": { "type": ["number", "string"] },
+          "unit": { "type": "string" },
+          "ci95": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "condition": { "type": "string" }
+        }
+      }
+    },
+    "cost": { "type": "object", "properties": { "eur": { "type": "number" }, "gpu_hours": { "type": "number" } } },
+    "raw_data": { "type": "string", "description": "where the raw data and logs are kept" }
+  }
+}

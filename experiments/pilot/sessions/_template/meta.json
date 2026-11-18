@@ -1,0 +1,17 @@
+{
+  "id": "",
+  "date": "",
+  "model": "",
+  "tool": "",
+  "condition": "aleph-llms",
+  "task": "",
+  "task_category": "algorithm",
+  "compiler_commit": "",
+  "attempts": null,
+  "passed": null,
+  "verified_by": "manual",
+  "reasoning_visible": null,
+  "translated": null,
+  "tokens": { "input": null, "cached_input": null, "output": null, "reasoning": null },
+  "notes": ""
+}

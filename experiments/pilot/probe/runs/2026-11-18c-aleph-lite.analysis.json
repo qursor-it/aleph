@@ -1,0 +1,172 @@
+[
+ {
+  "name": "HumanEval_13_greatest_common_divisor",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 769,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 1,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11892,
+   "cached_input": 1792,
+   "output": 109,
+   "reasoning": 244
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_159_eat",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 6429,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 4,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 315,
+   "cached_input": 13568,
+   "output": 313,
+   "reasoning": 1589
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_23_strlen",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 513,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 3,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11868,
+   "cached_input": 1792,
+   "output": 43,
+   "reasoning": 125
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_30_get_positive",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 992,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 4,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11921,
+   "cached_input": 1792,
+   "output": 148,
+   "reasoning": 246
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_34_unique",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 13971,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 26,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11891,
+   "cached_input": 1792,
+   "output": 172,
+   "reasoning": 3787
+  },
+  "diagnostics": "{\"code\":\"P001\",\"severity\":\"error\",\"file\":\"/tmp/tmpu0g78u8n/solution.aph\",\"line\":5,\"col\":12,\"msg\":\"empty list\"}\n{\"code\":\"P001\",\"severity\":\"error\",\"file\":\"/tmp/tmpu0g78u8n/solution.aph\",\"line\":6,\"col\":13,\"msg\":\"empty list\"}\n{\"code\":\"P001\",\"severity\":\"error\",\"file\":\"/tmp/tmpu0g78u8n/solution.aph\",\"line\":9,\"col\":10,\"msg\":\"empty list\"}\n"
+ },
+ {
+  "name": "HumanEval_35_max_element",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 5669,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 12,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11899,
+   "cached_input": 1792,
+   "output": 132,
+   "reasoning": 1741
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_48_is_palindrome",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 3971,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 7,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11896,
+   "cached_input": 1792,
+   "output": 98,
+   "reasoning": 1010
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_55_fib",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 1805,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 5,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 99,
+   "cached_input": 13568,
+   "output": 82,
+   "reasoning": 535
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_66_digitSum",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 0,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 0,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 0,
+   "cached_input": 0,
+   "output": 0,
+   "reasoning": 0
+  },
+  "diagnostics": "target function missing"
+ },
+ {
+  "name": "HumanEval_150_x_or_y",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 9154,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 17,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11908,
+   "cached_input": 1792,
+   "output": 212,
+   "reasoning": 2742
+  },
+  "diagnostics": "{\"code\":\"P002\",\"severity\":\"error\",\"file\":\"/tmp/tmp0wm0l_ey/solution.aph\",\"line\":21,\"col\":2,\"msg\":\"wrong number of arguments\",\"expected\":\"3\",\"found\":\"2\"}\n{\"code\":\"P002\",\"severity\":\"error\",\"file\":\"/tmp/tmp0wm0l_ey/solution.aph\",\"line\":22,\"col\":2,\"msg\":\"wrong number of arguments\",\"expected\":\"3\",\"found\":\"2\"}\n{\"code\":\"P002\",\"severity\":\"error\",\"file\":\"/tmp/tmp0wm0l_ey/solution.aph\",\"line\":23,\"col\":2,\"msg\":\"wrong number of arguments\",\"expected\":\"3\",\"found\":\"2\"}\n{\"code\":\"P002\",\"severity\":\"error\",\"file\":\"/tmp/tmp0wm0l_ey/solution.aph\",\"line\":29,\"col\":2,\"msg\":\"wrong number of arguments\",\"expected\":\"3\",\""
+ }
+]

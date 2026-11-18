@@ -21,6 +21,7 @@ tlon/          runtime: arena allocator + builtins in C (used by the C backend)
 tests/aph/     golden programs: NAME.aph + NAME.out (expected stdout) or NAME.diag (expected JSON diagnostics)
 bench/         benchmark tasks
 corpus/        Orbis output (verified programs) — only in orbis mode
+experiments/   experiment protocols (EXP-NNN-*.md), tools/ and results/ — see Experiments below
 spec/ adr/ docs/ loop/
 ```
 
@@ -50,6 +51,17 @@ Create directories as tasks require. Keep the compiler a single Cargo crate unti
 8. Commit (format below). Then stop the session.
 
 If you fail on the same task for 2 sessions (check `PROGRESS.md`), mark it `BLOCKED: <reason>` in `TASKS.md`, log it, commit, and move to the next task.
+
+## Experiments
+
+`experiments/` holds the protocols that test Aleph's claims (see `experiments/README.md`). Each protocol has a `status` in its front matter: `draft`, `approved`, `running`, `done` or `abandoned`.
+
+- A task that names an experiment (`— EXP-NNN`) may be taken only when that protocol's status is `approved`. If it is not, skip the task and take the next one; do not mark it BLOCKED.
+- You build the tools an approved protocol lists under "Tools to build": harnesses, task suites, parsers, counters, reports. Tests first, as for the compiler.
+- You never run an experiment: no model or API calls, no downloads, no GPU jobs, no spending. Tools must run offline in their tests, with fixtures.
+- You never change a protocol's `status`, its Hypotheses, Metrics or Success criterion, and never write files in `experiments/results/`. If a protocol is wrong or cannot be built as written, say so in `PROGRESS.md` and in a note at the end of the protocol under **Amendments**, marked `proposed by agent`.
+- Never write in `experiments/pilot/sessions/`: pilot sessions are added by people only.
+- Experiment tools live in `experiments/tools/`, in Rust inside the workspace or in Python 3 with the standard library only. Any other dependency needs a Proposed ADR first.
 
 ## PROGRESS.md entry format
 
