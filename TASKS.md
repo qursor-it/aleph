@@ -48,3 +48,18 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [ ] T-030 Scoped regions in Tlön — ADR-0007
 - [ ] T-031 `net.host` + `fetch`, `time`, `env` capabilities
 - [ ] T-034 Generated C: user fn names share the `aleph_fn_*` prefix with Tlön (`fn kind` clashes with `aleph_fn_kind` in tlon.h, X004); use a distinct prefix or rename the runtime symbol
+
+## Experiment-ready (freeze for experiments)
+
+- [ ] T-043 Checklist for the `v0.2-experiment` freeze in `experiments/FREEZE.md`: which v0.2 features are in (dict, JSON, sum types + match, T-030, T-031, T-034), what is out, and the commands that must pass. A person creates the tag; the agent only prepares the checklist.
+
+## Experiment tools (only when the named protocol is `approved`; see AGENTS.md, Experiments)
+
+- [ ] T-035 Trace importer (two formats → one JSONL schema), span classifier, token counter and report — EXP-001
+- [ ] T-036 Task suite format, 5 sample tasks and validator (statement, inputs, hidden tests, declared files) — EXP-002
+- [ ] T-037 A/B harness: one condition × one task, round loop with per-language feedback, token and cost log, spending cap; offline tests with a fake model — EXP-002
+- [ ] T-038 File-access logging sandbox for Python and bash programs — EXP-002
+- [ ] T-039 BPE counter in `aleph tokens` reading a local vocabulary file given by path (follow-up to ADR-0031) — EXP-003
+- [ ] T-040 Corpus layout (one folder per program, one file per language, shared tests), verification script and report — EXP-003
+- [ ] T-041 Orbis generator: task statements → verified programs and repair triples, deduplicated against the EXP-002 suite — EXP-004
+- [ ] T-042 RL reward function wrapping `aleph check`, examples and hidden tests, with a time limit — EXP-004
