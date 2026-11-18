@@ -1,0 +1,20 @@
+{
+ "A today": {
+  "median": 1.229,
+  "pooled": 1.211,
+  "smaller": 20,
+  "helpers": 0.98
+ },
+ "B builtins": {
+  "median": 1.08,
+  "pooled": 1.131,
+  "smaller": 24,
+  "helpers": 0.84
+ },
+ "C builtins+lambdas": {
+  "median": 0.806,
+  "pooled": 0.807,
+  "smaller": 42,
+  "helpers": 0.2
+ }
+}

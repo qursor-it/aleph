@@ -34,3 +34,15 @@ Qwen2.5-Coder is the least favourable (logic median 1.24). `llms.txt` is about 2
 H3.1 (median ratio ≤ 0.8) is far from holding today. The cost is not the prefix notation, which makes bodies shorter, but the language's missing pieces: anonymous functions, a few builtins, and mandatory examples. Candidates to test, one at a time, by re-counting this same corpus: inline lambdas for higher-order builtins; `abs min max zip` and string `slice`/`starts`; counting `ex` as tests rather than source.
 
 Threats: one author for the Aleph versions (me), HumanEval references are not always idiomatic Python, small programs exaggerate signature cost.
+
+## What-if, same day (`whatif.py`)
+
+The HumanEval part rewritten, not compiled, with candidate features:
+
+| Variant | Median Aleph/Python | Aleph shorter | Helpers per program |
+|---|---|---|---|
+| today | 1.23 | 20/61 | 0.98 |
+| + builtins `abs min max starts uniq map2` | 1.08 | 24/61 | 0.84 |
+| + inline lambdas `lam` | 0.81 | 42/61 | 0.20 |
+
+Followed by ADR-0036 (builtins, implemented, PR #3) and ADR-0037 (lambdas, proposed, PR #4). The lambda figure is an estimate until the corpus is rewritten in compiled, test-passing Aleph.
