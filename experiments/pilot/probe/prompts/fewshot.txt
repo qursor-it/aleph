@@ -1,0 +1,98 @@
+# Aleph by example
+
+Prefix notation with fixed arity and no parentheses: `+ a b`, `if c x y`, `f a b`. Types: `i64 f64 bool str`, `list T`, `opt T`, `dict K V`. A function is `fn name x:T -> R` followed by body lines that start with one space: `ex CALL = VALUE` examples (at least one, run as tests), optional `let name E`, then the result. `@f` passes a function to `map`, `filter`, `fold`. No loops: recursion or `range`/`map`/`filter`/`fold`.
+
+### 5.1 Builtins (v0.1)
+`name signature`; effectful: `!` then capability, if any.
+args ()->list str
+at list T,i64->opt T
+cat str,str->str
+contains str,str->bool
+count str->i64
+del dict A B,A->dict A B
+eprint str->unit !
+filter (A->bool),list A->list A
+float str->res f64 str
+fold (B,A->B),B,list A->B
+get dict A B,A->opt B
+int str->res i64 str
+jbool json->opt bool
+jdict json->opt dict str json
+jint json->opt i64
+jlist json->opt list json
+jnum json->opt f64
+join list str,str->str
+jparse str->res json str
+json T->json (T jsonable)
+jstr json->opt str
+keys dict A B->list A
+len list T->i64
+lower str->str
+map (A->B),list A->list B
+print str->unit !
+push list T,T->list T
+put dict A B,A,B->dict A B
+range i64,i64->list i64
+read str->res str str ! fs.read
+rev list T->list T
+show T->str (T primitive, list of primitive or json)
+size dict A B->i64
+slice list T,i64,i64->list T
+sort list T->list T (T primitive)
+split str,str->list str
+sum list i64->i64
+trim str->str
+upper str->str
+vals dict A B->list B
+write str,str->res unit str ! fs.write
+
+## Solved examples
+```
+fn countlong words:list str -> i64
+ ex countlong ["a" "abcd" "xyz"] = 1
+ ex countlong empty str = 0
+ len filter @islong words
+fn islong w:str -> bool
+ ex islong "abcdef" = true
+ ex islong "abc" = false
+ > count w 3
+```
+```
+fn isodd n:i64 -> bool
+ ex isodd 3 = true
+ ex isodd -3 = true
+ != % n 2 0
+fn square n:i64 -> i64
+ ex square 3 = 9
+ * n n
+fn sumoddsquares xs:list i64 -> i64
+ ex sumoddsquares [1 2 3] = 10
+ ex sumoddsquares empty i64 = 0
+ sum map @square filter @isodd xs
+```
+```
+fn factorial n:i64 -> i64
+ ex factorial 0 = 1
+ ex factorial 5 = 120
+ if <= n 1 1 * n factorial - n 1
+```
+```
+fn findfrom xs:list i64 v:i64 i:i64 -> opt i64
+ ex findfrom [5 7] 7 0 = some 1
+ ex findfrom [5] 4 0 = none i64
+ if >= i len xs none i64 if == else at xs i 0 v some i findfrom xs v + i 1
+fn firstindex xs:list i64 v:i64 -> opt i64
+ ex firstindex [5 7 9] 7 = some 1
+ ex firstindex [5 7 9] 4 = none i64
+ findfrom xs v 0
+```
+```
+fn nonempty w:str -> bool
+ ex nonempty "a" = true
+ ex nonempty "" = false
+ > count w 0
+fn wordlengths s:str -> list i64
+ ex wordlengths "ab cde" = [2 3]
+ ex wordlengths "" = empty i64
+ map @count filter @nonempty split s " "
+```

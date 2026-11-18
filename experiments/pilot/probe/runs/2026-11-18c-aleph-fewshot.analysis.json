@@ -1,0 +1,138 @@
+[
+ {
+  "name": "HumanEval_13_greatest_common_divisor",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 0,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 0,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 0,
+   "cached_input": 0,
+   "output": 0,
+   "reasoning": 0
+  },
+  "diagnostics": "target function missing"
+ },
+ {
+  "name": "HumanEval_159_eat",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 2546,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 5,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 36,
+   "cached_input": 13568,
+   "output": 321,
+   "reasoning": 696
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_23_strlen",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 367,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 0,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11589,
+   "cached_input": 1792,
+   "output": 52,
+   "reasoning": 88
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_34_unique",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 15374,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 29,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11612,
+   "cached_input": 1792,
+   "output": 167,
+   "reasoning": 4406
+  },
+  "diagnostics": "{\"code\":\"P002\",\"severity\":\"error\",\"file\":\"/tmp/tmp54cha1yp/solution.aph\",\"line\":4,\"col\":2,\"msg\":\"wrong number of arguments\",\"expected\":\"3\",\"found\":\"2\"}\n{\"code\":\"P002\",\"severity\":\"error\",\"file\":\"/tmp/tmp54cha1yp/solution.aph\",\"line\":5,\"col\":2,\"msg\":\"wrong number of arguments\",\"expected\":\"3\",\"found\":\"2\"}\n"
+ },
+ {
+  "name": "HumanEval_35_max_element",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 9690,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 8,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11620,
+   "cached_input": 1792,
+   "output": 155,
+   "reasoning": 2616
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_55_fib",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 655,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 0,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 76,
+   "cached_input": 13312,
+   "output": 74,
+   "reasoning": 205
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_66_digitSum",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 15098,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 33,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11665,
+   "cached_input": 1792,
+   "output": 385,
+   "reasoning": 4093
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_150_x_or_y",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "wrong",
+  "reasoning_chars": 3853,
+  "other_fences": 0,
+  "python_like_lines": 1,
+  "aleph_lines": 11,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 11629,
+   "cached_input": 1792,
+   "output": 230,
+   "reasoning": 1196
+  },
+  "diagnostics": "{\"code\":\"E002\",\"severity\":\"error\",\"file\":\"/tmp/tmp0l1z5jo8/solution.aph\",\"line\":17,\"col\":2,\"node\":\"n102\",\"msg\":\"example failed\",\"expected\":\"-1\",\"found\":\"trap R004\"}\n"
+ }
+]

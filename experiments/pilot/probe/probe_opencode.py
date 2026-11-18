@@ -68,9 +68,14 @@ def main():
     parser.add_argument("--variant", default="high")
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--only", default="", help="comma-separated problem numbers, e.g. 3,4,5")
+    parser.add_argument("--system", help="file to use instead of llms.txt (e.g. prompts/llms-lite.txt)")
+    parser.add_argument("--condition", default="llms", help="label stored with each answer")
     parser.add_argument("--out", default=str(HERE / "probe-results.jsonl"))
     args = parser.parse_args()
     probe = json.loads((HERE / "probe.json").read_text(encoding="utf-8"))
+    if args.system:
+        probe["system"] = pathlib.Path(args.system).read_text(encoding="utf-8")
+        probe["instruction"] += " The order of functions does not matter."
     with open(args.out, "a", encoding="utf-8") as out:
         wanted = {int(n) for n in args.only.split(",") if n}
         for number, problem in enumerate(probe["problems"], 1):
@@ -80,7 +85,7 @@ def main():
                        + " Do not use tools: answer directly.\n\n```aleph\n" + problem["prompt"] + "```")
             started = time.time()
             reasoning, answer, tokens, session, rc, err = run(args.model, args.variant, message, args.timeout)
-            record = {"name": problem["name"], "model": args.model, "variant": args.variant, "server": "opencode",
+            record = {"name": problem["name"], "condition": args.condition, "model": args.model, "variant": args.variant, "server": "opencode",
                       "session": session, "date": time.strftime("%Y-%m-%d"), "seconds": round(time.time() - started, 1),
                       "reasoning": reasoning, "answer": answer, "code": code_block(answer), "tokens": tokens,
                       "exit_code": rc}
