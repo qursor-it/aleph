@@ -1,0 +1,155 @@
+[
+ {
+  "name": "HumanEval_13_greatest_common_divisor",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 9830,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 1,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 13592,
+   "cached_input": 1792,
+   "output": 130,
+   "reasoning": 2812
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_23_strlen",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 862,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 3,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 13568,
+   "cached_input": 1792,
+   "output": 43,
+   "reasoning": 228
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_55_fib",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 1802,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 0,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 13575,
+   "cached_input": 1792,
+   "output": 66,
+   "reasoning": 495
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_66_digitSum",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 18336,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 15,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 13644,
+   "cached_input": 1792,
+   "output": 252,
+   "reasoning": 4972
+  },
+  "diagnostics": "{\"code\":\"T001\",\"severity\":\"error\",\"file\":\"/tmp/tmp3441i0hj/solution.aph\",\"line\":9,\"col\":16,\"node\":\"n47\",\"msg\":\"type mismatch\",\"expected\":\"list _\",\"found\":\"str\"}\n{\"code\":\"T001\",\"severity\":\"error\",\"file\":\"/tmp/tmp3441i0hj/solution.aph\",\"line\":9,\"col\":58,\"node\":\"n52\",\"msg\":\"type mismatch\",\"expected\":\"list _\",\"found\":\"str\"}\n"
+ },
+ {
+  "name": "HumanEval_150_x_or_y",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 19382,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 38,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 13608,
+   "cached_input": 1792,
+   "output": 216,
+   "reasoning": 5577
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_159_eat",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 16937,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 32,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 13791,
+   "cached_input": 1792,
+   "output": 307,
+   "reasoning": 4313
+  },
+  "diagnostics": ""
+ },
+ {
+  "name": "HumanEval_30_get_positive",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 0,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 0,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 0,
+   "cached_input": 0,
+   "output": 0,
+   "reasoning": 0
+  },
+  "diagnostics": "target function missing"
+ },
+ {
+  "name": "HumanEval_35_max_element",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "no-compile",
+  "reasoning_chars": 0,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 0,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 0,
+   "cached_input": 0,
+   "output": 0,
+   "reasoning": 0
+  },
+  "diagnostics": "target function missing"
+ },
+ {
+  "name": "HumanEval_48_is_palindrome",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "status": "pass",
+  "reasoning_chars": 14355,
+  "other_fences": 0,
+  "python_like_lines": 0,
+  "aleph_lines": 19,
+  "python_mentions": 0,
+  "tokens": {
+   "input": 156,
+   "cached_input": 15232,
+   "output": 97,
+   "reasoning": 3366
+  },
+  "diagnostics": ""
+ }
+]
