@@ -64,6 +64,9 @@ plus canonical examples, generated from the repository sources.
   about any particular tokenizer. Amended for T-028 (ADR-0033): the v0.2
   builtins (dict, JSON) do not fit; the limit is now 2050, about 2.5% over
   the v0.1 target. Every further raise needs the same explicit amendment.
+  Amended for ADR-0036: seven builtins (`abs min max starts ends uniq map2`)
+  add about 46 estimated tokens; the limit is now 2110. The pilot of 18 Nov
+  shows these builtins save more tokens in programs than they cost here.
 - **Determinism.** `render()` uses only static tables, ordered iteration and
   `include_str!`; it does not read the filesystem or environment and is stable
   across runs.

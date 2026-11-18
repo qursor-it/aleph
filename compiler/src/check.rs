@@ -1350,6 +1350,7 @@ fn satisfies(ty: &Type, bound: Bound) -> bool {
     match bound {
         Bound::Primitive => is_primitive(ty),
         Bound::Key => matches!(ty, Type::I64 | Type::Bool | Type::Str),
+        Bound::Numeric => is_numeric(ty),
         Bound::Showable => {
             is_primitive(ty)
                 || match ty {
@@ -1375,7 +1376,7 @@ fn deferred_text(kind: DeferredKind) -> String {
         DeferredKind::Builtin(Bound::Showable) => "showable".to_string(),
         DeferredKind::Builtin(Bound::Key) => "key".to_string(),
         DeferredKind::Builtin(Bound::Jsonable) => "jsonable".to_string(),
-        DeferredKind::Numeric => "numeric".to_string(),
+        DeferredKind::Builtin(Bound::Numeric) | DeferredKind::Numeric => "numeric".to_string(),
         DeferredKind::I64 => "i64".to_string(),
     }
 }

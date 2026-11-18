@@ -69,4 +69,5 @@ names = ["len","at","push","slice","rev","sort","range","sum","map","filter","fo
          "cat","count","split","join","trim","upper","lower","contains","show","int","float",
          "args","print","eprint","read","write",
          "put","get","del","keys","vals","size",
-         "json","jparse","jbool","jint","jnum","jstr","jlist","jdict"]
+         "json","jparse","jbool","jint","jnum","jstr","jlist","jdict",
+         "abs","min","max","starts","ends","uniq","map2"]

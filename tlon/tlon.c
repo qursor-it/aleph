@@ -1257,6 +1257,78 @@ AlValue aleph_b_fold(AlValue function, AlValue init, AlValue xs) {
     return accumulator;
 }
 
+/* ADR-0036 ---------------------------------------------------------- */
+
+AlValue aleph_b_abs(AlValue x) {
+    if (x.tag == AL_F64) {
+        return aleph_f64(fabs(x.u.f64));
+    }
+    if (x.u.i64 == INT64_MIN) {
+        aleph_trap("R001", "integer overflow");
+    }
+    return aleph_i64(x.u.i64 < 0 ? -x.u.i64 : x.u.i64);
+}
+
+/* `min a b` is b when b < a, else a; `max a b` is b when b > a, else a.
+   With NaN the comparison is false, so the first argument is kept. */
+AlValue aleph_b_min(AlValue left, AlValue right) {
+    if (left.tag == AL_F64) {
+        return right.u.f64 < left.u.f64 ? right : left;
+    }
+    return right.u.i64 < left.u.i64 ? right : left;
+}
+
+AlValue aleph_b_max(AlValue left, AlValue right) {
+    if (left.tag == AL_F64) {
+        return right.u.f64 > left.u.f64 ? right : left;
+    }
+    return right.u.i64 > left.u.i64 ? right : left;
+}
+
+AlValue aleph_b_starts(AlValue text, AlValue prefix) {
+    size_t len = prefix.u.str->len;
+    return aleph_bool(len <= text.u.str->len &&
+                      memcmp(text.u.str->data, prefix.u.str->data, len) == 0);
+}
+
+AlValue aleph_b_ends(AlValue text, AlValue suffix) {
+    size_t len = suffix.u.str->len;
+    size_t total = text.u.str->len;
+    return aleph_bool(len <= total &&
+                      memcmp(text.u.str->data + (total - len), suffix.u.str->data,
+                             len) == 0);
+}
+
+AlValue aleph_b_uniq(AlValue xs) {
+    AlValue result = aleph_b_sort(xs);
+    AlList *list = result.u.list;
+    size_t kept = 0;
+    size_t index;
+    for (index = 0; index < list->len; index += 1) {
+        if (kept == 0 || value_order(list->items[kept - 1], list->items[index]) != 0) {
+            list->items[kept] = list->items[index];
+            kept += 1;
+        }
+    }
+    list->len = kept;
+    return result;
+}
+
+AlValue aleph_b_map2(AlValue function, AlValue left, AlValue right) {
+    const AlFn *fn = function.u.fn;
+    size_t len = left.u.list->len < right.u.list->len ? left.u.list->len
+                                                      : right.u.list->len;
+    AlValue result = aleph_list_new(len);
+    size_t index;
+    for (index = 0; index < len; index += 1) {
+        AlValue args[2];
+        args[0] = left.u.list->items[index];
+        args[1] = right.u.list->items[index];
+        result.u.list->items[index] = fn->code(args, 2);
+    }
+    return result;
+}
+
 AlValue aleph_b_cat(AlValue left, AlValue right) {
     size_t left_len = left.u.str->len;
     size_t right_len = right.u.str->len;

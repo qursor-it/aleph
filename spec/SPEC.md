@@ -186,6 +186,11 @@ Pure:
 | `int s` | str -> res i64 str |
 | `float s` | str -> res f64 str |
 | `args` | -> list str (command line arguments; always allowed) |
+| `abs x` | T -> T (T `i64` or `f64`; `i64` minimum traps R001) (ADR-0036) |
+| `min a b` / `max a b` | T, T -> T (T `i64` or `f64`; b if b < a (b > a), else a) (ADR-0036) |
+| `starts s p` / `ends s p` | str, str -> bool (ADR-0036) |
+| `uniq xs` | list T -> list T (T primitive; ascending, no duplicates) (ADR-0036) |
+| `map2 @f xs ys` | (A, B -> T), list A, list B -> list T (length of the shorter) (ADR-0036) |
 
 Effectful:
 

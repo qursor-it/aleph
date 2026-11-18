@@ -385,6 +385,14 @@ AlValue aleph_b_sum(AlValue xs);
 AlValue aleph_b_map(AlValue function, AlValue xs);
 AlValue aleph_b_filter(AlValue function, AlValue xs);
 AlValue aleph_b_fold(AlValue function, AlValue init, AlValue xs);
+/* ADR-0036 */
+AlValue aleph_b_abs(AlValue x);
+AlValue aleph_b_min(AlValue left, AlValue right);
+AlValue aleph_b_max(AlValue left, AlValue right);
+AlValue aleph_b_starts(AlValue text, AlValue prefix);
+AlValue aleph_b_ends(AlValue text, AlValue suffix);
+AlValue aleph_b_uniq(AlValue xs);
+AlValue aleph_b_map2(AlValue function, AlValue left, AlValue right);
 AlValue aleph_b_cat(AlValue left, AlValue right);
 AlValue aleph_b_count(AlValue text);
 AlValue aleph_b_split(AlValue text, AlValue separator);

@@ -44,6 +44,8 @@ pub enum Bound {
     Showable,
     /// A dict key type: `i64`, `bool` or `str` (ADR-0032).
     Key,
+    /// `i64` or `f64` (ADR-0036).
+    Numeric,
     /// A type `json x` accepts: `unit`, `bool`, `i64`, `f64`, `str`, `json`,
     /// `list json` or `dict str json` (ADR-0033).
     Jsonable,
@@ -98,6 +100,7 @@ static RES_UNIT_STR: Ty = Ty::Res(&UNIT, &STR);
 static MAP_FN: Ty = Ty::Fn(&[&A], &B);
 static FILTER_FN: Ty = Ty::Fn(&[&A], &BOOL);
 static FOLD_FN: Ty = Ty::Fn(&[&B, &A], &B);
+static MAP2_FN: Ty = Ty::Fn(&[&A, &B], &T);
 static DICT_AB: Ty = Ty::Dict(&A, &B);
 static OPT_B: Ty = Ty::Opt(&B);
 static JSON: Ty = Ty::Json;
@@ -113,6 +116,15 @@ static OPT_DICT_STR_JSON: Ty = Ty::Opt(&DICT_STR_JSON);
 
 /// All builtins (SPEC §5.1), sorted by name.
 pub static BUILTINS: &[BuiltinSpec] = &[
+    BuiltinSpec {
+        name: "abs",
+        params: &[&T],
+        ret: &T,
+        bounds: &[(TyVar::T, Bound::Numeric)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
     BuiltinSpec {
         name: "args",
         params: &[],
@@ -163,6 +175,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         params: &[&DICT_AB, &A],
         ret: &DICT_AB,
         bounds: &[(TyVar::A, Bound::Key)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "ends",
+        params: &[&STR, &STR],
+        ret: &BOOL,
+        bounds: &[],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -339,6 +360,33 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "map2",
+        params: &[&MAP2_FN, &LIST_A, &LIST_B],
+        ret: &LIST_T,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "max",
+        params: &[&T, &T],
+        ret: &T,
+        bounds: &[(TyVar::T, Bound::Numeric)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "min",
+        params: &[&T, &T],
+        ret: &T,
+        bounds: &[(TyVar::T, Bound::Numeric)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "print",
         params: &[&STR],
         ret: &UNIT,
@@ -438,6 +486,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "starts",
+        params: &[&STR, &STR],
+        ret: &BOOL,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "sum",
         params: &[&LIST_I64],
         ret: &I64,
@@ -451,6 +508,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         params: &[&STR],
         ret: &STR,
         bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "uniq",
+        params: &[&LIST_T],
+        ret: &LIST_T,
+        bounds: &[(TyVar::T, Bound::Primitive)],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -554,6 +620,14 @@ mod tests {
             ("jstr", 1),
             ("jlist", 1),
             ("jdict", 1),
+            // ADR-0036
+            ("abs", 1),
+            ("min", 2),
+            ("max", 2),
+            ("starts", 2),
+            ("ends", 2),
+            ("uniq", 1),
+            ("map2", 3),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {
