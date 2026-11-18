@@ -372,7 +372,7 @@ AlValue aleph_record(const AlRecordInfo *info, const AlValue *fields,
     return value;
 }
 
-AlValue aleph_fn_kind(AlValue (*code)(AlValue *, size_t), const char *name,
+AlValue aleph_fnval_kind(AlValue (*code)(AlValue *, size_t), const char *name,
                       AlFnKind kind) {
     AlValue value;
     AlFn *fn = (AlFn *)aleph_alloc(sizeof(AlFn));
@@ -385,10 +385,10 @@ AlValue aleph_fn_kind(AlValue (*code)(AlValue *, size_t), const char *name,
 }
 
 AlValue aleph_fn(AlValue (*code)(AlValue *, size_t), const char *name) {
-    return aleph_fn_kind(code, name, AL_FN_USER);
+    return aleph_fnval_kind(code, name, AL_FN_USER);
 }
 
-AlValue aleph_fn_static(const AlFn *fn) {
+AlValue aleph_fnval_static(const AlFn *fn) {
     AlValue value;
     value.tag = AL_FN;
     value.u.fn = fn;

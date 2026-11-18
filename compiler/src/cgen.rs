@@ -438,7 +438,7 @@ impl<'a> Generator<'a> {
                 self.assign(
                     indent,
                     id,
-                    &format!("aleph_fn_static(&aleph_fnref_{label}_{name})"),
+                    &format!("aleph_fnval_static(&aleph_fnref_{label}_{name})"),
                 );
             }
             ExprKind::Call {
@@ -1305,7 +1305,7 @@ impl Generator<'_> {
             ExprKind::Nil => "aleph_unit()".to_string(),
             ExprKind::FnRef { name } => {
                 let label = self.ref_info(name).kind.label();
-                format!("aleph_fn_static(&aleph_fnref_{label}_{name})")
+                format!("aleph_fnval_static(&aleph_fnref_{label}_{name})")
             }
             ExprKind::Empty { .. } => "aleph_list_new(0)".to_string(),
             ExprKind::Dict { .. } => "aleph_dict_empty()".to_string(),

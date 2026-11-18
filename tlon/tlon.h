@@ -334,10 +334,10 @@ AlValue aleph_ok(AlValue value);
 AlValue aleph_err(AlValue value);
 AlValue aleph_record(const AlRecordInfo *info, const AlValue *fields, size_t count);
 AlValue aleph_fn(AlValue (*code)(AlValue *, size_t), const char *name);
-AlValue aleph_fn_kind(AlValue (*code)(AlValue *, size_t), const char *name,
+AlValue aleph_fnval_kind(AlValue (*code)(AlValue *, size_t), const char *name,
                       AlFnKind kind);
 /* Wrap a generated static const AlFn without copying it. */
-AlValue aleph_fn_static(const AlFn *fn);
+AlValue aleph_fnval_static(const AlFn *fn);
 
 /* Checked i64 arithmetic (R001/R002). */
 AlValue aleph_add_i64(AlValue left, AlValue right);

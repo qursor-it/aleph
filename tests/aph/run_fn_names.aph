@@ -1,0 +1,8 @@
+fn kind x:i64 -> i64
+ ex kind 1 = 2
+ + x 1
+fn static x:i64 -> i64
+ ex static 1 = 2
+ * x 2
+fn main -> unit
+ print show map @static [kind 1 2]

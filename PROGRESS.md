@@ -602,3 +602,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - why: token pilot of 18 Nov (`experiments/pilot/tokens/` on exp/protocols): missing builtins become typed helpers; HumanEval median Aleph/Python 1.23 -> 1.08 with these builtins
 - tests: all passed, clippy clean
 - next: ADR-0035 is left for T-044 (ord/chr); inline lambdas are the bigger lever (1.08 -> 0.81) and get their own ADR
+
+## 2026-11-19T08:00 T-034 done
+- Tlön: `aleph_fn_kind`/`aleph_fn_static` renamed `aleph_fnval_*`. User names never contain `_`, so generated `aleph_fn_<name>` can no longer clash with the runtime.
+- golden run_fn_names (user fns `kind` and `static`, interpreter and native)
+- tests: 344 passed, clippy clean
+- next: T-045..T-049 lambdas (ADR-0037)

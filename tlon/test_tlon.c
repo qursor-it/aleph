@@ -110,7 +110,7 @@ static AlValue hof_add(AlValue *args, size_t count) {
     return aleph_i64(args[0].u.i64 + args[1].u.i64);
 }
 
-/* The static AlFn values used through aleph_fn_static. */
+/* The static AlFn values used through aleph_fnval_static. */
 static const AlFn hof_inc_fn = {hof_inc, "hof_inc", AL_FN_USER};
 static const AlFn hof_add_fn = {hof_add, "hof_add", AL_FN_USER};
 
@@ -146,10 +146,10 @@ static void test_show(void) {
                              aleph_fn(dummy_fn, "f")),
           "function equality same kind");
     check(!aleph_values_equal(aleph_fn(dummy_fn, "f"),
-                              aleph_fn_kind(dummy_fn, "f", AL_FN_CTOR)),
+                              aleph_fnval_kind(dummy_fn, "f", AL_FN_CTOR)),
           "function equality kind differs");
-    check(aleph_values_equal(aleph_fn_kind(dummy_fn, "f", AL_FN_BUILTIN),
-                             aleph_fn_kind(dummy_fn, "f", AL_FN_BUILTIN)),
+    check(aleph_values_equal(aleph_fnval_kind(dummy_fn, "f", AL_FN_BUILTIN),
+                             aleph_fnval_kind(dummy_fn, "f", AL_FN_BUILTIN)),
           "function equality builtin kind");
     check(!aleph_values_equal(aleph_fn(dummy_fn, "f"),
                               aleph_fn(dummy_fn, "g")),
@@ -457,7 +457,7 @@ static void test_dict(void) {
 
 static void test_higher_order(void) {
     AlValue xs = list3(i64v(1), i64v(2), i64v(3));
-    AlValue static_inc = aleph_fn_static(&hof_inc_fn);
+    AlValue static_inc = aleph_fnval_static(&hof_inc_fn);
 
     check(static_inc.tag == AL_FN, "fn_static tag");
     check(static_inc.u.fn == &hof_inc_fn,
@@ -470,7 +470,7 @@ static void test_higher_order(void) {
     check_show(aleph_b_filter(aleph_fn(hof_positive, "hof_positive"),
                               list3(i64v(-1), i64v(0), i64v(2))),
                "[2]", "filter");
-    check_show(aleph_b_fold(aleph_fn_static(&hof_add_fn), i64v(0), xs), "6",
+    check_show(aleph_b_fold(aleph_fnval_static(&hof_add_fn), i64v(0), xs), "6",
                "fold via fn_static");
     check_show(aleph_b_fold(aleph_fn(hof_add, "hof_add"), i64v(10), xs), "16",
                "fold via aleph_fn");
@@ -479,7 +479,7 @@ static void test_higher_order(void) {
     check_show(aleph_b_filter(aleph_fn(hof_positive, "hof_positive"),
                               aleph_list_new(0)),
                "[]", "filter empty");
-    check_show(aleph_b_fold(aleph_fn_static(&hof_add_fn), i64v(7),
+    check_show(aleph_b_fold(aleph_fnval_static(&hof_add_fn), i64v(7),
                             aleph_list_new(0)),
                "7", "fold empty");
 }
@@ -505,11 +505,11 @@ static void test_adr36(void) {
     check_show(aleph_b_uniq(list3(strv("b"), strv("a"), strv("b"))),
                "[\"a\" \"b\"]", "uniq str");
     check_show(aleph_b_uniq(aleph_list_new(0)), "[]", "uniq empty");
-    check_show(aleph_b_map2(aleph_fn_static(&hof_add_fn),
+    check_show(aleph_b_map2(aleph_fnval_static(&hof_add_fn),
                             list3(i64v(1), i64v(2), i64v(3)),
                             aleph_list(list3(i64v(10), i64v(20), i64v(0)).u.list->items, 2)),
                "[11 22]", "map2 shortest length");
-    check_show(aleph_b_map2(aleph_fn_static(&hof_add_fn), aleph_list_new(0),
+    check_show(aleph_b_map2(aleph_fnval_static(&hof_add_fn), aleph_list_new(0),
                             list3(i64v(1), i64v(2), i64v(3))),
                "[]", "map2 empty");
 }
