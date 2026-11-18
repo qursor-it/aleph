@@ -505,6 +505,12 @@ pub enum ExprKind {
         value: Box<Expr>,
         arms: Vec<Arm>,
     },
+    /// `lam x.. BODY`: an inline function, only as the function argument of
+    /// a higher-order builtin (ADR-0037).
+    Lam {
+        binders: Vec<String>,
+        body: Box<Expr>,
+    },
 }
 
 /// One `match` arm: the variant, one binder per field, and the body.
@@ -716,6 +722,7 @@ fn assign_expr(expr: &mut Expr, next: &mut u32) {
                 assign_expr(&mut arm.body, next);
             }
         }
+        ExprKind::Lam { body, .. } => assign_expr(body, next),
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Str { .. }
@@ -848,6 +855,7 @@ fn collect_expr(expr: &Expr, ids: &mut Vec<NodeId>) {
                 collect_expr(&arm.body, ids);
             }
         }
+        ExprKind::Lam { body, .. } => collect_expr(body, ids),
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Str { .. }
@@ -862,8 +870,8 @@ fn collect_expr(expr: &Expr, ids: &mut Vec<NodeId>) {
 ///
 /// Children are visited left to right: call arguments, binary operands, unary
 /// operand, `if` condition then branches, list elements, wrapped values,
-/// `else` value then default, and `match` scrutinee then arm bodies. Types inside `empty`/`none` are not expressions.
-pub fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
+/// `else` value then default, `match` scrutinee then arm bodies, and `lam` body. Types inside `empty`/`none` are not expressions.
+pub fn walk_expr<'a>(expr: &'a Expr, visit: &mut impl FnMut(&'a Expr)) {
     visit(expr);
     match &expr.kind {
         ExprKind::Call { args, .. } => {
@@ -903,6 +911,7 @@ pub fn walk_expr(expr: &Expr, visit: &mut impl FnMut(&Expr)) {
                 walk_expr(&arm.body, visit);
             }
         }
+        ExprKind::Lam { body, .. } => walk_expr(body, visit),
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Str { .. }
@@ -959,6 +968,7 @@ pub fn walk_expr_mut(expr: &mut Expr, visit: &mut impl FnMut(&mut Expr)) {
                 walk_expr_mut(&mut arm.body, visit);
             }
         }
+        ExprKind::Lam { body, .. } => walk_expr_mut(body, visit),
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Str { .. }

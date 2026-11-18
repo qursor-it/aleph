@@ -1,0 +1,23 @@
+type shape | circle r:i64 | dot
+fn above xs:list i64 k:i64 -> list i64
+ ex above [1 5 9] 4 = [5 9]
+ ex above empty i64 0 = empty i64
+ filter lam x > x k xs
+fn flat xs:list list i64 -> list i64
+ ex flat [[1] [2 3]] = [1 2 3]
+ fold lam acc x fold lam s y push s y acc x empty i64 xs
+fn grow s:shape xs:list i64 -> list i64
+ ex grow circle 2 [1 2] = [3 4]
+ ex grow dot [1 2] = [1 2]
+ match s circle r map lam x + x r xs dot xs
+fn label xs:list i64 ys:list str -> list str
+ ex label [1 2 3] ["a" "b"] = ["1a" "2b"]
+ map2 lam n t cat show n t xs ys
+fn table xs:list i64 -> list list i64
+ ex table [1 2] = [[2 3] [3 4]]
+ map lam x map lam y + x y xs xs
+fn total xs:list i64 -> i64
+ ex total [1 2 3] = 6
+ ex fold lam a b * a b 1 [2 3] = 6
+ let base 0
+ fold lam acc x + acc x base xs

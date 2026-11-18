@@ -1,0 +1,162 @@
+{
+  "id": "n0",
+  "line": 1,
+  "col": 1,
+  "uses": [],
+  "types": [],
+  "fns": [
+    {
+      "id": "n1",
+      "line": 1,
+      "col": 1,
+      "name": "f",
+      "params": [
+        {
+          "id": "n2",
+          "line": 1,
+          "col": 6,
+          "name": "xs",
+          "ty": {
+            "id": "n3",
+            "line": 1,
+            "col": 9,
+            "kind": "list",
+            "elem": {
+              "id": "n4",
+              "line": 1,
+              "col": 14,
+              "kind": "i64"
+            }
+          }
+        },
+        {
+          "id": "n5",
+          "line": 1,
+          "col": 18,
+          "name": "k",
+          "ty": {
+            "id": "n6",
+            "line": 1,
+            "col": 20,
+            "kind": "i64"
+          }
+        }
+      ],
+      "ret": {
+        "id": "n7",
+        "line": 1,
+        "col": 27,
+        "kind": "list",
+        "elem": {
+          "id": "n8",
+          "line": 1,
+          "col": 32,
+          "kind": "i64"
+        }
+      },
+      "doc": null,
+      "examples": [
+        {
+          "id": "n9",
+          "line": 2,
+          "col": 2,
+          "lhs": {
+            "id": "n10",
+            "line": 2,
+            "col": 5,
+            "kind": "call",
+            "callee": "f",
+            "callee_kind": "fn",
+            "args": [
+              {
+                "id": "n11",
+                "line": 2,
+                "col": 7,
+                "kind": "list",
+                "elems": [
+                  {
+                    "id": "n12",
+                    "line": 2,
+                    "col": 8,
+                    "kind": "int",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "id": "n13",
+                "line": 2,
+                "col": 11,
+                "kind": "int",
+                "value": 2
+              }
+            ]
+          },
+          "rhs": {
+            "id": "n14",
+            "line": 2,
+            "col": 15,
+            "kind": "list",
+            "elems": [
+              {
+                "id": "n15",
+                "line": 2,
+                "col": 16,
+                "kind": "int",
+                "value": 3
+              }
+            ]
+          }
+        }
+      ],
+      "stmts": [],
+      "result": {
+        "id": "n16",
+        "line": 3,
+        "col": 2,
+        "kind": "call",
+        "callee": "map",
+        "callee_kind": "builtin",
+        "args": [
+          {
+            "id": "n17",
+            "line": 3,
+            "col": 6,
+            "kind": "lam",
+            "binders": [
+              "x"
+            ],
+            "body": {
+              "id": "n18",
+              "line": 3,
+              "col": 12,
+              "kind": "bin_op",
+              "op": "+",
+              "lhs": {
+                "id": "n19",
+                "line": 3,
+                "col": 14,
+                "kind": "var",
+                "name": "x"
+              },
+              "rhs": {
+                "id": "n20",
+                "line": 3,
+                "col": 16,
+                "kind": "var",
+                "name": "k"
+              }
+            }
+          },
+          {
+            "id": "n21",
+            "line": 3,
+            "col": 18,
+            "kind": "var",
+            "name": "xs"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"code":"P001","severity":"error","file":"tests/aph/lam_outside.aph","line":3,"col":8,"msg":"unexpected token","expected":"lam only as function argument of filter fold map map2"}

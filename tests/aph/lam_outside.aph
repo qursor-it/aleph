@@ -1,0 +1,4 @@
+fn f xs:list i64 -> list i64
+ ex f [1] = [1]
+ let g lam x x
+ xs

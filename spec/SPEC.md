@@ -40,7 +40,7 @@ Token classes:
 
 Keywords (reserved, see `lexicon.toml`; the spellings are provisional and will be optimized against real tokenizers — ADR-0005):
 
-`fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match`
+`fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam`
 
 ## 3. Top-level items and canonical order
 
@@ -136,6 +136,7 @@ All expressions are prefix with fixed arity. There are no parentheses. The parse
 | literal int/float/string, `true`, `false`, `nil` | 0 | i64 / f64 / str / bool / unit |
 | variable `x` | 0 | type of binding |
 | `@f` | 0 | function value (only as argument to higher-order builtins) |
+| `lam x1 .. xk body` | k binders + 1 | inline function value, only as the function argument of `map filter fold map2` (elsewhere P001); k is that parameter's arity (`map`/`filter` 1, `fold`/`map2` 2). The other arguments are checked first; binders get the parameter types (`fold`: B from init, A from the list), the body must have the result type (`filter`: bool). Binders follow T005; the body may read enclosing params, lets, match binders and outer binders (captured by value), may call effectful builtins under the same capabilities, and may not use `try` (T007) (v0.2, ADR-0037) |
 | `f a1 .. an` | n = declared arity | user fn, builtin, or record constructor |
 | `+ - * / %` | 2 | both i64 or both f64; result same. `%` i64 only |
 | `== !=` | 2 | same primitive type (i64, f64, bool, str); result bool |

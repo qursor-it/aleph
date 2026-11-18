@@ -1,0 +1,1 @@
+{"code":"T007","severity":"error","file":"tests/aph/lam_try.aph","line":3,"col":15,"node":"n23","msg":"try outside result function"}

@@ -736,6 +736,11 @@ impl<'a> ExprCtx<'a> {
             self.parse_type_arg(pos, env, depth, span, true)
         } else if is_keyword(token, "match") {
             self.parse_match(pos, env, depth, span)
+        } else if is_keyword(token, "lambda") {
+            // Only `parse_args` accepts `lam`, at a function-typed parameter.
+            let mut diagnostic = p001(self.file, token, "unexpected token");
+            diagnostic.expected = Some(lam_positions());
+            Err(diagnostic)
         } else if lexicon::is_binop(name) {
             match binop_from_spelling(name) {
                 Some(op) => self.parse_binop(pos, op, env, depth, span),
@@ -821,7 +826,13 @@ impl<'a> ExprCtx<'a> {
         env: &Env,
         depth: usize,
     ) -> PResult<(ast::Expr, usize)> {
-        let (args, next) = self.parse_args(pos, arity, env, depth)?;
+        let lams: Vec<Option<usize>> = match kind {
+            ast::CalleeKind::Builtin => builtins::lookup(name)
+                .map(|spec| spec.params.iter().map(|param| fn_arity(param)).collect())
+                .unwrap_or_default(),
+            _ => Vec::new(),
+        };
+        let (args, next) = self.parse_args(pos, arity, &lams, env, depth)?;
         let span = span_of(&self.tokens[pos]);
         Ok((
             ast::Expr {
@@ -846,13 +857,16 @@ impl<'a> ExprCtx<'a> {
         let head = self
             .head_arity(&self.tokens[pos], env)
             .expect("fixed-arity expression head");
-        self.parse_args(pos, head.arity, env, depth)
+        self.parse_args(pos, head.arity, &[], env, depth)
     }
 
+    /// Parse `count` arguments. `lams[i]` is the binder count when argument
+    /// `i` is a function parameter, where `lam` is allowed (ADR-0037).
     fn parse_args(
         &self,
         pos: usize,
         count: usize,
+        lams: &[Option<usize>],
         env: &Env,
         depth: usize,
     ) -> PResult<(Vec<ast::Expr>, usize)> {
@@ -864,7 +878,12 @@ impl<'a> ExprCtx<'a> {
             {
                 return Err(p002(self.file, head, count, args.len()));
             }
-            let (arg, next) = self.parse(index, env, depth + 1)?;
+            let (arg, next) = match lams.get(args.len()).copied().flatten() {
+                Some(binders) if is_keyword(&self.tokens[index], "lambda") => {
+                    self.parse_lam(index, binders, env, depth + 1)?
+                }
+                _ => self.parse(index, env, depth + 1)?,
+            };
             args.push(arg);
             index = next;
         }
@@ -1041,6 +1060,47 @@ impl<'a> ExprCtx<'a> {
         ))
     }
 
+    /// `lam x.. BODY` with `count` binders; binders follow T005 as `match`
+    /// binders do (ADR-0037).
+    fn parse_lam(
+        &self,
+        pos: usize,
+        count: usize,
+        env: &Env,
+        depth: usize,
+    ) -> PResult<(ast::Expr, usize)> {
+        let mut index = pos + 1;
+        let mut inner = env.clone();
+        let mut binders = Vec::with_capacity(count);
+        for _ in 0..count {
+            let Some(token) = self.tokens.get(index) else {
+                return Err(p001_eol(self.file, self.line, "expected binding name"));
+            };
+            let TokenKind::Ident(binder) = &token.kind else {
+                return Err(p001(self.file, token, "expected binding name"));
+            };
+            if inner.contains(binder) || is_callable(self.signatures, binder) {
+                return Err(t005(self.file, span_of(token)));
+            }
+            inner.insert(binder.clone());
+            binders.push(binder.clone());
+            index += 1;
+        }
+        let (body, next) = self.parse(index, &inner, depth + 1)?;
+        let kind = ast::ExprKind::Lam {
+            binders,
+            body: Box::new(body),
+        };
+        Ok((
+            ast::Expr {
+                id: NodeId::UNASSIGNED,
+                span: span_of(&self.tokens[pos]),
+                kind,
+            },
+            next,
+        ))
+    }
+
     fn parse_list(
         &self,
         pos: usize,
@@ -1173,6 +1233,24 @@ impl<'a> ExprCtx<'a> {
             None => p001_eol(self.file, self.line, msg),
         }
     }
+}
+
+/// Binder count of a function-typed builtin parameter, else `None`.
+fn fn_arity(param: &builtins::Ty) -> Option<usize> {
+    match param {
+        builtins::Ty::Fn(params, _) => Some(params.len()),
+        _ => None,
+    }
+}
+
+/// Where `lam` may appear, for the P001 `expected` field.
+fn lam_positions() -> String {
+    let names: Vec<&str> = builtins::BUILTINS
+        .iter()
+        .filter(|spec| spec.params.iter().any(|param| fn_arity(param).is_some()))
+        .map(|spec| spec.name)
+        .collect();
+    format!("lam only as function argument of {}", names.join(" "))
 }
 
 fn binop_from_spelling(spelling: &str) -> Option<ast::BinOp> {
@@ -2334,6 +2412,71 @@ fn main -> res unit str
         assert_eq!(diagnostic.code, "P003");
         assert_eq!(diagnostic.msg, "unknown function");
         assert_eq!(diagnostic.found.as_deref(), Some("nope"));
+    }
+
+    #[test]
+    fn lam_binder_count_comes_from_the_builtin_parameter() {
+        for (call, binders) in [
+            ("map lam x + x k xs", vec!["x"]),
+            ("filter lam x > x k xs", vec!["x"]),
+            ("len fold lam a x push a x empty i64 xs", vec!["a", "x"]),
+            ("map2 lam a b + a b xs xs", vec!["a", "b"]),
+        ] {
+            let source = format!("fn f xs:list i64 k:i64 -> list i64\n {call}\n");
+            let file = parse_ok(&source);
+            let mut found = Vec::new();
+            ast::walk_expr(&file.fns[0].result, &mut |expr| {
+                if let ast::ExprKind::Lam { binders, .. } = &expr.kind {
+                    found.push(binders.clone());
+                }
+            });
+            assert_eq!(found, vec![binders], "{call}");
+        }
+        // Pre-order ids: the lam node, then its body.
+        let file = parse_ok("fn f xs:list i64 -> list i64\n map lam x x xs\n");
+        let ast::ExprKind::Call { args, .. } = &file.fns[0].result.kind else {
+            panic!("expected call");
+        };
+        let ast::ExprKind::Lam { body, .. } = &args[0].kind else {
+            panic!("expected lam");
+        };
+        assert_eq!(
+            (args[0].id, body.id, args[1].id),
+            (NodeId(8), NodeId(9), NodeId(10))
+        );
+    }
+
+    #[test]
+    fn lam_errors() {
+        for source in [
+            "fn f -> i64\n lam x x\n",
+            "fn f xs:list i64 -> i64\n len [lam x x]\n",
+            "fn g a:i64 -> i64\n a\nfn f -> i64\n g lam x x\n",
+            "fn f xs:list i64 -> list i64\n map @len lam x x\n",
+        ] {
+            let diagnostic = one_error(source);
+            assert_eq!(diagnostic.code, "P001", "{source}");
+            assert_eq!(
+                diagnostic.expected.as_deref(),
+                Some("lam only as function argument of filter fold map map2"),
+                "{source}"
+            );
+        }
+        let diagnostic = one_error("fn f xs:list i64 -> i64\n fold lam a + a 1 0 xs\n");
+        assert_eq!(diagnostic.code, "P001");
+        assert_eq!(diagnostic.msg, "expected binding name");
+        let diagnostic = one_error("fn f xs:list i64 -> list i64\n map lam\n");
+        assert_eq!(diagnostic.msg, "expected binding name");
+        // T005: a param, a lambda's own binder, an outer binder, a function.
+        for source in [
+            "fn f xs:list i64 -> list i64\n map lam xs 1 xs\n",
+            "fn f xs:list i64 -> list i64\n map2 lam a a a xs xs\n",
+            "fn f xs:list i64 -> list list i64\n map lam x map lam x x xs xs\n",
+            "fn f xs:list i64 -> list i64\n map lam len 1 xs\n",
+            "fn f xs:list i64 -> list i64\n map lam f 1 xs\n",
+        ] {
+            assert_eq!(one_error(source).code, "T005", "{source}");
+        }
     }
 
     const SHAPE: &str = "type shape | circle r:f64 | rect w:f64 h:f64 | dot\n";

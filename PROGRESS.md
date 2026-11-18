@@ -608,3 +608,14 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - golden run_fn_names (user fns `kind` and `static`, interpreter and native)
 - tests: 344 passed, clippy clean
 - next: T-045..T-049 lambdas (ADR-0037)
+
+## 2026-11-19T12:00 T-045..T-047 done
+- keyword `lam` (lexicon.toml, lexicon.rs); AST `ExprKind::Lam { binders, body }` (ids pre-order: lam node, then body); parser takes the binder count from the builtin's function-typed parameter (map/filter 1, fold/map2 2), binders follow T005 like match binders; `lam` elsewhere is P001 with `expected`; printer `lam x y BODY`; round-trip generator emits lambdas
+- check: lambda arguments are checked after the others, binders typed from the instantiated signature, body against the result type; `try` in a lambda body is T007; capabilities/effects via the shared walkers
+- interp: `FnTarget::Lam(node id, captured env)`, captures by value only the outer names the body reads; map/filter/fold/map2 call it through `call_target`
+- cgen: `aleph build` with `lam` in a let/do/result line is X001 "not implemented" at the first lambda (no C emitted) until T-048
+- goldens: lam_forms (ex lines only, no .out yet because of the differential test), ast_lam, lam_outside/binder/shadow/shadow_outer/filter_type/effect/try .diag
+- SPEC §2/§5 and grammar.ebnf updated, llms digests and prose; llms.txt 2110 tokens (budget 2110, trimmed "Canonical, check-clean" to fit)
+- tests: 353 passed, clippy clean
+- decisions: ADR-0037 amendments (try in lambda T007, P001 expected text, binder scoping, capture of read names only, build X001)
+- next: T-048 native lambdas (lift `ExprKind::Lam` to static C fns; captured values = free Vars of the body); then add .out goldens with lambdas

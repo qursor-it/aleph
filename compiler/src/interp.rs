@@ -43,12 +43,27 @@ pub const MAX_RANGE_LEN: i64 = 10_000_000;
 /// Stack size for [`run_main`]'s interpreter thread.
 pub const MAIN_STACK_SIZE: usize = 256 * 1024 * 1024;
 
-/// A callable value: a user function, a record constructor, or a builtin.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A callable value: a user function, a record constructor, a builtin, or a
+/// lambda.
+#[derive(Debug, Clone)]
 pub enum FnTarget {
     User(String),
     Ctor(String),
     Builtin(&'static str),
+    /// A `lam` node and the values of the outer names its body reads,
+    /// captured when the `lam` was evaluated (ADR-0037).
+    Lam(NodeId, Rc<Env>),
+}
+
+impl PartialEq for FnTarget {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::User(a), Self::User(b)) | (Self::Ctor(a), Self::Ctor(b)) => a == b,
+            (Self::Builtin(a), Self::Builtin(b)) => a == b,
+            (Self::Lam(a, a_env), Self::Lam(b, b_env)) => a == b && Rc::ptr_eq(a_env, b_env),
+            _ => false,
+        }
+    }
 }
 
 /// A runtime value (SPEC §6).
@@ -172,6 +187,8 @@ pub struct Interp<'a> {
     fns: BTreeMap<&'a str, &'a ast::Fn>,
     /// Constructor (record type or sum variant) name to its fields.
     records: BTreeMap<&'a str, &'a [ast::Field]>,
+    /// Every `lam` node of the file, by id (ADR-0037).
+    lams: BTreeMap<NodeId, &'a Expr>,
     call_depth: usize,
     eval_depth: usize,
     /// When set, every `read`/`write` call traps with R003 without touching
@@ -201,6 +218,25 @@ impl<'a> Interp<'a> {
                 records.insert(variant.name.as_str(), variant.fields.as_slice());
             }
         }
+        let mut lams = BTreeMap::new();
+        let mut visit = |expr: &'a Expr| {
+            if matches!(expr.kind, ExprKind::Lam { .. }) {
+                lams.insert(expr.id, expr);
+            }
+        };
+        for function in &file.fns {
+            let roots = function
+                .examples
+                .iter()
+                .flat_map(|example| [&example.lhs, &example.rhs])
+                .chain(function.stmts.iter().map(|stmt| match &stmt.kind {
+                    StmtKind::Let { value, .. } | StmtKind::Do { value } => value,
+                }))
+                .chain([&function.result]);
+            for root in roots {
+                ast::walk_expr(root, &mut visit);
+            }
+        }
         Self {
             file,
             args,
@@ -208,6 +244,7 @@ impl<'a> Interp<'a> {
             err,
             fns,
             records,
+            lams,
             call_depth: 0,
             eval_depth: 0,
             deny_fs: false,
@@ -405,6 +442,21 @@ impl<'a> Interp<'a> {
                 }
                 self.eval(&arm.body, &inner)
             }
+            ExprKind::Lam { body, .. } => {
+                // Capture by value only the outer names the body reads.
+                let mut captured = Env::new();
+                ast::walk_expr(body, &mut |node| {
+                    if let ExprKind::Var { name } = &node.kind {
+                        if let Some(value) = env.get(name) {
+                            captured.insert(name.clone(), value.clone());
+                        }
+                    }
+                });
+                Ok(Flow::Value(Value::Fn(FnTarget::Lam(
+                    expr.id,
+                    Rc::new(captured),
+                ))))
+            }
         }
     }
 
@@ -572,6 +624,35 @@ impl<'a> Interp<'a> {
             }
             FnTarget::Ctor(name) => Ok(self.construct(name, args)),
             FnTarget::Builtin(name) => self.builtin(name, args, node, span),
+            FnTarget::Lam(id, captured) => self.call_lam(*id, captured, args, node, span),
+        }
+    }
+
+    fn call_lam(
+        &mut self,
+        id: NodeId,
+        captured: &Env,
+        args: Vec<Value>,
+        node: NodeId,
+        span: Span,
+    ) -> Result<Value, Trap> {
+        let lam: &'a Expr = self.lams[&id];
+        let ExprKind::Lam { binders, body } = &lam.kind else {
+            panic!("`n{}` is not a lambda", id.0);
+        };
+        if self.call_depth >= MAX_CALL_DEPTH || self.eval_depth >= MAX_EVAL_DEPTH {
+            return Err(Trap::new("R004", "stack overflow", node, span));
+        }
+        let mut env = captured.clone();
+        for (binder, value) in binders.iter().zip(args) {
+            env.insert(binder.clone(), value);
+        }
+        self.call_depth += 1;
+        let result = self.eval(body, &env);
+        self.call_depth -= 1;
+        // The checker rejects `try` in a lambda body, so there is no early return.
+        match result? {
+            Flow::Value(value) | Flow::Return(value) => Ok(value),
         }
     }
 
@@ -1010,6 +1091,7 @@ pub fn show(value: &Value) -> String {
         Value::Fn(target) => match target {
             FnTarget::User(name) | FnTarget::Ctor(name) => format!("@{name}"),
             FnTarget::Builtin(name) => format!("@{name}"),
+            FnTarget::Lam(..) => lexicon::keyword("lambda").expect("lam").to_string(),
         },
     }
 }
@@ -1327,6 +1409,82 @@ mod tests {
             &Value::Fn(FnTarget::User("f".to_string())),
             &Value::Fn(FnTarget::User("f".to_string()))
         ));
+    }
+
+    #[test]
+    fn lambdas_run_in_map_filter_fold_map2_with_captures() {
+        let cases = [
+            ("fn probe -> list i64\n let k 10\n map lam x * x k [1 2 3]\n", "[10 20 30]"),
+            ("fn probe -> list i64\n let k 2\n filter lam x > x k [1 2 3 4]\n", "[3 4]"),
+            ("fn probe -> i64\n fold lam acc x - acc x 100 [1 2 3]\n", "94"),
+            (
+                "fn probe -> list str\n let sep \":\"\n map2 lam a b cat cat show a sep b [1 2 3] [\"x\" \"y\"]\n",
+                "[\"1:x\" \"2:y\"]",
+            ),
+            // An inner lambda captures an outer lambda binder.
+            ("fn probe -> list list i64\n map lam x map lam y + x y [10 20] [1 2]\n", "[[11 21] [12 22]]"),
+            // A match binder is captured.
+            (
+                "type box | full v:i64 | hole\nfn probe -> list i64\n match full 5 full v map lam x + x v [1 2] hole empty i64\n",
+                "[6 7]",
+            ),
+            // A user function is called from a lambda body.
+            ("fn sq x:i64 -> i64\n * x x\nfn probe -> i64\n fold lam a x + a sq x 0 [1 2 3]\n", "14"),
+        ];
+        for (source, want) in cases {
+            assert_eq!(literal(&probe(source)), want, "{source}");
+        }
+    }
+
+    #[test]
+    fn lambda_values_capture_by_value_once() {
+        // Each evaluation of `lam` captures the current value of `n`.
+        let source = "fn add n:i64 xs:list i64 -> list i64\n map lam x + x n xs\nfn probe -> list list i64\n [add 1 [0] add 2 [0]]\n";
+        assert_eq!(literal(&probe(source)), "[[1] [2]]");
+        let file = parse_ok("fn probe xs:list i64 -> list i64\n map lam x x xs\n");
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut interp = Interp::new(&file, Vec::new(), &mut out, &mut err);
+        assert_eq!(interp.lams.len(), 1);
+        let ast::ExprKind::Call { args, .. } = &file.fns[0].result.kind else {
+            panic!("expected call");
+        };
+        let value = interp.eval_expr(&args[0], &Env::new()).expect("lam value");
+        assert_eq!(literal(&value), "lam");
+    }
+
+    #[test]
+    fn traps_inside_lambdas_point_at_the_body() {
+        let r001 = call(
+            "fn probe -> list i64\n map lam x + x 9223372036854775807 [0 1]\n",
+            "probe",
+            Vec::new(),
+        );
+        assert_eq!(trap_code(r001), "R001");
+        let r002 = call(
+            "fn probe -> list i64\n let z 0\n map lam x / x z [1]\n",
+            "probe",
+            Vec::new(),
+        )
+        .expect_err("division by zero");
+        assert_eq!(r002.code, "R002");
+        assert_eq!((r002.span.line, r002.span.col), (3, 12));
+        // Unbounded recursion through a lambda; `run` uses the main stack size.
+        let (r004, _, _) = run(
+            "fn f n:i64 -> list i64\n map lam x len f + x 1 [n]\nfn main -> unit\n print show f 0\n",
+            &[],
+        );
+        assert_eq!(r004.expect_err("recursion traps").code, "R004");
+    }
+
+    #[test]
+    fn lambdas_may_print_and_run_from_main() {
+        let (result, out, _) = run(
+            "fn main -> unit\n let tag \"n=\"\n do print show len map lam x print cat tag show x [1 2]\n nil\n",
+            &[],
+        );
+        assert_eq!(result.expect("runs"), 0);
+        assert_eq!(out, "n=1\nn=2\n2\n");
     }
 
     #[test]

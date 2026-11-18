@@ -226,6 +226,16 @@ pub fn print_expr(expr: &ast::Expr) -> String {
             }
             text
         }
+        ExprKind::Lam { binders, body } => {
+            let mut text = keyword("lambda").to_string();
+            for binder in binders {
+                text.push(' ');
+                text.push_str(binder);
+            }
+            text.push(' ');
+            text.push_str(&print_expr(body));
+            text
+        }
     }
 }
 
@@ -296,6 +306,7 @@ mod tests {
             "use fs.read \"data\"\ntype point x:f64 y:f64\nfn main -> unit\n nil\n",
             "type shape | circle r:f64 | rect w:f64 h:f64 | dot\nfn area s:shape -> f64\n match s circle r * r r rect w h * w h dot 0.0\n",
             "type t | a x:list t | b\nfn f v:t -> i64\n + 1 match v a xs len xs b 0\n",
+            "fn f xs:list i64 k:i64 -> i64\n fold lam a x + a * k x 0 filter lam x > x k map lam y map2 lam p q + p q [y] xs xs\n",
         ];
 
         for source in snippets {
@@ -508,7 +519,7 @@ fn main -> res unit str
         if depth == 0 {
             return gen_leaf(rng, fns, env);
         }
-        match rng.below(24) {
+        match rng.below(25) {
             0..=6 => gen_leaf(rng, fns, env),
             7 => expr(ExprKind::UnOp {
                 op: if rng.below(2) == 0 {
@@ -620,17 +631,63 @@ fn main -> res unit str
                     ],
                 })
             }
+            23 => {
+                let name = ["map", "filter", "fold", "map2"][rng.below(4) as usize];
+                let spec = builtins::lookup(name).expect("higher-order builtin");
+                expr(ExprKind::Call {
+                    callee: name.to_string(),
+                    callee_kind: CalleeKind::Builtin,
+                    args: spec
+                        .params
+                        .iter()
+                        .map(|param| match param {
+                            builtins::Ty::Fn(params, _) => {
+                                gen_lam(rng, fns, env, depth, params.len())
+                            }
+                            _ => gen_expr(rng, fns, env, depth - 1),
+                        })
+                        .collect(),
+                })
+            }
             _ => {
                 let spec = &builtins::BUILTINS[rng.below(builtins::BUILTINS.len() as u64) as usize];
                 expr(ExprKind::Call {
                     callee: spec.name.to_string(),
                     callee_kind: CalleeKind::Builtin,
-                    args: (0..spec.arity())
-                        .map(|_| gen_expr(rng, fns, env, depth - 1))
+                    args: spec
+                        .params
+                        .iter()
+                        .map(|param| match param {
+                            builtins::Ty::Fn(params, _) if rng.below(2) == 0 => {
+                                gen_lam(rng, fns, env, depth, params.len())
+                            }
+                            _ => gen_expr(rng, fns, env, depth - 1),
+                        })
                         .collect(),
                 })
             }
         }
+    }
+
+    /// `lam` with `count` binders; names carry `depth`, so they are unique
+    /// along any path and never shadow (T005).
+    fn gen_lam(
+        rng: &mut Rng,
+        fns: &[(String, usize)],
+        env: &[String],
+        depth: usize,
+        count: usize,
+    ) -> ast::Expr {
+        let binders: Vec<String> = ["l", "k"][..count]
+            .iter()
+            .map(|prefix| format!("{prefix}{depth}"))
+            .collect();
+        let mut inner = env.to_vec();
+        inner.extend(binders.iter().cloned());
+        expr(ExprKind::Lam {
+            binders,
+            body: Box::new(gen_expr(rng, fns, &inner, depth - 1)),
+        })
     }
 
     fn gen_file(rng: &mut Rng) -> File {
@@ -788,6 +845,7 @@ fn main -> res unit str
     #[test]
     fn parse_print_round_trips_generated_asts() {
         let mut matches = 0;
+        let mut lams = 0;
         for case in 0..500u64 {
             let mut rng = Rng(0x5eed_0000 ^ case);
             let mut file = gen_file(&mut rng);
@@ -795,6 +853,7 @@ fn main -> res unit str
 
             let text = print_file(&file);
             matches += text.matches(" match ").count();
+            lams += text.matches(" lam ").count();
             let output = parser::parse("gen.aph", &text);
             assert!(
                 output.diagnostics.is_empty(),
@@ -811,5 +870,6 @@ fn main -> res unit str
             matches > 100,
             "only {matches} generated `match` expressions"
         );
+        assert!(lams > 100, "only {lams} generated `lam` expressions");
     }
 }

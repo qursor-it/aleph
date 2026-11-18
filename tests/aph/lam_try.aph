@@ -1,0 +1,3 @@
+fn f rs:list res i64 str -> res list i64 str
+ ex f empty res i64 str = ok empty i64
+ ok map lam r try r rs

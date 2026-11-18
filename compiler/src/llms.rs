@@ -39,12 +39,12 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xee0a6776f12cbf1b,
+        hash: 0xf48919c4bf400b5b,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
         contents: GRAMMAR,
-        hash: 0x4e14ec3b092fe8d7,
+        hash: 0x044c0afe8e1bab99,
     },
     SourceDigest {
         path: "spec/diagnostics.md",
@@ -148,7 +148,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("5."),
-        "No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`: fn value, only as higher-order arg.",
+        "No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder for map/filter, 2 fold/map2; no `try`): fn value, only as higher-order arg.",
     );
     section(&mut out, spec_heading("5.1"), &builtins_table());
     section(
@@ -176,7 +176,7 @@ pub fn render() -> String {
     section(
         &mut out,
         "## Examples",
-        "Canonical, check-clean programs (verbatim from `tests/aph/`):",
+        "Check-clean programs (verbatim from `tests/aph/`):",
     );
     for example in EXAMPLES {
         out.push_str("\n```\n");

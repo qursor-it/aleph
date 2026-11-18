@@ -45,9 +45,9 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-027 `dict K V` type and builtins (Proposed ADR first)
 - [x] T-028 JSON parse/print (Proposed ADR first)
 - [x] T-029 Sum types + `match` (Proposed ADR first)
-- [ ] T-045 Lambdas, syntax: keyword `lam` in lexer/lexicon, parser (binder count from the higher-order builtin's function parameter), AST node with ids, printer canonical form, round-trip tests; P-error outside a function-argument position — ADR-0037
-- [ ] T-046 Lambdas, checker: check non-function arguments first, bind lambda binders from the instantiated signature, body type rules for map/filter/fold/map2, T005 for binders, captures of params/lets/match binders/outer binders — ADR-0037
-- [ ] T-047 Lambdas, interpreter: function values with captured values; goldens for map/filter/fold/map2 with captures, nested lambdas, traps inside lambdas (R001/R002/R004) — ADR-0037
+- [x] T-045 Lambdas, syntax: keyword `lam` in lexer/lexicon, parser (binder count from the higher-order builtin's function parameter), AST node with ids, printer canonical form, round-trip tests; P-error outside a function-argument position — ADR-0037
+- [x] T-046 Lambdas, checker: check non-function arguments first, bind lambda binders from the instantiated signature, body type rules for map/filter/fold/map2, T005 for binders, captures of params/lets/match binders/outer binders — ADR-0037
+- [x] T-047 Lambdas, interpreter: function values with captured values; goldens for map/filter/fold/map2 with captures, nested lambdas, traps inside lambdas (R001/R002/R004) — ADR-0037
 - [ ] T-048 Lambdas, native: `AlFn` with a captured-values array, lifted static C functions, callback signature passes the `AlFn`; update wrappers and `tlon/test_tlon.c`; differential tests byte-identical incl. traps — ADR-0037
 - [ ] T-049 Lambdas, tooling: `aleph explain` text and JSON, `aleph edit` on lambda nodes, MCP, `llms.txt` (budget amendment in ADR-0026 if needed) — ADR-0037
 - [ ] T-044 Builtins `ord` (str -> opt i64, code of the first Unicode scalar; `none` on empty) and `chr` (i64 -> opt str, `none` outside valid scalars), in interpreter, Tlön and llms.txt, with goldens and differential tests. Found by the 18 Nov pilot: without them a model rebuilt character codes from an alphabet string and failed (HumanEval 66). Proposed ADR first (ADR-0035)

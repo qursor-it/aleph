@@ -33,6 +33,7 @@ pub const KEYWORDS: &[(&str, &str)] = &[
     ("lnot", "not"),
     ("negate", "neg"),
     ("match", "match"),
+    ("lambda", "lam"),
 ];
 
 /// Type spellings: `(concept, spelling)`.

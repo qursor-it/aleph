@@ -1,0 +1,1 @@
+{"code":"T005","severity":"error","file":"tests/aph/lam_shadow.aph","line":3,"col":10,"msg":"shadowed binding"}

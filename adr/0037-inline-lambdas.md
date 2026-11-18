@@ -83,3 +83,23 @@ byte-identical (T-020), no shadowing (T005).
 - Success is measured, not assumed: after implementation the HumanEval part
   of the token corpus is rewritten with lambdas and counted again; the
   estimate above (0.81) must be confirmed on compiled, test-passing code.
+
+## Amendments
+Made while implementing T-045..T-047 (2026-11-19), where the decision above
+was silent:
+
+- `try` inside a lambda body is `T007` (no enclosing result function inside a
+  lambda): an early return out of a callback has no defined target, and the
+  lambda's result type may still be unresolved when its body is checked.
+- `lam` anywhere but a function-typed builtin parameter is `P001` with
+  `expected: "lam only as function argument of filter fold map map2"` (the
+  list is derived from the builtin table).
+- A binder is scoped to its lambda body, exactly like a `match` binder: two
+  sibling lambdas may reuse a name, and a later `let` may reuse it.
+- The interpreter captures only the outer names the body reads, by value.
+  Values are immutable, so this is observably the same as capturing the
+  whole environment.
+- Until T-048, `aleph build` rejects a program with `lam` in a `let`, `do` or
+  result line with `X001` ("not implemented") at the first lambda, with its
+  node id, before emitting any C. Examples are not compiled, so `lam` in
+  `ex` lines does not block a build.

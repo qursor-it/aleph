@@ -1,0 +1,2 @@
+fn f ps:list str -> list res str str
+ map lam p read p ps

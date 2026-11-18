@@ -44,7 +44,10 @@ expr        = literal
             | ( "some" | "ok" | "err" | "try" | "has" | "isok" ) " " expr
             | "else" " " expr " " expr
             | "." ident " " expr
-            | "match" " " expr arm { arm } ;         (* ADR-0034 *)
+            | "match" " " expr arm { arm }          (* ADR-0034 *)
+            | "lam" { " " ident } " " expr ;         (* ADR-0037; only as the fn argument
+                                                        of map filter fold map2, binder
+                                                        count = that parameter's arity *)
 arm         = " " ident { " " ident } " " expr ;    (* variant, binders, body *)
 
 call        = ident { " " expr } ;                   (* exactly arity(ident) args *)

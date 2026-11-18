@@ -550,7 +550,31 @@ impl<'a> TypeChecker<'a> {
             ExprKind::Has { value } => self.check_has(value),
             ExprKind::IsOk { value } => self.check_isok(value),
             ExprKind::Match { value, arms } => self.check_match(value, arms, expected),
+            ExprKind::Lam { binders, body } => self.check_lam(binders, body, expected),
         }
+    }
+
+    /// `lam`: binders take the expected parameter types, the body the
+    /// expected result type (ADR-0037). The parser places `lam` only at a
+    /// function-typed builtin parameter, so `expected` is a function type.
+    fn check_lam(&mut self, binders: &[String], body: &Expr, expected: Option<&Type>) -> Type {
+        let Some(Type::Fn(params, ret)) = expected.map(|ty| self.resolve(ty)) else {
+            self.check_expr(body, None);
+            return Type::Error;
+        };
+        let saved = self.env.clone();
+        for (binder, ty) in binders.iter().zip(&params) {
+            self.env.insert(binder.clone(), ty.clone());
+        }
+        // No enclosing result function inside a lambda: `try` is T007.
+        let saved_ret = self.current_ret.take();
+        let body_ty = self.check_expr(body, Some(&ret));
+        self.current_ret = saved_ret;
+        self.env = saved;
+        if contains_error(&body_ty) {
+            return Type::Error;
+        }
+        Type::Fn(params, ret)
     }
 
     /// `match`: the scrutinee has the arms' sum type; the expected type flows
@@ -664,8 +688,15 @@ impl<'a> TypeChecker<'a> {
                     .map(|param| self.instantiate(param, &mut slots))
                     .collect();
                 let ret = self.instantiate(spec.ret, &mut slots);
-                for (arg, param) in args.iter().zip(&params) {
-                    self.check_expr(arg, Some(param));
+                // Lambdas last: their binder types come from the other
+                // arguments (ADR-0037).
+                let is_lam = |arg: &Expr| matches!(arg.kind, ExprKind::Lam { .. });
+                for lam_pass in [false, true] {
+                    for (arg, param) in args.iter().zip(&params) {
+                        if is_lam(arg) == lam_pass {
+                            self.check_expr(arg, Some(param));
+                        }
+                    }
                 }
                 for (var, bound) in spec.bounds {
                     self.defer_bound(expr, &slots[var_index(*var)], DeferredKind::Builtin(*bound));
@@ -1765,6 +1796,36 @@ mod tests {
         assert_eq!(codes(&output), ["T004"]);
         let output = check_source(&format!("{SHAPE}fn f s:shape -> f64\n .r s\n"));
         assert_eq!(codes(&output), ["T003"]);
+    }
+
+    #[test]
+    fn lambdas_take_binder_types_from_the_other_arguments() {
+        let output = check_source(
+            "type box | full v:str | hole\nfn f xs:list i64 ys:list str b:box -> list str\n let k 2\n let zs filter lam x > x k xs\n let n fold lam acc x + acc x 0 zs\n let ws map2 lam a s cat show + a n s zs ys\n match b full v map lam w cat w v ws hole map lam w cat w \"!\" ws\n",
+        );
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+        // The fold binder `acc` is typed by `init`, checked before the lambda.
+        let output =
+            check_source("fn f xs:list i64 -> str\n fold lam acc x cat acc show x \"\" xs\n");
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+        // Examples may use lambdas.
+        let output = check_source("fn f -> i64\n ex len map lam x x [1] = 1\n 0\n");
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+    }
+
+    #[test]
+    fn lambda_errors() {
+        let output = check_source("fn f xs:list i64 -> list i64\n filter lam x + x 1 xs\n");
+        assert_eq!(codes(&output), ["T001"]);
+        let output = check_source("fn f xs:list i64 -> i64\n fold lam a x \"s\" 0 xs\n");
+        assert_eq!(codes(&output), ["T001"]);
+        let output = check_source("fn f xs:list i64 -> list str\n map lam x + x 1 xs\n");
+        assert_eq!(codes(&output), ["T001"]);
+        let output = check_source("fn f xs:list str -> list i64\n map lam x + x 1 xs\n");
+        assert_eq!(codes(&output), ["T001"]);
+        let output =
+            check_source("fn f rs:list res i64 str -> res list i64 str\n ok map lam r try r rs\n");
+        assert_eq!(codes(&output), ["T007"]);
     }
 
     #[test]
