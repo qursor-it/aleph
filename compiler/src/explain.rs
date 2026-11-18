@@ -30,6 +30,10 @@
 //! - `examples` repeats its prefix once per example; `-` means no examples.
 //! - `calls` and `builtins` are space-separated sorted names, or `-`.
 //! - `entry` is `main` or `-` when the file has no `main` function.
+//! - `lambdas` (ADR-0037) appears only for a function whose body has a `lam`:
+//!   one line per lambda in pre-order, `a function of x [and y] returning
+//!   BODY` with the canonical body text. Without lambdas the line (and the
+//!   JSON field) is omitted, so other output is unchanged.
 //!
 //! Everything is derived from ordered vectors or [`BTreeSet`]s, so output
 //! never depends on hash-map order. ADR-0023 fixes this layout and the JSON
@@ -96,6 +100,9 @@ pub struct FunctionInfo {
     pub examples: Vec<String>,
     pub calls: Vec<String>,
     pub builtins: Vec<String>,
+    /// Lambdas of the body in pre-order (ADR-0037); omitted when empty.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub lambdas: Vec<String>,
 }
 
 /// One function parameter, with its canonical type spelling.
@@ -211,7 +218,32 @@ fn function_info(
             .collect(),
         calls,
         builtins,
+        lambdas: lambdas(function),
     }
+}
+
+/// `a function of x and y returning BODY` for each `lam` of the body (not
+/// the examples), in pre-order.
+fn lambdas(function: &ast::Fn) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut visit = |expr: &Expr| {
+        if let ExprKind::Lam { binders, body } = &expr.kind {
+            found.push(format!(
+                "a function of {} returning {}",
+                binders.join(" and "),
+                printer::print_expr(body)
+            ));
+        }
+    };
+    for stmt in &function.stmts {
+        match &stmt.kind {
+            StmtKind::Let { value, .. } | StmtKind::Do { value } => {
+                ast::walk_expr(value, &mut visit)
+            }
+        }
+    }
+    ast::walk_expr(&function.result, &mut visit);
+    found
 }
 
 /// User functions and builtins reached from the body (statements and result,
@@ -306,6 +338,9 @@ pub fn to_text(report: &Report) -> String {
         }
         lines.push(format!("  calls: {}", names(&function.calls)));
         lines.push(format!("  builtins: {}", names(&function.builtins)));
+        for lambda in &function.lambdas {
+            lines.push(format!("  lambdas: {lambda}"));
+        }
     }
 
     lines.push(format!("entry: {}", report.entry.as_deref().unwrap_or("-")));

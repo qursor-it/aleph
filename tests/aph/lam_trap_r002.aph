@@ -1,0 +1,7 @@
+fn divall xs:list i64 q:i64 -> list i64
+ ex divall [4] 2 = [2]
+ map lam x / x q xs
+fn main -> unit
+ do print show divall [4 2] 2
+ do print show divall [1] 0
+ nil

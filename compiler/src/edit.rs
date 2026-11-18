@@ -11,7 +11,7 @@ use serde::Deserialize;
 use crate::ast::{self, ExprKind, File};
 use crate::diag::Diagnostic;
 use crate::lexer::{self, TokenKind};
-use crate::{parser, printer};
+use crate::{builtins, parser, printer};
 
 /// One edit as written in the `EDITS` JSON array.
 #[derive(Debug, Deserialize)]
@@ -123,11 +123,11 @@ pub fn apply(file_name: &str, source: &str, edits_json: &str) -> Result<String, 
             _ => None,
         })
         .collect();
-    let (text, _) = substitute(&marked, &fragments, str::to_string);
+    let (text, _) = substitute(&marked, &fragments, |_, fragment| fragment.to_string());
     let reparsed = parser::parse(file_name, &text);
     match (reparsed.file, reparsed.diagnostics.is_empty()) {
         (Some(edited), true) => {
-            check_fragments(file_name, &marked, &fragments)?;
+            check_fragments(file_name, &file, &marked, &fragments)?;
             Ok(printer::print_file(&edited))
         }
         _ => Err(vec![Diagnostic::error(
@@ -379,7 +379,7 @@ fn marker(id: u32) -> String {
 fn substitute(
     marked: &str,
     fragments: &BTreeMap<u32, &str>,
-    wrap: impl Fn(&str) -> String,
+    wrap: impl Fn(u32, &str) -> String,
 ) -> (String, Vec<(u32, u32)>) {
     let mut out = String::new();
     let mut starts = Vec::new();
@@ -392,7 +392,7 @@ fn substitute(
         let line = out.matches('\n').count() + 1;
         let col = out.len() - out.rfind('\n').map_or(0, |i| i + 1) + 1;
         starts.push((line as u32, col as u32));
-        out.push_str(&wrap(fragments[&id]));
+        out.push_str(&wrap(id, fragments[&id]));
         rest = &after[close + 1..];
     }
     out.push_str(rest);
@@ -401,9 +401,13 @@ fn substitute(
 
 /// Every expression fragment must be exactly one expression in place. A
 /// balanced fragment wrapped as `[fragment]` must parse as a one-element list
-/// (otherwise `7 8` would silently become two list elements).
+/// (otherwise `7 8` would silently become two list elements). A fragment in
+/// the function position of `map`/`filter`/`fold`/`map2` is probed as
+/// `[CALLEE fragment 0..]`, because a `lam` only parses there and takes its
+/// binder count from the callee (ADR-0037).
 fn check_fragments(
     file_name: &str,
+    file: &File,
     marked: &str,
     fragments: &BTreeMap<u32, &str>,
 ) -> Result<(), Vec<Diagnostic>> {
@@ -421,7 +425,11 @@ fn check_fragments(
             return Err(not_one(format!("n{id} unbalanced brackets")));
         }
     }
-    let (probe, starts) = substitute(marked, fragments, |fragment| format!("[{fragment}]"));
+    let callees = fn_arg_callees(file);
+    let (probe, starts) = substitute(marked, fragments, |id, fragment| match callees.get(&id) {
+        Some((callee, arity)) => format!("[{callee} {fragment}{}]", " 0".repeat(arity - 1)),
+        None => format!("[{fragment}]"),
+    });
     let output = parser::parse(file_name, &probe);
     let Some(file) = output.file.filter(|_| output.diagnostics.is_empty()) else {
         // Positions in the bracketed probe text would mislead: code and message only.
@@ -463,6 +471,28 @@ fn balanced(fragment: &str) -> bool {
         }
     }
     diagnostics.is_empty() && depth == 0
+}
+
+/// Ids of the function arguments of higher-order builtin calls, with the
+/// callee and its arity.
+fn fn_arg_callees(file: &File) -> HashMap<u32, (&'static str, usize)> {
+    let mut callees = HashMap::new();
+    for_each_expr(file, &mut |expr| {
+        if let ExprKind::Call {
+            callee,
+            callee_kind: ast::CalleeKind::Builtin,
+            args,
+        } = &expr.kind
+        {
+            let spec = builtins::lookup(callee);
+            if let (Some(spec), Some(first)) = (spec, args.first()) {
+                if matches!(spec.params.first(), Some(builtins::Ty::Fn(..))) {
+                    callees.insert(first.id.0, (spec.name, spec.arity()));
+                }
+            }
+        }
+    });
+    callees
 }
 
 fn for_each_expr(file: &File, visit: &mut impl FnMut(&ast::Expr)) {
@@ -808,6 +838,54 @@ mod tests {
             "fn inc x:i64 -> i64\n doc \"add one\"\n ex inc 0 = 1\n ex inc 1 = 2\n + x 1\n"
         );
         assert_eq!(code(r#"[{"op":"insert","node":"n10","text":"1"}]"#), "X009");
+    }
+
+    #[test]
+    fn lambda_bodies_and_whole_lambdas_are_expression_nodes() {
+        // n9 map call, n10 lam, n11 body `+ x k`, n12 x, n13 k, n14 xs.
+        let src = "fn f xs:list i64 k:i64 -> list i64\n map lam x + x k xs\n";
+        let edit = |edits: &str| apply("t.aph", src, edits);
+        let nodes = index(&parser::parse("t.aph", src).file.expect("parses"));
+        assert_eq!((nodes[&10].kind, nodes[&10].end), (Kind::Expr, 14));
+        assert_eq!((nodes[&11].kind, nodes[&11].end), (Kind::Expr, 14));
+        assert_eq!(
+            edit(r#"[{"op":"replace","node":"n11","text":"* x k"}]"#).expect("body"),
+            "fn f xs:list i64 k:i64 -> list i64\n map lam x * x k xs\n"
+        );
+        assert_eq!(
+            edit(r#"[{"op":"replace","node":"n10","text":"lam y - y k"}]"#).expect("lam"),
+            "fn f xs:list i64 k:i64 -> list i64\n map lam y - y k xs\n"
+        );
+        assert_eq!(
+            edit(r#"[{"op":"replace","node":"n10","text":"@abs"}]"#).expect("fn ref"),
+            "fn f xs:list i64 k:i64 -> list i64\n map @abs xs\n"
+        );
+        // Two binders where map takes one, or a lam outside a function argument.
+        let error = |edits: &str| edit(edits).expect_err("rejected")[0].code.clone();
+        assert_eq!(
+            error(r#"[{"op":"replace","node":"n10","text":"lam y z 1"}]"#),
+            "X010"
+        );
+        assert_eq!(
+            error(r#"[{"op":"replace","node":"n12","text":"lam y y"}]"#),
+            "X010"
+        );
+        // Editing inside a replaced lambda conflicts.
+        assert_eq!(
+            error(
+                r#"[{"op":"replace","node":"n10","text":"@abs"},{"op":"replace","node":"n12","text":"k"}]"#
+            ),
+            "X011"
+        );
+        // In a list, extra tokens after the lambda would silently add an element.
+        let list = "fn f xs:list i64 -> list list i64\n [map lam x x xs]\n";
+        let error = apply(
+            "t.aph",
+            list,
+            r#"[{"op":"replace","node":"n10","text":"lam y y [1]"}]"#,
+        )
+        .expect_err("several expressions");
+        assert_eq!(error[0].found.as_deref(), Some("several expressions"));
     }
 
     #[test]

@@ -107,14 +107,22 @@ struct AlRecord {
 typedef enum {
     AL_FN_USER = 0,
     AL_FN_CTOR,
-    AL_FN_BUILTIN
+    AL_FN_BUILTIN,
+    AL_FN_LAM
 } AlFnKind;
 
+/* Callback code: receives its own AlFn (for captured values) and the
+ * arguments (ADR-0037). */
+typedef AlValue (*AlFnCode)(const AlFn *, AlValue *, size_t);
+
 struct AlFn {
-    AlValue (*code)(AlValue *, size_t);
+    AlFnCode code;
     /* `name` must have static storage duration (generated code uses literals). */
     const char *name;
     AlFnKind kind;
+    /* Values a lambda captured when it was evaluated; NULL/0 for `@f`. */
+    const AlValue *captured;
+    size_t ncaptured;
 };
 
 /*
@@ -240,6 +248,26 @@ static inline void aleph_fast_call_leave(size_t frames) {
     aleph_g_eval_depth -= frames;
 }
 
+/* A lambda call mirrors interp `call_lam`: the depth check traps at the
+ * current location (the map/filter/fold/map2 call), then only the call depth
+ * grows; the body's own frames are counted by the body. */
+static inline void aleph_lam_enter(void) {
+    if (aleph_g_stack_base_set) {
+        uintptr_t here = (uintptr_t)&here;
+        uintptr_t used = here <= aleph_g_stack_base ? aleph_g_stack_base - here
+                                                    : here - aleph_g_stack_base;
+        if (AL_UNLIKELY(used > (uintptr_t)(AL_MAIN_STACK_SIZE - AL_STACK_GUARD))) {
+            aleph_trap_at("R004", "stack overflow", NULL);
+        }
+    }
+    if (AL_UNLIKELY(aleph_g_call_depth >= AL_MAX_CALL_DEPTH ||
+                    aleph_g_eval_depth >= AL_MAX_EVAL_DEPTH)) {
+        aleph_trap_at("R004", "stack overflow", NULL);
+    }
+    aleph_g_call_depth += 1;
+}
+static inline void aleph_lam_leave(void) { aleph_g_call_depth -= 1; }
+
 /* Unboxed checked i64 arithmetic; traps match aleph_add_i64 & co. */
 static inline int64_t aleph_fast_add(int64_t a, int64_t b) {
     int64_t r;
@@ -333,9 +361,10 @@ AlValue aleph_some(AlValue value);
 AlValue aleph_ok(AlValue value);
 AlValue aleph_err(AlValue value);
 AlValue aleph_record(const AlRecordInfo *info, const AlValue *fields, size_t count);
-AlValue aleph_fn(AlValue (*code)(AlValue *, size_t), const char *name);
-AlValue aleph_fnval_kind(AlValue (*code)(AlValue *, size_t), const char *name,
-                      AlFnKind kind);
+AlValue aleph_fn(AlFnCode code, const char *name);
+AlValue aleph_fnval_kind(AlFnCode code, const char *name, AlFnKind kind);
+/* A lambda value: copies `count` captured values into the arena. */
+AlValue aleph_fnval_lam(AlFnCode code, const AlValue *captured, size_t count);
 /* Wrap a generated static const AlFn without copying it. */
 AlValue aleph_fnval_static(const AlFn *fn);
 

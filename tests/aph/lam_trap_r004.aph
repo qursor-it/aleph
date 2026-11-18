@@ -1,0 +1,7 @@
+fn g n:i64 k:i64 -> i64
+ ex g 0 3 = 0
+ fold lam acc x + acc if >= x k 0 g + x 1 k 0 [n]
+fn main -> unit
+ do print show g 0 3998
+ do print show g 0 3999
+ nil

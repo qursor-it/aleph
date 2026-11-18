@@ -372,20 +372,37 @@ AlValue aleph_record(const AlRecordInfo *info, const AlValue *fields,
     return value;
 }
 
-AlValue aleph_fnval_kind(AlValue (*code)(AlValue *, size_t), const char *name,
-                      AlFnKind kind) {
+AlValue aleph_fnval_kind(AlFnCode code, const char *name, AlFnKind kind) {
     AlValue value;
     AlFn *fn = (AlFn *)aleph_alloc(sizeof(AlFn));
     fn->code = code;
     fn->name = name;
     fn->kind = kind;
+    fn->captured = NULL;
+    fn->ncaptured = 0;
     value.tag = AL_FN;
     value.u.fn = fn;
     return value;
 }
 
-AlValue aleph_fn(AlValue (*code)(AlValue *, size_t), const char *name) {
+AlValue aleph_fn(AlFnCode code, const char *name) {
     return aleph_fnval_kind(code, name, AL_FN_USER);
+}
+
+AlValue aleph_fnval_lam(AlFnCode code, const AlValue *captured, size_t count) {
+    AlValue value = aleph_fnval_kind(code, "lam", AL_FN_LAM);
+    AlFn *fn = (AlFn *)value.u.fn;
+    if (count > 0) {
+        AlValue *copy;
+        if (count > SIZE_MAX / sizeof(AlValue)) {
+            out_of_memory();
+        }
+        copy = (AlValue *)aleph_alloc(count * sizeof(AlValue));
+        memcpy(copy, captured, count * sizeof(AlValue));
+        fn->captured = copy;
+        fn->ncaptured = count;
+    }
+    return value;
 }
 
 AlValue aleph_fnval_static(const AlFn *fn) {
@@ -516,6 +533,9 @@ bool aleph_values_equal(AlValue left, AlValue right) {
     case AL_FN:
         if (left.u.fn->kind != right.u.fn->kind) {
             return false;
+        }
+        if (left.u.fn->kind == AL_FN_LAM) {
+            return left.u.fn == right.u.fn;
         }
         if (left.u.fn->name == NULL || right.u.fn->name == NULL) {
             return left.u.fn->name == right.u.fn->name &&
@@ -1218,7 +1238,7 @@ AlValue aleph_b_map(AlValue function, AlValue xs) {
     for (index = 0; index < list->len; index += 1) {
         AlValue args[1];
         args[0] = list->items[index];
-        result.u.list->items[index] = fn->code(args, 1);
+        result.u.list->items[index] = fn->code(fn, args, 1);
     }
     return result;
 }
@@ -1233,7 +1253,7 @@ AlValue aleph_b_filter(AlValue function, AlValue xs) {
         AlValue args[1];
         AlValue keep;
         args[0] = list->items[index];
-        keep = fn->code(args, 1);
+        keep = fn->code(fn, args, 1);
         if (keep.u.b) {
             result.u.list->items[kept] = list->items[index];
             kept += 1;
@@ -1252,7 +1272,7 @@ AlValue aleph_b_fold(AlValue function, AlValue init, AlValue xs) {
         AlValue args[2];
         args[0] = accumulator;
         args[1] = list->items[index];
-        accumulator = fn->code(args, 2);
+        accumulator = fn->code(fn, args, 2);
     }
     return accumulator;
 }
@@ -1324,7 +1344,7 @@ AlValue aleph_b_map2(AlValue function, AlValue left, AlValue right) {
         AlValue args[2];
         args[0] = left.u.list->items[index];
         args[1] = right.u.list->items[index];
-        result.u.list->items[index] = fn->code(args, 2);
+        result.u.list->items[index] = fn->code(fn, args, 2);
     }
     return result;
 }

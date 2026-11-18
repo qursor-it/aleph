@@ -1,0 +1,63 @@
+type pt x:i64 y:i64
+type shape | circle r:i64 | sq m:i64 | dot
+fn above xs:list i64 -> list i64
+ ex above [1 3] = [3]
+ let lim 2
+ filter lam x > x lim xs
+fn depth n:i64 -> list i64
+ ex depth 0 = [0]
+ ex depth 2 = [3]
+ if <= n 0 [0] map lam x + x n depth - n 1
+fn evens xs:list i64 -> list bool
+ ex evens [1 2] = [false true]
+ map lam x == % x 2 0 xs
+fn grow s:shape xs:list i64 -> list i64
+ ex grow circle 1 [1] = [2]
+ ex grow dot [1] = [1]
+ match s circle r map lam x + x r xs sq m map lam x * x m xs dot xs
+fn label xs:list i64 ys:list str -> list str
+ ex label [1] ["a"] = ["1a"]
+ map2 lam n t cat show n t xs ys
+fn nest xs:list i64 k:i64 -> list list str
+ ex nest [1] 2 = [["1:2"]]
+ map lam x map lam y cat cat show x ":" show + y k [0] xs
+fn pairs xs:list i64 ys:list i64 -> list i64
+ ex pairs [1 2] [10 20] = [11 22]
+ let bias 0
+ map2 lam a b + + a b bias xs ys
+fn pts xs:list i64 -> list pt
+ ex pts [2] = [pt 2 4]
+ map lam x pt x * x x xs
+fn scale xs:list i64 k:i64 -> list i64
+ ex scale [1 2] 3 = [3 6]
+ map lam x * x k xs
+fn shapes xs:list i64 -> list shape
+ ex shapes [1] = [dot]
+ map lam x if > x 1 circle x dot xs
+fn table xs:list i64 -> list list i64
+ ex table [1] = [[2]]
+ map lam x map lam y + x y xs xs
+fn total xs:list f64 -> f64
+ ex total [1.5] = 1.5
+ fold lam acc x + acc x 0.0 xs
+fn words xs:list str p:str -> list str
+ ex words ["a"] "x" = ["xa"]
+ map lam w cat p w xs
+fn main -> unit
+ do print show scale [1 2 3] 10
+ do print show above [1 2 3 4]
+ do print show grow circle 5 [1 2]
+ do print show grow sq 3 [1 2]
+ do print join map lam row show row table [1 2] ";"
+ do print show label [1 2 3] ["a" "b"]
+ do print show total [1.5 2.5]
+ do print show map lam p + .x p .y p pts [1 2]
+ do print show map lam sh match sh circle r r sq m m dot 0 shapes [1 2]
+ do print show words ["a" "b"] "x-"
+ do print show evens [1 2 3]
+ do print show depth 3
+ do print show pairs [1 2 3] [10 20]
+ do print join map lam row join row "," nest [1 2] 5 ";"
+ do print show fold lam acc x - acc x 100 [1 2 3]
+ do print show len filter lam x > x 0 empty i64
+ nil

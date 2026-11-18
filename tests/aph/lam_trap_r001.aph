@@ -1,0 +1,7 @@
+fn bump xs:list i64 -> list i64
+ ex bump [0] = [9223372036854775807]
+ map lam x + x 9223372036854775807 xs
+fn main -> unit
+ do print "start"
+ do print show bump [0 1]
+ nil

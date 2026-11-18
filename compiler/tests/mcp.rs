@@ -165,3 +165,34 @@ fn main -> unit
     assert_ne!(limited["exit_code"], 0, "{limited}");
     assert_eq!(replies[2]["result"]["isError"], true);
 }
+
+#[test]
+fn tools_work_on_lambda_programs() {
+    // n19 is the lam node, n20 its body (ADR-0037).
+    let source = "fn scale xs:list i64 k:i64 -> list i64\n ex scale [1 2] 3 = [3 6]\n map lam x * x k xs\nfn main -> unit\n print show scale [1 2] 10\n";
+    let replies = session(&[
+        tool_call(1, "check", json!({"source": source})),
+        tool_call(2, "test", json!({"source": source})),
+        tool_call(
+            3,
+            "edit",
+            json!({"source": source, "edits": [{"op":"replace","node":"n20","text":"+ x k"}]}),
+        ),
+        tool_call(4, "explain", json!({"source": source, "json": true})),
+        tool_call(5, "run", json!({"source": source})),
+    ]);
+    for reply in &replies {
+        assert_eq!(reply["result"]["isError"], false, "{reply}");
+    }
+    assert!(outcome(&replies[2])["stdout"]
+        .as_str()
+        .unwrap()
+        .contains(" map lam x + x k xs\n"));
+    let explained: Value =
+        serde_json::from_str(outcome(&replies[3])["stdout"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        explained["functions"][0]["lambdas"],
+        json!(["a function of x returning * x k"])
+    );
+    assert_eq!(outcome(&replies[4])["stdout"], "[10 20]\n");
+}

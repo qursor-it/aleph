@@ -89,30 +89,41 @@ static AlValue list3(AlValue first, AlValue second, AlValue third) {
 static AlValue i64v(int64_t number) { return aleph_i64(number); }
 static AlValue strv(const char *text) { return aleph_str(text); }
 
-static AlValue dummy_fn(AlValue *args, size_t count) {
+static AlValue dummy_fn(const AlFn *self, AlValue *args, size_t count) {
+    (void)self;
     (void)args;
     (void)count;
     return aleph_unit();
 }
 
-static AlValue hof_inc(AlValue *args, size_t count) {
+static AlValue hof_inc(const AlFn *self, AlValue *args, size_t count) {
+    (void)self;
     (void)count;
     return aleph_i64(args[0].u.i64 + 1);
 }
 
-static AlValue hof_positive(AlValue *args, size_t count) {
+static AlValue hof_positive(const AlFn *self, AlValue *args, size_t count) {
+    (void)self;
     (void)count;
     return aleph_bool(args[0].u.i64 > 0);
 }
 
-static AlValue hof_add(AlValue *args, size_t count) {
+static AlValue hof_add(const AlFn *self, AlValue *args, size_t count) {
+    (void)self;
     (void)count;
     return aleph_i64(args[0].u.i64 + args[1].u.i64);
 }
 
 /* The static AlFn values used through aleph_fnval_static. */
-static const AlFn hof_inc_fn = {hof_inc, "hof_inc", AL_FN_USER};
-static const AlFn hof_add_fn = {hof_add, "hof_add", AL_FN_USER};
+static const AlFn hof_inc_fn = {hof_inc, "hof_inc", AL_FN_USER, NULL, 0};
+static const AlFn hof_add_fn = {hof_add, "hof_add", AL_FN_USER, NULL, 0};
+
+/* A lambda body reading its captured values: x * captured[0] + captured[1]. */
+static AlValue lam_affine(const AlFn *self, AlValue *args, size_t count) {
+    (void)count;
+    return aleph_i64(args[0].u.i64 * self->captured[0].u.i64 +
+                     self->captured[1].u.i64);
+}
 
 /* ------------------------------------------------------------------ */
 /* show / literal                                                      */
@@ -476,6 +487,26 @@ static void test_higher_order(void) {
                "fold via aleph_fn");
     check_show(aleph_b_map(static_inc, aleph_list_new(0)), "[]",
                "map empty");
+    {
+        AlValue captured[2];
+        AlValue affine;
+        captured[0] = i64v(10);
+        captured[1] = i64v(1);
+        affine = aleph_fnval_lam(lam_affine, captured, 2);
+        captured[0] = i64v(0); /* the lambda keeps its own copy */
+        check(affine.u.fn->kind == AL_FN_LAM && affine.u.fn->ncaptured == 2,
+              "fnval_lam kind and captured count");
+        check(static_inc.u.fn->captured == NULL && static_inc.u.fn->ncaptured == 0,
+              "static AlFn captures nothing");
+        check_show(aleph_b_map(affine, xs), "[11 21 31]", "map via lambda captures");
+        check_show(aleph_b_map2(affine, xs, xs), "[11 21 31]",
+                   "map2 passes the AlFn");
+        check(aleph_values_equal(affine, affine), "lambda equals itself");
+        check(!aleph_values_equal(affine, aleph_fnval_lam(lam_affine, captured, 2)),
+              "distinct lambda values differ");
+        check(aleph_fnval_lam(lam_affine, NULL, 0).u.fn->captured == NULL,
+              "lambda without captures");
+    }
     check_show(aleph_b_filter(aleph_fn(hof_positive, "hof_positive"),
                               aleph_list_new(0)),
                "[]", "filter empty");

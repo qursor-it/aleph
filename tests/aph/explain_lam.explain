@@ -1,0 +1,18 @@
+capabilities: none
+fn above xs:list i64 k:i64 -> list i64
+  doc: "elements above k"
+  effectful: no
+  examples: above [1 5] 2 = [5]
+  examples: len map lam y y [1] = 1
+  calls: -
+  builtins: filter
+  lambdas: a function of x returning > x k
+fn sums xs:list i64 ys:list i64 -> i64
+  doc: -
+  effectful: no
+  examples: sums [1] [2] = 3
+  calls: -
+  builtins: fold map2
+  lambdas: a function of acc and z returning + acc z
+  lambdas: a function of a and b returning + a b
+entry: -

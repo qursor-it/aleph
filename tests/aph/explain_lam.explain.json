@@ -1,0 +1,65 @@
+{
+  "file": "tests/aph/explain_lam.aph",
+  "capabilities": [],
+  "types": [],
+  "functions": [
+    {
+      "name": "above",
+      "signature": "fn above xs:list i64 k:i64 -> list i64",
+      "params": [
+        {
+          "name": "xs",
+          "type": "list i64"
+        },
+        {
+          "name": "k",
+          "type": "i64"
+        }
+      ],
+      "ret": "list i64",
+      "doc": "elements above k",
+      "effectful": false,
+      "examples": [
+        "above [1 5] 2 = [5]",
+        "len map lam y y [1] = 1"
+      ],
+      "calls": [],
+      "builtins": [
+        "filter"
+      ],
+      "lambdas": [
+        "a function of x returning > x k"
+      ]
+    },
+    {
+      "name": "sums",
+      "signature": "fn sums xs:list i64 ys:list i64 -> i64",
+      "params": [
+        {
+          "name": "xs",
+          "type": "list i64"
+        },
+        {
+          "name": "ys",
+          "type": "list i64"
+        }
+      ],
+      "ret": "i64",
+      "doc": null,
+      "effectful": false,
+      "examples": [
+        "sums [1] [2] = 3"
+      ],
+      "calls": [],
+      "builtins": [
+        "fold",
+        "map2"
+      ],
+      "lambdas": [
+        "a function of acc and z returning + acc z",
+        "a function of a and b returning + a b"
+      ]
+    }
+  ],
+  "entry": null
+}

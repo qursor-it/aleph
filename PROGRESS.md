@@ -619,3 +619,16 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 353 passed, clippy clean
 - decisions: ADR-0037 amendments (try in lambda T007, P001 expected text, binder scoping, capture of read names only, build X001)
 - next: T-048 native lambdas (lift `ExprKind::Lam` to static C fns; captured values = free Vars of the body); then add .out goldens with lambdas
+
+## 2026-11-19T18:00 T-048..T-049 done
+- tlon: `AlFn` = `{code, name, kind, captured, ncaptured}`, `AlFnCode` = `AlValue (*)(const AlFn *, AlValue *, size_t)`; map/filter/fold/map2 call `fn->code(fn, args, n)`; `aleph_fnval_lam` (kind `AL_FN_LAM`, captures copied into the arena); inline `aleph_lam_enter/leave` mirror `interp::call_lam` (check call+eval depth at the current location, then call depth only); test_tlon.c updated (+ lambda capture checks)
+- cgen: X001 gate removed; each `lam` lifted to `aleph_lam_n<id>` (fast, unboxed binders/captures, falls back to cold `aleph_lamslow_n<id>`); captures = body reads minus names bound inside, sorted; lambda bodies excluded from the enclosing frame (temps, `max_eval_depth`); ref wrappers take `aleph_self`, static `AlFn` initializers get `NULL, 0`
+- explain: `lambdas: a function of x [and y] returning BODY` lines / `lambdas` JSON array, only when present (lambda-free output unchanged)
+- edit: lam and lam body are expression nodes; fragments in a higher-order function position are probed as `[CALLEE fragment 0..]`
+- goldens: lam_native.out, lam_trap_r001/r002/r004 (.out/.err/.exit), explain_lam; unit tests cgen/edit, mcp lambda test
+- R004 thresholds through lambdas checked equal in both engines (3 recursion shapes, 12 depth alignments)
+- timing (debug interp): map with capturing lambda over 1M: interp 2.14s, native 0.02s; 2M: 4.34s / 0.05s (linear)
+- llms.txt/SPEC unchanged (nothing native-specific was missing)
+- tests: 356 passed, clippy clean
+- decisions: ADR-0037 amendments (runtime layout, lifting, depth accounting, explain format, edit probe)
+- next: T-044 ord/chr; re-count the HumanEval token corpus with lambdas (ADR-0037 consequence)

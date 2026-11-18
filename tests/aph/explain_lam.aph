@@ -1,0 +1,8 @@
+fn above xs:list i64 k:i64 -> list i64
+ doc "elements above k"
+ ex above [1 5] 2 = [5]
+ ex len map lam y y [1] = 1
+ filter lam x > x k xs
+fn sums xs:list i64 ys:list i64 -> i64
+ ex sums [1] [2] = 3
+ fold lam acc z + acc z 0 map2 lam a b + a b xs ys

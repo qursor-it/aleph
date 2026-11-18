@@ -103,3 +103,35 @@ was silent:
   result line with `X001` ("not implemented") at the first lambda, with its
   node id, before emitting any C. Examples are not compiled, so `lam` in
   `ex` lines does not block a build.
+
+Made while implementing T-048..T-049 (2026-11-19):
+
+- Runtime layout: `AlFn` is `{code, name, kind, captured, ncaptured}`;
+  `code` has type `AlFnCode = AlValue (*)(const AlFn *self, AlValue *args,
+  size_t n)`, and `map`/`filter`/`fold`/`map2` call `fn->code(fn, args, n)`.
+  Static `@f` values are `{..., NULL, 0}`. A lambda value has kind
+  `AL_FN_LAM`, name `"lam"`, and its captured values copied into the arena by
+  `aleph_fnval_lam` each time the `lam` node is evaluated (no allocation of
+  the array when nothing is captured). Two lambda values are equal only when
+  they are the same `AlFn` (unreachable from Aleph: function values are not
+  comparable).
+- Each `lam` node `n<id>` becomes `aleph_lam_n<id>` (the `AlFn` code: fast
+  body with unboxed binders and captures, ADR-0027) and a cold
+  `aleph_lamslow_n<id>` (instrumented body). Captures are the names the body
+  reads minus the names bound inside it (its binders, nested binders, match
+  binders), sorted; T005 keeps those apart from every visible outer name.
+- Depth accounting mirrors `interp::call_lam`: `aleph_lam_enter` checks call
+  and evaluation depth (R004 at the current location, the higher-order call)
+  and then grows only the call depth; the body's own frames are counted by
+  the body. A lambda body is not part of the enclosing function's frame
+  (temporaries, static maximum depth); evaluating the `lam` node itself is
+  one frame.
+- `aleph explain` lists the lambdas of a body in pre-order as `lambdas: a
+  function of x [and y] returning BODY` (text, one line each) and a
+  `lambdas` string array (JSON), both omitted when the body has none, so the
+  ADR-0023 output of lambda-free programs is unchanged. Lambdas in `ex`
+  lines are not listed (like `calls`).
+- `aleph edit`: a lambda and its body are expression nodes (binders are not
+  nodes). A replacement fragment in the function position of a higher-order
+  builtin is checked as `[CALLEE fragment 0 ..]` instead of `[fragment]`, since
+  `lam` only parses there and takes its binder count from the callee.
