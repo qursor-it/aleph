@@ -19,12 +19,14 @@ No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric
 
 ### 5.1 Builtins (v0.1)
 `name signature`; effectful: `!` then capability, if any.
+abs T->T (T i64 or f64)
 args ()->list str
 at list T,i64->opt T
 cat str,str->str
 contains str,str->bool
 count str->i64
 del dict A B,A->dict A B
+ends str,str->bool
 eprint str->unit !
 filter (A->bool),list A->list A
 float str->res f64 str
@@ -44,6 +46,9 @@ keys dict A B->list A
 len list T->i64
 lower str->str
 map (A->B),list A->list B
+map2 (A,B->T),list A,list B->list T
+max T,T->T (T i64 or f64)
+min T,T->T (T i64 or f64)
 print str->unit !
 push list T,T->list T
 put dict A B,A,B->dict A B
@@ -55,8 +60,10 @@ size dict A B->i64
 slice list T,i64,i64->list T
 sort list T->list T (T primitive)
 split str,str->list str
+starts str,str->bool
 sum list i64->i64
 trim str->str
+uniq list T->list T (T primitive)
 upper str->str
 vals dict A B->list B
 write str,str->res unit str ! fs.write

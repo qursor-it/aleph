@@ -1,0 +1,10 @@
+fn demo -> unit
+ ex abs -3 = 3
+ ex min 4 2 = 2
+ ex max 4.0 2.0 = 4.0
+ ex starts "aleph" "al" = true
+ ex ends "aleph" "ph" = true
+ ex uniq [2 1 2] = [1 2]
+ nil
+fn main -> unit
+ print "ok"

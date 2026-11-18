@@ -6,7 +6,7 @@ use std::process::Command;
 
 use alephc::{caps, check, examples, llms, parser, printer};
 
-const TOKEN_BUDGET: usize = 2050;
+const TOKEN_BUDGET: usize = 2110;
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

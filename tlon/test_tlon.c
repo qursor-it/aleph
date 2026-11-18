@@ -484,6 +484,36 @@ static void test_higher_order(void) {
                "7", "fold empty");
 }
 
+/* ADR-0036 builtins. */
+static void test_adr36(void) {
+    check_show(aleph_b_abs(i64v(-5)), "5", "abs i64");
+    check_show(aleph_b_abs(aleph_f64(-2.5)), "2.5", "abs f64");
+    check_show(aleph_b_abs(aleph_f64(-0.0)), "0.0", "abs negative zero");
+    check_show(aleph_b_min(i64v(3), i64v(1)), "1", "min i64");
+    check_show(aleph_b_max(i64v(3), i64v(1)), "3", "max i64");
+    check_show(aleph_b_min(aleph_f64(1.5), aleph_f64(0.5)), "0.5", "min f64");
+    check_show(aleph_b_max(aleph_f64(-1.5), aleph_f64(-0.5)), "-0.5",
+               "max f64");
+    check(aleph_b_starts(strv("hello"), strv("he")).u.b, "starts");
+    check(!aleph_b_starts(strv("he"), strv("hello")).u.b, "starts longer");
+    check(aleph_b_starts(strv("abc"), strv("")).u.b, "starts empty");
+    check(aleph_b_ends(strv("hello"), strv("lo")).u.b, "ends");
+    check(!aleph_b_ends(strv("hello"), strv("he")).u.b, "ends mismatch");
+    check(!aleph_b_ends(strv("lo"), strv("hello")).u.b, "ends longer");
+    check_show(aleph_b_uniq(list3(i64v(3), i64v(1), i64v(3))), "[1 3]",
+               "uniq i64");
+    check_show(aleph_b_uniq(list3(strv("b"), strv("a"), strv("b"))),
+               "[\"a\" \"b\"]", "uniq str");
+    check_show(aleph_b_uniq(aleph_list_new(0)), "[]", "uniq empty");
+    check_show(aleph_b_map2(aleph_fn_static(&hof_add_fn),
+                            list3(i64v(1), i64v(2), i64v(3)),
+                            aleph_list(list3(i64v(10), i64v(20), i64v(0)).u.list->items, 2)),
+               "[11 22]", "map2 shortest length");
+    check_show(aleph_b_map2(aleph_fn_static(&hof_add_fn), aleph_list_new(0),
+                            list3(i64v(1), i64v(2), i64v(3))),
+               "[]", "map2 empty");
+}
+
 /* ------------------------------------------------------------------ */
 /* Filesystem                                                          */
 /* ------------------------------------------------------------------ */
@@ -1107,6 +1137,7 @@ int main(int argc, char **argv) {
     test_dict();
     test_json();
     test_higher_order();
+    test_adr36();
     test_filesystem();
     test_effects();
     test_main_results();
