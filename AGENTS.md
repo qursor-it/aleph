@@ -60,6 +60,7 @@ If you fail on the same task for 2 sessions (check `PROGRESS.md`), mark it `BLOC
 - You build the tools an approved protocol lists under "Tools to build": harnesses, task suites, parsers, counters, reports. Tests first, as for the compiler.
 - You never run an experiment: no model or API calls, no downloads, no GPU jobs, no spending. Tools must run offline in their tests, with fixtures.
 - You never change a protocol's `status`, its Hypotheses, Metrics or Success criterion, and never write files in `experiments/results/`. If a protocol is wrong or cannot be built as written, say so in `PROGRESS.md` and in a note at the end of the protocol under **Amendments**, marked `proposed by agent`.
+- Never write in `experiments/pilot/sessions/`: pilot sessions are added by people only.
 - Experiment tools live in `experiments/tools/`, in Rust inside the workspace or in Python 3 with the standard library only. Any other dependency needs a Proposed ADR first.
 
 ## PROGRESS.md entry format

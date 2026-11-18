@@ -9,6 +9,8 @@ Aleph makes claims that can be wrong: that agents write correct programs in it, 
 | [EXP-003](EXP-003-token-corpus.md) | How many tokens does the same verified program take in Aleph, Python, bash and C? | draft |
 | [EXP-004](EXP-004-finetune-rl.md) | Does fine-tuning plus RL on Aleph beat the same training on Python? | draft |
 
+Before the protocols are approved, sessions run by hand go in [`pilot/`](pilot/README.md), in a fixed format. They help to design the experiments and never count as evidence.
+
 ## Lifecycle
 
 `draft` → `approved` → `running` → `done` (or `abandoned`, with the reason).
