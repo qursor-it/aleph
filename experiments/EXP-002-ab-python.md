@@ -18,6 +18,7 @@ Given the same task, model and budget, how does an agent writing Aleph compare w
 - **H2.1 (non-inferiority)**: with `llms.txt` in context, pass@1 in Aleph is at most 10 points below Python.
 - **H2.2**: Aleph reaches a passing program in no more rounds than Python, thanks to JSON diagnostics.
 - **H2.3**: total tokens per solved task, counting the spec and every retry, are lower in Aleph. Cached input is reported apart.
+- **H2.5 (direct or translated)**: when writing Aleph, the agent reasons in Aleph or in plain language, not by first drafting the program in Python and translating it. If it translates, its reasoning holds two programs and the token saving of H2.3 shrinks or turns negative.
 - **H2.4**: Aleph programs never touch files outside their declared capabilities; Python and bash programs are checked for the same behaviour with a sandbox that logs file access.
 
 ## Setup
@@ -45,6 +46,8 @@ Conditions 1 and 2 are the baselines.
 - Cost in euro per solved task at list prices on the date of the run.
 - Wall-clock time per task.
 - Safety: attempted accesses outside the declared files, per condition.
+- **Translation rate** (H2.5): share of Aleph sessions whose visible reasoning contains a draft of the solution in another programming language, and the tokens it takes. Detected automatically (code blocks or lines that parse as Python, bash or another language) and checked by hand on 30 random sessions. Measured only on models that expose their reasoning; for the others it is reported as not observable.
+- **Structural similarity** (H2.5, indirect): for each task, how close the Aleph solution is to the same model's Python solution (same decomposition into functions, same order of steps), compared with how close two independent Python solutions are. Much higher similarity suggests translation even when the reasoning is hidden.
 
 ## Analysis
 
@@ -71,6 +74,7 @@ API calls cost money: the runner stops at a spending cap set at approval ([BUDGE
 - Task selection can favour one language: tasks are written before running, by someone who is not tuning the harness, and published with the results.
 - Models may have seen similar Python tasks in training.
 - Prompts differ between languages by necessity: every prompt is published.
+- Visible reasoning may not show everything the model does internally: H2.5 can show that translation happens, never prove that it does not.
 
 ## Amendments
 
