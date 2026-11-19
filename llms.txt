@@ -23,6 +23,7 @@ abs T->T (T i64 or f64)
 args ()->list str
 at list T,i64->opt T
 cat str,str->str
+chr i64->opt str
 contains str,str->bool
 count str->i64
 del dict A B,A->dict A B
@@ -49,6 +50,7 @@ map (A->B),list A->list B
 map2 (A,B->T),list A,list B->list T
 max T,T->T (T i64 or f64)
 min T,T->T (T i64 or f64)
+ord str->opt i64
 print str->unit !
 push list T,T->list T
 put dict A B,A,B->dict A B
@@ -78,7 +80,7 @@ T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex`
 JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: L001-L002 P001-P003 F001 T001-T008 T010 E001-E002 C001-C003 R001-R005 X001-X011.
 
 ## 10. Canonical form (ADR-0003)
-AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` rejects different text (F001) with `canonical`. Invariant: `print(parse(t)) == t`; `parse(print(ast)) == ast`.
+AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` rejects different text (F001) with `canonical`.
 
 ## 11. Command line (`aleph`)
 `llms` prints this text; `check FILE [--json]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE` (v0.2). Exit 0 ok, 1 error, 2 usage, 70 trap.

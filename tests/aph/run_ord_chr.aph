@@ -1,0 +1,9 @@
+fn shift c:str k:i64 -> str
+ ex shift "a" 3 = "d"
+ ex shift "z" 1 = "{"
+ else chr + k else ord c 0 ""
+fn main -> unit
+ do print show map lam s else ord s -1 ["A" "é" "€" "😀" ""]
+ do print show map lam n else chr n "?" [97 233 8364 128512 -1 55296 57343 1114111 1114112]
+ do print show count else chr 0 "?"
+ print join map lam c shift c 1 ["H" "A" "L"] ""

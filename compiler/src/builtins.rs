@@ -153,6 +153,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "chr",
+        params: &[&I64],
+        ret: &OPT_STR,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "contains",
         params: &[&STR, &STR],
         ret: &BOOL,
@@ -382,6 +391,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         params: &[&T, &T],
         ret: &T,
         bounds: &[(TyVar::T, Bound::Numeric)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "ord",
+        params: &[&STR],
+        ret: &OPT_I64,
+        bounds: &[],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -628,6 +646,8 @@ mod tests {
             ("ends", 2),
             ("uniq", 1),
             ("map2", 3),
+            ("ord", 1),
+            ("chr", 1),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {

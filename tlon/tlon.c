@@ -1440,6 +1440,46 @@ static bool utf8_valid(const unsigned char *text, size_t len) {
     return true;
 }
 
+/* ADR-0035: scalar value of the first character; none when empty. */
+AlValue aleph_b_ord(AlValue text) {
+    uint32_t codepoint;
+    if (utf8_decode((const unsigned char *)text.u.str->data, text.u.str->len,
+                    &codepoint) == 0) {
+        return aleph_none();
+    }
+    return aleph_some(aleph_i64((int64_t)codepoint));
+}
+
+/* ADR-0035: one-character string; none outside Unicode scalar values. */
+AlValue aleph_b_chr(AlValue code) {
+    int64_t n = code.u.i64;
+    char bytes[4];
+    size_t len;
+    if (n < 0 || n > 0x10FFFF || (n >= 0xD800 && n <= 0xDFFF)) {
+        return aleph_none();
+    }
+    if (n < 0x80) {
+        bytes[0] = (char)n;
+        len = 1;
+    } else if (n < 0x800) {
+        bytes[0] = (char)(0xc0 | (n >> 6));
+        bytes[1] = (char)(0x80 | (n & 0x3f));
+        len = 2;
+    } else if (n < 0x10000) {
+        bytes[0] = (char)(0xe0 | (n >> 12));
+        bytes[1] = (char)(0x80 | ((n >> 6) & 0x3f));
+        bytes[2] = (char)(0x80 | (n & 0x3f));
+        len = 3;
+    } else {
+        bytes[0] = (char)(0xf0 | (n >> 18));
+        bytes[1] = (char)(0x80 | ((n >> 12) & 0x3f));
+        bytes[2] = (char)(0x80 | ((n >> 6) & 0x3f));
+        bytes[3] = (char)(0x80 | (n & 0x3f));
+        len = 4;
+    }
+    return aleph_some(aleph_str_n(bytes, len));
+}
+
 static AlValue string_from_bytes(const char *data, size_t len) {
     return aleph_str_n(data, len);
 }

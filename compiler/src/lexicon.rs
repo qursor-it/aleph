@@ -102,7 +102,7 @@ pub const BUILTINS: &[&str] = &[
     "count", "split", "join", "trim", "upper", "lower", "contains", "show", "int", "float", "args",
     "print", "eprint", "read", "write", "put", "get", "del", "keys", "vals", "size", "json",
     "jparse", "jbool", "jint", "jnum", "jstr", "jlist", "jdict", "abs", "min", "max", "starts",
-    "ends", "uniq", "map2",
+    "ends", "uniq", "map2", "ord", "chr",
 ];
 
 /// Spelling of a keyword given its concept name, e.g. `keyword("function") == Some("fn")`.

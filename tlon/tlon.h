@@ -419,6 +419,8 @@ AlValue aleph_b_abs(AlValue x);
 AlValue aleph_b_min(AlValue left, AlValue right);
 AlValue aleph_b_max(AlValue left, AlValue right);
 AlValue aleph_b_starts(AlValue text, AlValue prefix);
+AlValue aleph_b_ord(AlValue text);
+AlValue aleph_b_chr(AlValue code);
 AlValue aleph_b_ends(AlValue text, AlValue suffix);
 AlValue aleph_b_uniq(AlValue xs);
 AlValue aleph_b_map2(AlValue function, AlValue left, AlValue right);

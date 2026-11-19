@@ -656,3 +656,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
   - edit message for a bare `lam`;
   - an extra T010 after T007 for `try` in a lambda.
 - tests: 356 passed, clippy clean
+
+## 2026-11-19T14:30 T-044 done
+- builtins `ord` (str -> opt i64, scalar value of the first character) and `chr` (i64 -> opt str, none outside Unicode scalar values) in builtins, interp, Tlön, lexicon, SPEC §5.1 and llms.txt
+- golden run_ord_chr covers ASCII, 2-, 3- and 4-byte characters, surrogates and limits, chr 0, and a lambda shift (interpreter and native)
+- llms.txt: dropped the round-trip invariant sentence from §10 to stay within 2110 tokens
+- tests: 356 passed, clippy clean
+- decisions: ADR-0035

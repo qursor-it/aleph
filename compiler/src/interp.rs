@@ -936,6 +936,18 @@ impl<'a> Interp<'a> {
                     args[0].clone()
                 }
             }
+            "ord" => Value::Opt(
+                as_str(&args[0])
+                    .chars()
+                    .next()
+                    .map(|c| Rc::new(Value::I64(i64::from(u32::from(c))))),
+            ),
+            "chr" => Value::Opt(
+                u32::try_from(as_i64(&args[0]))
+                    .ok()
+                    .and_then(char::from_u32)
+                    .map(|c| Rc::new(Value::Str(Rc::from(c.to_string())))),
+            ),
             "starts" => Value::Bool(as_str(&args[0]).starts_with(as_str(&args[1]))),
             "ends" => Value::Bool(as_str(&args[0]).ends_with(as_str(&args[1]))),
             "uniq" => {

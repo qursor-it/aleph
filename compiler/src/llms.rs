@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x10a15150d52e3615,
+        hash: 0x4af6a7ddedd0e017,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -165,7 +165,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("10."),
-        "AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` rejects different text (F001) with `canonical`. Invariant: `print(parse(t)) == t`; `parse(print(ast)) == ast`.",
+        "AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` rejects different text (F001) with `canonical`.",
     );
     section(
         &mut out,
