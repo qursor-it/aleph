@@ -18,7 +18,8 @@
 //!
 //! Builds happen sequentially (one `cc` at a time) and failures are collected
 //! so one run reports every mismatch. Like the other C-backend tests this
-//! skips without `cc`, unless `ALEPH_REQUIRE_CC=1` is set.
+//! skips without `cc`, unless `ALEPH_REQUIRE_CC=1` is set. Builds add
+//! `-Wall -Wextra -Werror` through `ALEPH_CFLAGS` so warnings fail (T-051).
 
 mod common;
 
@@ -447,6 +448,8 @@ fn interpreter_and_native_are_byte_identical_for_every_run_golden() {
     if skip_without_cc("differential run goldens") {
         return;
     }
+    // Safe: the only test in this binary, so no other thread reads the env.
+    std::env::set_var("ALEPH_CFLAGS", "-Wall -Wextra -Werror");
 
     let mut failures = Vec::new();
     for aph in run_cases() {

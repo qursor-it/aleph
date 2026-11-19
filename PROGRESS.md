@@ -683,3 +683,11 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - humaneval_to_aleph.py: the reserved names gain `lam` and the ADR-0035/0036 builtins. `evaluate.py --validate` still gives 156/0 and the translator tests pass.
 - T-035..T-042 skipped: EXP-001..004 are `draft` (AGENTS.md, Experiments).
 - next: no open task is takeable (T-030/T-031 paused, experiment tasks need approved protocols)
+
+## 2026-11-19T17:00 T-051..T-052 done
+- T-051 cgen.rs: `L_epilogue:` only when the body has a `try` (slow path, as the fast path already did); `L_n` locations and `RI_` record infos with no `&` reference are pruned after generation; let binders, slow-path boxed params and `do` results get `(void)`; `aleph_entry` references every non-main `aleph_fn_*` with `(void)` (uncalled static functions). All goldens and bench/heavy build clean with `-Wall -Wextra -Werror` (gcc).
+- main.rs: `aleph build` appends `ALEPH_CFLAGS` (whitespace-split) to the cc command; default build unchanged. tests/differential.rs sets it to `-Wall -Wextra -Werror`.
+- T-052 interp.rs: the `lams` table stores each lambda's distinct read names (computed once); `Scope` layers lambda binders and match binders on the captured/outer env instead of cloning it. Debug build: `map lam x + x k` over 300k 0.58s -> 0.34s; nested `map lam x len map lam y ...` (100k x 3) 1.42s -> 1.05s.
+- tests: 356 passed (differential with ALEPH_REQUIRE_CC=1), clippy clean
+- decisions: none (no ADR)
+- next: clang not installed here, so only gcc warnings were checked.

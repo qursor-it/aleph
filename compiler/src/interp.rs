@@ -13,7 +13,7 @@
 //! turns it back into that function's value.
 
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{BufWriter, Write};
 use std::path::{Component, Path, PathBuf};
@@ -162,6 +162,44 @@ impl Trap {
 /// The variable environment of one function body.
 pub type Env = BTreeMap<String, Value>;
 
+/// The names visible to an expression: a function body's `Env`, or binders
+/// (match or lambda) layered on an outer scope without copying it (T-052).
+#[derive(Clone, Copy)]
+enum Scope<'e> {
+    Root(&'e Env),
+    Bind {
+        names: &'e [String],
+        values: &'e [Value],
+        outer: &'e Scope<'e>,
+    },
+}
+
+impl<'e> Scope<'e> {
+    fn get(&self, name: &str) -> Option<&'e Value> {
+        match *self {
+            Scope::Root(env) => env.get(name),
+            Scope::Bind {
+                names,
+                values,
+                outer,
+            } => names
+                .iter()
+                .zip(values)
+                .rev()
+                .find(|(binder, _)| *binder == name)
+                .map(|(_, value)| value)
+                .or_else(|| outer.get(name)),
+        }
+    }
+}
+
+/// A `lam` node and the distinct names its body reads, which are the
+/// candidates for capture (ADR-0037).
+struct LamInfo<'a> {
+    expr: &'a Expr,
+    reads: Vec<&'a str>,
+}
+
 /// Internal control flow: a value, or an early return produced by `try`.
 enum Flow {
     Value(Value),
@@ -188,7 +226,7 @@ pub struct Interp<'a> {
     /// Constructor (record type or sum variant) name to its fields.
     records: BTreeMap<&'a str, &'a [ast::Field]>,
     /// Every `lam` node of the file, by id (ADR-0037).
-    lams: BTreeMap<NodeId, &'a Expr>,
+    lams: BTreeMap<NodeId, LamInfo<'a>>,
     call_depth: usize,
     eval_depth: usize,
     /// When set, every `read`/`write` call traps with R003 without touching
@@ -220,8 +258,15 @@ impl<'a> Interp<'a> {
         }
         let mut lams = BTreeMap::new();
         let mut visit = |expr: &'a Expr| {
-            if matches!(expr.kind, ExprKind::Lam { .. }) {
-                lams.insert(expr.id, expr);
+            if let ExprKind::Lam { body, .. } = &expr.kind {
+                let mut reads = BTreeSet::new();
+                ast::walk_expr(body, &mut |node: &'a Expr| {
+                    if let ExprKind::Var { name } = &node.kind {
+                        reads.insert(name.as_str());
+                    }
+                });
+                let reads = reads.into_iter().collect();
+                lams.insert(expr.id, LamInfo { expr, reads });
             }
         };
         for function in &file.fns {
@@ -272,7 +317,7 @@ impl<'a> Interp<'a> {
     /// A `try` that returns early has no enclosing function here, so its
     /// payload is returned as the value.
     pub fn eval_expr(&mut self, expr: &Expr, env: &Env) -> Result<Value, Trap> {
-        match self.eval(expr, env)? {
+        match self.eval(expr, &Scope::Root(env))? {
             Flow::Value(value) | Flow::Return(value) => Ok(value),
         }
     }
@@ -297,7 +342,7 @@ impl<'a> Interp<'a> {
         }
     }
 
-    fn eval(&mut self, expr: &Expr, env: &Env) -> Result<Flow, Trap> {
+    fn eval(&mut self, expr: &Expr, env: &Scope) -> Result<Flow, Trap> {
         if self.eval_depth >= MAX_EVAL_DEPTH {
             return Err(Trap::new("R004", "stack overflow", expr.id, expr.span));
         }
@@ -307,7 +352,7 @@ impl<'a> Interp<'a> {
         result
     }
 
-    fn eval_inner(&mut self, expr: &Expr, env: &Env) -> Result<Flow, Trap> {
+    fn eval_inner(&mut self, expr: &Expr, env: &Scope) -> Result<Flow, Trap> {
         match &expr.kind {
             ExprKind::Int { value } => Ok(Flow::Value(Value::I64(*value))),
             ExprKind::Float { value } => {
@@ -436,22 +481,21 @@ impl<'a> Interp<'a> {
                 if arm.binders.is_empty() {
                     return self.eval(&arm.body, env);
                 }
-                let mut inner = env.clone();
-                for (binder, field) in arm.binders.iter().zip(fields.iter()) {
-                    inner.insert(binder.clone(), field.clone());
-                }
+                let inner = Scope::Bind {
+                    names: &arm.binders,
+                    values: &fields,
+                    outer: env,
+                };
                 self.eval(&arm.body, &inner)
             }
-            ExprKind::Lam { body, .. } => {
+            ExprKind::Lam { .. } => {
                 // Capture by value only the outer names the body reads.
                 let mut captured = Env::new();
-                ast::walk_expr(body, &mut |node| {
-                    if let ExprKind::Var { name } = &node.kind {
-                        if let Some(value) = env.get(name) {
-                            captured.insert(name.clone(), value.clone());
-                        }
+                for name in &self.lams[&expr.id].reads {
+                    if let Some(value) = env.get(name) {
+                        captured.insert(name.to_string(), value.clone());
                     }
-                });
+                }
                 Ok(Flow::Value(Value::Fn(FnTarget::Lam(
                     expr.id,
                     Rc::new(captured),
@@ -465,7 +509,7 @@ impl<'a> Interp<'a> {
         op: BinOp,
         lhs: &Expr,
         rhs: &Expr,
-        env: &Env,
+        env: &Scope,
         expr: &Expr,
     ) -> Result<Flow, Trap> {
         if matches!(op, BinOp::And | BinOp::Or) {
@@ -577,20 +621,20 @@ impl<'a> Interp<'a> {
 
         for stmt in &function.stmts {
             match &stmt.kind {
-                StmtKind::Let { name, value } => match self.eval(value, &env)? {
+                StmtKind::Let { name, value } => match self.eval(value, &Scope::Root(&env))? {
                     Flow::Value(value) => {
                         env.insert(name.clone(), value);
                     }
                     Flow::Return(value) => return Ok(value),
                 },
-                StmtKind::Do { value } => match self.eval(value, &env)? {
+                StmtKind::Do { value } => match self.eval(value, &Scope::Root(&env))? {
                     Flow::Value(_) => {}
                     Flow::Return(value) => return Ok(value),
                 },
             }
         }
 
-        match self.eval(&function.result, &env)? {
+        match self.eval(&function.result, &Scope::Root(&env))? {
             Flow::Value(value) | Flow::Return(value) => Ok(value),
         }
     }
@@ -636,17 +680,19 @@ impl<'a> Interp<'a> {
         node: NodeId,
         span: Span,
     ) -> Result<Value, Trap> {
-        let lam: &'a Expr = self.lams[&id];
+        let lam: &'a Expr = self.lams[&id].expr;
         let ExprKind::Lam { binders, body } = &lam.kind else {
             panic!("`n{}` is not a lambda", id.0);
         };
         if self.call_depth >= MAX_CALL_DEPTH || self.eval_depth >= MAX_EVAL_DEPTH {
             return Err(Trap::new("R004", "stack overflow", node, span));
         }
-        let mut env = captured.clone();
-        for (binder, value) in binders.iter().zip(args) {
-            env.insert(binder.clone(), value);
-        }
+        let outer = Scope::Root(captured);
+        let env = Scope::Bind {
+            names: binders,
+            values: &args,
+            outer: &outer,
+        };
         self.call_depth += 1;
         let result = self.eval(body, &env);
         self.call_depth -= 1;
