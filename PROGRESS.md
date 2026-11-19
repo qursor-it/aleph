@@ -691,3 +691,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 356 passed (differential with ALEPH_REQUIRE_CC=1), clippy clean
 - decisions: none (no ADR)
 - next: clang not installed here, so only gcc warnings were checked.
+
+## 2026-11-19T18:00 T-051..T-052 review round 1
+- Opus review 8.5/10.
+- IMPORTANT, fixed: the differential test forced `-Werror` (gcc 11 only) and overwrote a user's ALEPH_CFLAGS. Now the default is `-Wall -Wextra`, `ALEPH_WERROR=1` adds `-Werror` (FREEZE.md uses it), and an exported ALEPH_CFLAGS is kept.
+- minor, fixed:
+  - the table prune ignores string-literal contents (an Aleph string "&RI_pt" kept an unused table, so -Werror failed); unit test added;
+  - ALEPH_CFLAGS now goes after the fixed flags, so it wins;
+  - ALEPH_CFLAGS is documented in an ADR-0025 amendment.
+- tests: 357 passed (with ALEPH_WERROR=1 ALEPH_REQUIRE_CC=1), clippy clean

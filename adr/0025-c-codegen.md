@@ -206,3 +206,10 @@ int main(int argc, char **argv)
   semantics.
 - The runtime remains the only place that implements values, traps,
   capabilities and builtins; generated C is glue.
+
+## Amendments (Proposed, agent, 2026-11-19, T-051)
+- `aleph build` appends the whitespace-separated flags of `ALEPH_CFLAGS`, when
+  set, after `-std=c99 -O2 -pthread` (so they win, e.g. `-O0`); no shell, no
+  quoting. Generated C is warning-free under `-Wall -Wextra` with gcc;
+  `cargo test` builds the differential goldens with `-Wall -Wextra`, and with
+  `-Werror` when `ALEPH_WERROR=1`.

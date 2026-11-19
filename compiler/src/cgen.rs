@@ -121,9 +121,10 @@ impl<'a> Generator<'a> {
     /// Drop the record infos and locations that no code refers to, so the C
     /// stays clean under `-Wall -Wextra` (unused-const-variable).
     fn prune_tables(&mut self, start: usize, end: usize) {
-        let rest = &self.out[end..];
-        let locations = used_names(rest, "&L_n");
-        let records = used_names(rest, "&RI_");
+        // String literals may contain user text such as "&RI_pt": not references.
+        let rest = without_string_literals(&self.out[end..]);
+        let locations = used_names(&rest, "&L_n");
+        let records = used_names(&rest, "&RI_");
         let kept: String = self.out[start..end]
             .split_inclusive('\n')
             .filter(|line| {
@@ -1647,6 +1648,34 @@ impl<'a> Generator<'a> {
 }
 
 /// The C identifiers that follow each `prefix` in `code` (`&L_n12` -> `12`).
+/// `code` with the contents of every C string literal removed (escapes kept
+/// paired, so `\"` does not end a literal).
+fn without_string_literals(code: &str) -> String {
+    let mut out = String::with_capacity(code.len());
+    let mut chars = code.chars();
+    let mut in_string = false;
+    while let Some(c) = chars.next() {
+        if in_string {
+            match c {
+                '\\' => {
+                    chars.next();
+                }
+                '"' => {
+                    in_string = false;
+                    out.push(c);
+                }
+                _ => {}
+            }
+        } else {
+            if c == '"' {
+                in_string = true;
+            }
+            out.push(c);
+        }
+    }
+    out
+}
+
 fn used_names<'c>(code: &'c str, prefix: &str) -> BTreeSet<&'c str> {
     code.split(prefix)
         .skip(1)
@@ -1926,5 +1955,13 @@ mod tests {
         assert!(code.contains("aleph_b_map"));
         assert!(code.contains("aleph_b_fold"));
         assert!(!code.contains("X005"));
+    }
+
+    #[test]
+    fn string_literals_do_not_count_as_table_references() {
+        let code = "aleph_str_n(\"&RI_pt \\\" &L_n3\", 9); f(&L_n4);";
+        let stripped = without_string_literals(code);
+        assert_eq!(used_names(&stripped, "&L_n"), BTreeSet::from(["4"]));
+        assert!(used_names(&stripped, "&RI_").is_empty());
     }
 }

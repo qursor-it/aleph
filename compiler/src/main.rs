@@ -254,11 +254,13 @@ fn build_command(cli: &cli::Cli) -> ExitCode {
     }
 
     let compiler = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
-    // Extra flags for tests (e.g. `-Wall -Wextra -Werror` in tests/differential.rs).
+    // Extra flags, whitespace-separated, after the fixed ones so they win
+    // (e.g. `-O0`; tests/differential.rs passes `-Wall -Wextra`).
     let extra = std::env::var("ALEPH_CFLAGS").unwrap_or_default();
     let result = Command::new(&compiler)
+        .args(["-std=c99", "-O2", "-pthread"])
         .args(extra.split_whitespace())
-        .args(["-std=c99", "-O2", "-pthread", "-o"])
+        .arg("-o")
         .arg(out)
         .arg(&gen_c)
         .arg(&tlon_c)
