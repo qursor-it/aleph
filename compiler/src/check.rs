@@ -698,17 +698,34 @@ impl<'a> TypeChecker<'a> {
                 // Lambdas last: their binder types come from the other
                 // arguments (ADR-0037).
                 let is_lam = |arg: &Expr| matches!(arg.kind, ExprKind::Lam { .. });
-                // The expected result type can type `ok x` in a lambda body or
-                // `ok 0` as fold's init; only with lambdas, so other programs
-                // keep their diagnostics.
-                if args.iter().any(is_lam) {
-                    if let Some(expected) = expected {
-                        self.unify(&ret, expected);
+                // Order (ADR-0037): plain arguments, then the expected result
+                // type (only with a lambda, so other calls keep their
+                // diagnostics), then `ok`/`err`/`none` arguments that need it,
+                // then lambdas, whose binder types come from all of the above.
+                // A conflicting expected type rolls back and is reported at the call.
+                let has_lam = args.iter().any(is_lam);
+                let needs_expected = |arg: &Expr| {
+                    has_lam
+                        && matches!(
+                            arg.kind,
+                            ExprKind::Ok { .. } | ExprKind::Err { .. } | ExprKind::None { .. }
+                        )
+                };
+                for pass in 0..3 {
+                    if pass == 1 && has_lam {
+                        if let Some(expected) = expected {
+                            self.unify(&ret, expected);
+                        }
                     }
-                }
-                for lam_pass in [false, true] {
                     for (arg, param) in args.iter().zip(&params) {
-                        if is_lam(arg) == lam_pass {
+                        let arg_pass = if is_lam(arg) {
+                            2
+                        } else if needs_expected(arg) {
+                            1
+                        } else {
+                            0
+                        };
+                        if arg_pass == pass {
                             self.check_expr(arg, Some(param));
                         }
                     }

@@ -141,3 +141,8 @@ Made while implementing T-048..T-049 (2026-11-19):
   and `fold lam a x .. ok 0 xs` type-check instead of T010. Calls without a
   lambda are unchanged. A lambda with no captures is one static `AlFn` in
   generated C (no arena allocation per evaluation).
+- (review round 2) Order of checking a builtin call with a lambda: plain
+  arguments, then the expected type (unify; a conflict rolls back and is
+  reported at the call as before), then `ok`/`err`/`none` arguments, then
+  lambdas. Unifying before the plain arguments moved mismatch errors into
+  lambda bodies.

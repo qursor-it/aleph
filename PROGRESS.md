@@ -639,3 +639,20 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - minor, fixed: a lambda with no captures is one static AlFn (no arena allocation per evaluation).
 - minor, noted: the llms wording "Canonical, check-clean" became "Check-clean" in fb8c7f7, to fit the budget.
 - tests: 356 passed, clippy clean
+
+## 2026-11-19T13:00 T-045..T-049 review round 2
+- Opus review 8/10.
+- IMPORTANT, fixed: the early expected-type unification (round-1 fix) moved mismatch errors into lambda bodies. Builtin calls with a lambda are now checked in this order:
+  - plain arguments;
+  - the expected type;
+  - `ok`/`err`/`none` arguments;
+  - lambdas.
+- Goldens lam_mismatch_fold and lam_mismatch_filter: one T001 at the call. lam_ok still passes.
+- minor, fixed: the SPEC `lam` row states the order.
+- minor, fixed: new task T-050 for the token recount the ADR requires.
+- minor, not changed:
+  - the interpreter recomputes captures on every lambda evaluation (about 40% slower than `@f` in debug);
+  - two static AlFn per capture-free lambda (fast and slow body; correct);
+  - edit message for a bare `lam`;
+  - an extra T010 after T007 for `try` in a lambda.
+- tests: 356 passed, clippy clean

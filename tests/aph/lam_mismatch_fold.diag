@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/lam_mismatch_fold.aph","line":3,"col":2,"node":"n13","msg":"type mismatch","expected":"list i64","found":"i64"}
