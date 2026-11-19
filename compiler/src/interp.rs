@@ -90,41 +90,122 @@ pub enum Value {
 
 /// Structural equality used by examples and `==`/`!=` (ADR-0021).
 ///
-/// Floats compare with IEEE `==`, so `NaN != NaN`.
+/// Floats compare with IEEE `==`, so `NaN != NaN`. The traversal uses an
+/// explicit stack so a deeply nested value does not overflow the Rust stack.
 pub fn values_equal(left: &Value, right: &Value) -> bool {
-    match (left, right) {
-        (Value::I64(a), Value::I64(b)) => a == b,
-        (Value::F64(a), Value::F64(b)) => a == b,
-        (Value::Bool(a), Value::Bool(b)) => a == b,
-        (Value::Str(a), Value::Str(b)) => a == b,
-        (Value::Unit, Value::Unit) => true,
-        (Value::List(a), Value::List(b)) => {
-            a.len() == b.len() && a.iter().zip(b.iter()).all(|(a, b)| values_equal(a, b))
+    let mut stack: Vec<(&Value, &Value)> = vec![(left, right)];
+    while let Some((left, right)) = stack.pop() {
+        match (left, right) {
+            (Value::I64(a), Value::I64(b)) if a != b => return false,
+            (Value::F64(a), Value::F64(b)) if a != b => return false,
+            (Value::Bool(a), Value::Bool(b)) if a != b => return false,
+            (Value::Str(a), Value::Str(b)) if a != b => return false,
+            (Value::I64(_), Value::I64(_))
+            | (Value::F64(_), Value::F64(_))
+            | (Value::Bool(_), Value::Bool(_))
+            | (Value::Str(_), Value::Str(_))
+            | (Value::Unit, Value::Unit) => {}
+            (Value::List(a), Value::List(b)) => {
+                if a.len() != b.len() {
+                    return false;
+                }
+                stack.extend(a.iter().zip(b.iter()));
+            }
+            (Value::Opt(a), Value::Opt(b)) => match (a, b) {
+                (None, None) => {}
+                (Some(a), Some(b)) => stack.push((a, b)),
+                _ => return false,
+            },
+            (Value::Res(a), Value::Res(b)) => match (a, b) {
+                (Ok(a), Ok(b)) | (Err(a), Err(b)) => stack.push((a, b)),
+                _ => return false,
+            },
+            (Value::Record(an, af), Value::Record(bn, bf)) => {
+                if an != bn || af.len() != bf.len() {
+                    return false;
+                }
+                stack.extend(af.iter().zip(bf.iter()));
+            }
+            (Value::Dict(a), Value::Dict(b)) => {
+                if a.len() != b.len() {
+                    return false;
+                }
+                for ((ak, av), (bk, bv)) in a.iter().zip(b.iter()) {
+                    stack.push((ak, bk));
+                    stack.push((av, bv));
+                }
+            }
+            // Equal when `show` prints the same text, so `-0.0` differs from `0.0`.
+            (Value::Json(a, _), Value::Json(b, _)) => {
+                if crate::json::print(a) != crate::json::print(b) {
+                    return false;
+                }
+            }
+            (Value::Fn(a), Value::Fn(b)) if a != b => return false,
+            (Value::Fn(_), Value::Fn(_)) => {}
+            _ => return false,
         }
-        (Value::Opt(a), Value::Opt(b)) => match (a, b) {
-            (None, None) => true,
-            (Some(a), Some(b)) => values_equal(a, b),
-            _ => false,
-        },
-        (Value::Res(a), Value::Res(b)) => match (a, b) {
-            (Ok(a), Ok(b)) | (Err(a), Err(b)) => values_equal(a, b),
-            _ => false,
-        },
-        (Value::Record(an, af), Value::Record(bn, bf)) => {
-            an == bn
-                && af.len() == bf.len()
-                && af.iter().zip(bf.iter()).all(|(a, b)| values_equal(a, b))
+    }
+    true
+}
+
+/// Move every uniquely-owned child of `value` into `stack`.
+///
+/// Shared children are left alone: dropping their `Rc` only decrements a
+/// count, so no recursive destruction happens there.
+fn take_children(value: &mut Value, stack: &mut Vec<Value>) {
+    match value {
+        Value::List(items) => {
+            if let Some(items) = Rc::get_mut(items) {
+                stack.append(items);
+            }
         }
-        (Value::Dict(a), Value::Dict(b)) => {
-            a.len() == b.len()
-                && a.iter()
-                    .zip(b.iter())
-                    .all(|((ak, av), (bk, bv))| values_equal(ak, bk) && values_equal(av, bv))
+        Value::Opt(Some(inner)) => {
+            if let Some(inner) = Rc::get_mut(inner) {
+                stack.push(std::mem::replace(inner, Value::Unit));
+            }
         }
-        // Equal when `show` prints the same text, so `-0.0` differs from `0.0`.
-        (Value::Json(a, _), Value::Json(b, _)) => crate::json::print(a) == crate::json::print(b),
-        (Value::Fn(a), Value::Fn(b)) => a == b,
-        _ => false,
+        Value::Res(Ok(inner)) | Value::Res(Err(inner)) => {
+            if let Some(inner) = Rc::get_mut(inner) {
+                stack.push(std::mem::replace(inner, Value::Unit));
+            }
+        }
+        Value::Record(_, fields) => {
+            if let Some(fields) = Rc::get_mut(fields) {
+                stack.append(fields);
+            }
+        }
+        Value::Dict(pairs) => {
+            if let Some(pairs) = Rc::get_mut(pairs) {
+                for (key, val) in pairs.drain(..) {
+                    stack.push(key);
+                    stack.push(val);
+                }
+            }
+        }
+        Value::Json(payload, _) => {
+            if let Some(payload) = Rc::get_mut(payload) {
+                stack.push(std::mem::replace(payload, Value::Unit));
+            }
+        }
+        Value::Fn(FnTarget::Lam(_, captured)) => {
+            if let Some(captured) = Rc::get_mut(captured) {
+                for value in captured.values_mut() {
+                    stack.push(std::mem::replace(value, Value::Unit));
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+impl Drop for Value {
+    fn drop(&mut self) {
+        let mut stack = Vec::new();
+        take_children(self, &mut stack);
+        while let Some(mut value) = stack.pop() {
+            take_children(&mut value, &mut stack);
+        }
     }
 }
 
@@ -330,7 +411,7 @@ impl<'a> Interp<'a> {
     fn interpret_main(&mut self) -> Result<i32, Trap> {
         let function = *self.fns.get("main").expect("checked file has a main");
         let value = self.call_user(function, Vec::new(), function.id, function.span)?;
-        match value {
+        match &value {
             Value::Res(Err(error)) => {
                 let message = match error.as_ref() {
                     Value::Str(text) => text.to_string(),
@@ -428,7 +509,7 @@ impl<'a> Interp<'a> {
             ExprKind::Dict { .. } => Ok(Flow::Value(Value::Dict(Rc::new(Vec::new())))),
             ExprKind::Field { name, value } => {
                 let record = eval_value!(self, value, env);
-                let Value::Record(type_name, fields) = record else {
+                let Value::Record(type_name, fields) = &record else {
                     panic!("type checker guarantees a record");
                 };
                 let item = self
@@ -451,14 +532,17 @@ impl<'a> Interp<'a> {
             ExprKind::Err { value } => Ok(Flow::Value(Value::Res(Err(Rc::new(eval_value!(
                 self, value, env
             )))))),
-            ExprKind::Try { value } => match eval_value!(self, value, env) {
-                Value::Res(Ok(value)) => Ok(Flow::Value(value.as_ref().clone())),
-                Value::Res(Err(error)) => Ok(Flow::Return(Value::Res(Err(error)))),
-                _ => panic!("type checker guarantees a result for try"),
-            },
+            ExprKind::Try { value } => {
+                let value = eval_value!(self, value, env);
+                match &value {
+                    Value::Res(Ok(value)) => Ok(Flow::Value(value.as_ref().clone())),
+                    Value::Res(Err(error)) => Ok(Flow::Return(Value::Res(Err(error.clone())))),
+                    _ => panic!("type checker guarantees a result for try"),
+                }
+            }
             ExprKind::Else { value, default } => {
                 let value = eval_value!(self, value, env);
-                match value {
+                match &value {
                     Value::Opt(Some(value)) | Value::Res(Ok(value)) => {
                         Ok(Flow::Value(value.as_ref().clone()))
                     }
@@ -475,19 +559,20 @@ impl<'a> Interp<'a> {
                 Value::Res(Ok(_))
             )))),
             ExprKind::Match { value, arms } => {
-                let Value::Record(variant, fields) = eval_value!(self, value, env) else {
+                let value = eval_value!(self, value, env);
+                let Value::Record(variant, fields) = &value else {
                     panic!("type checker guarantees a sum value for match");
                 };
                 let arm = arms
                     .iter()
-                    .find(|arm| *arm.variant == *variant)
+                    .find(|arm| arm.variant.as_str() == variant.as_ref())
                     .unwrap_or_else(|| panic!("no arm for variant `{variant}`"));
                 if arm.binders.is_empty() {
                     return self.eval(&arm.body, env);
                 }
                 let inner = Scope::Bind {
                     names: &arm.binders,
-                    values: &fields,
+                    values: fields.as_slice(),
                     outer: env,
                 };
                 self.eval(&arm.body, &inner)
@@ -1158,62 +1243,130 @@ pub fn run_main_with<O: Write + Send, E: Write + Send>(
     })
 }
 
+/// Deepest value level [`literal`] expands before printing `...`.
+const MAX_LITERAL_DEPTH: usize = 100;
+
+/// One pending step of the iterative value formatter.
+enum ShowTask<'a> {
+    Value(&'a Value, bool, usize),
+    Text(&'static str),
+}
+
+/// Render `value` without recursing over its structure.
+///
+/// `quote_string` quotes a string at this level; children always quote theirs.
+/// `max_depth` caps `literal`, whose output is diagnostic text.
+fn format_value(value: &Value, quote_string: bool, max_depth: Option<usize>) -> String {
+    let mut out = String::new();
+    let mut stack = vec![ShowTask::Value(value, quote_string, 0)];
+    while let Some(task) = stack.pop() {
+        match task {
+            ShowTask::Text(text) => out.push_str(text),
+            ShowTask::Value(value, quote_string, depth) => match value {
+                Value::I64(number) => out.push_str(&number.to_string()),
+                Value::F64(number) => out.push_str(&format!("{number:?}")),
+                Value::Bool(flag) => out.push_str(if *flag { "true" } else { "false" }),
+                Value::Str(text) if quote_string => {
+                    out.push('"');
+                    out.push_str(&ast::escape_str(text));
+                    out.push('"');
+                }
+                Value::Str(text) => out.push_str(text),
+                Value::Unit => out.push_str("nil"),
+                Value::List(values) => {
+                    if max_depth.is_some_and(|max| depth >= max) {
+                        out.push_str("...");
+                        continue;
+                    }
+                    out.push('[');
+                    stack.push(ShowTask::Text("]"));
+                    for (index, item) in values.iter().enumerate().rev() {
+                        stack.push(ShowTask::Value(item, true, depth + 1));
+                        if index > 0 {
+                            stack.push(ShowTask::Text(" "));
+                        }
+                    }
+                }
+                Value::Opt(Some(inner)) => {
+                    if max_depth.is_some_and(|max| depth >= max) {
+                        out.push_str("...");
+                        continue;
+                    }
+                    out.push_str("some ");
+                    stack.push(ShowTask::Value(inner, true, depth + 1));
+                }
+                Value::Opt(None) => out.push_str("none"),
+                Value::Res(Ok(inner)) => {
+                    if max_depth.is_some_and(|max| depth >= max) {
+                        out.push_str("...");
+                        continue;
+                    }
+                    out.push_str("ok ");
+                    stack.push(ShowTask::Value(inner, true, depth + 1));
+                }
+                Value::Res(Err(inner)) => {
+                    if max_depth.is_some_and(|max| depth >= max) {
+                        out.push_str("...");
+                        continue;
+                    }
+                    out.push_str("err ");
+                    stack.push(ShowTask::Value(inner, true, depth + 1));
+                }
+                Value::Record(name, fields) => {
+                    if max_depth.is_some_and(|max| depth >= max) {
+                        out.push_str("...");
+                        continue;
+                    }
+                    out.push_str(name);
+                    for field in fields.iter().rev() {
+                        stack.push(ShowTask::Value(field, true, depth + 1));
+                        stack.push(ShowTask::Text(" "));
+                    }
+                }
+                Value::Dict(pairs) => {
+                    if max_depth.is_some_and(|max| depth >= max) {
+                        out.push_str("...");
+                        continue;
+                    }
+                    out.push_str(lexicon::type_name("dict").expect("dict"));
+                    for (key, val) in pairs.iter().rev() {
+                        stack.push(ShowTask::Value(val, true, depth + 1));
+                        stack.push(ShowTask::Text(" "));
+                        stack.push(ShowTask::Value(key, true, depth + 1));
+                        stack.push(ShowTask::Text(" "));
+                    }
+                }
+                Value::Json(payload, _) => out.push_str(&json::print(payload)),
+                Value::Fn(target) => match target {
+                    FnTarget::User(name) | FnTarget::Ctor(name) => {
+                        out.push('@');
+                        out.push_str(name);
+                    }
+                    FnTarget::Builtin(name) => {
+                        out.push('@');
+                        out.push_str(name);
+                    }
+                    FnTarget::Lam(..) => out.push_str(lexicon::keyword("lambda").expect("lam")),
+                },
+            },
+        }
+    }
+    out
+}
+
 /// `show` from SPEC §5.1: primitives, with list literals quoting strings.
 pub fn show(value: &Value) -> String {
-    match value {
-        Value::I64(number) => number.to_string(),
-        Value::F64(number) => format!("{number:?}"),
-        Value::Bool(flag) => flag.to_string(),
-        Value::Str(text) => text.to_string(),
-        Value::Unit => "nil".to_string(),
-        Value::List(values) => {
-            let items: Vec<String> = values.iter().map(show_literal).collect();
-            format!("[{}]", items.join(" "))
-        }
-        Value::Opt(Some(value)) => format!("some {}", show_literal(value)),
-        Value::Opt(None) => "none".to_string(),
-        Value::Res(Ok(value)) => format!("ok {}", show_literal(value)),
-        Value::Res(Err(value)) => format!("err {}", show_literal(value)),
-        Value::Record(name, fields) => {
-            let mut text = name.to_string();
-            for field in fields.iter() {
-                text.push(' ');
-                text.push_str(&show_literal(field));
-            }
-            text
-        }
-        Value::Dict(pairs) => {
-            let mut text = lexicon::type_name("dict").expect("dict").to_string();
-            for (key, val) in pairs.iter() {
-                text.push(' ');
-                text.push_str(&show_literal(key));
-                text.push(' ');
-                text.push_str(&show_literal(val));
-            }
-            text
-        }
-        Value::Json(payload, _) => json::print(payload),
-        Value::Fn(target) => match target {
-            FnTarget::User(name) | FnTarget::Ctor(name) => format!("@{name}"),
-            FnTarget::Builtin(name) => format!("@{name}"),
-            FnTarget::Lam(..) => lexicon::keyword("lambda").expect("lam").to_string(),
-        },
-    }
+    format_value(value, false, None)
 }
 
 /// Deterministic Aleph literal text for `value` (ADR-0022).
 ///
 /// Unlike [`show`], a top-level string is quoted. Nested values use prefix
-/// syntax without parentheses, which is unambiguous in Aleph.
+/// syntax without parentheses, which is unambiguous in Aleph. Values nested
+/// deeper than [`MAX_LITERAL_DEPTH`] are truncated to `...` so a diagnostic
+/// never walks an arbitrarily deep value.
 pub fn literal(value: &Value) -> String {
-    show_literal(value)
-}
-
-fn show_literal(value: &Value) -> String {
-    match value {
-        Value::Str(text) => format!("\"{}\"", ast::escape_str(text)),
-        _ => show(value),
-    }
+    format_value(value, true, Some(MAX_LITERAL_DEPTH))
 }
 
 /// `some payload` when the json payload passes `kind`, else `none`.
@@ -1536,6 +1689,38 @@ mod tests {
 
     fn trap_code(result: Result<Value, Trap>) -> &'static str {
         result.expect_err("expected a trap").code
+    }
+
+    /// A sum-like record chain `s (s (... z))` with `depth` constructors.
+    fn deep_sum(depth: usize) -> Value {
+        let s: Rc<str> = Rc::from("s");
+        let z: Rc<str> = Rc::from("z");
+        let mut value = Value::Record(z, Rc::new(Vec::new()));
+        for _ in 0..depth {
+            value = Value::Record(s.clone(), Rc::new(vec![value]));
+        }
+        value
+    }
+
+    #[test]
+    fn deep_value_drop_is_iterative() {
+        drop(deep_sum(1_000_000));
+    }
+
+    #[test]
+    fn deep_value_equality_and_literal_are_iterative() {
+        let value = deep_sum(1_000_000);
+        let copy = value.clone();
+        assert!(values_equal(&value, &copy));
+        let text = literal(&value);
+        assert!(text.ends_with("..."), "literal was not truncated");
+        assert!(
+            text.len() < 1_000,
+            "literal was not capped: {} bytes",
+            text.len()
+        );
+        drop(copy);
+        drop(value);
     }
 
     #[test]

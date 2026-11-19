@@ -1,0 +1,9 @@
+type nat | s n:nat | z
+fn isz x:nat -> bool
+ ex isz z = true
+ match x s n false z true
+fn succ x:nat i:i64 -> nat
+ ex isz succ z 5 = false
+ s x
+fn main -> unit
+ print show isz fold @succ z range 0 1000000
