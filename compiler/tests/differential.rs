@@ -19,7 +19,8 @@
 //! Builds happen sequentially (one `cc` at a time) and failures are collected
 //! so one run reports every mismatch. Like the other C-backend tests this
 //! skips without `cc`, unless `ALEPH_REQUIRE_CC=1` is set. Builds add
-//! `-Wall -Wextra -Werror` through `ALEPH_CFLAGS` so warnings fail (T-051).
+//! `-Wall -Wextra -Werror` to any user `ALEPH_CFLAGS` so warnings fail
+//! (T-051); `ALEPH_WERROR=0` drops `-Werror`.
 
 mod common;
 

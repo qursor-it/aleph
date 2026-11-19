@@ -711,3 +711,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
   - ADR-0025 amendment wording.
 - minor, not changed: a non-UTF-8 ALEPH_CFLAGS is ignored.
 - tests: 357 passed (ALEPH_REQUIRE_CC=1, default -Werror), clippy clean
+
+## 2026-11-19T20:00 T-051..T-052 review round 3
+- Opus review 8/10.
+- IMPORTANT, fixed, older than T-051: tlon.c used `realpath` undeclared. `_POSIX_C_SOURCE` alone does not declare it; only Ubuntu's -O2 FORTIFY happened to. At -O0 (now documented through ALEPH_CFLAGS) or on other distros, fs programs crashed, and gcc 14 fails the build. Now `_XOPEN_SOURCE 700`. New test build_flags builds bench_linecount with `-O0 -U_FORTIFY_SOURCE -Wall -Wextra -Werror` and runs it; it fails without the fix.
+- minor, fixed: comments in main.rs and the differential.rs module doc.
+- The review cap (3 rounds) is reached; the round-3 fix was not re-reviewed.
+- tests: 358 passed (ALEPH_REQUIRE_CC=1), clippy clean

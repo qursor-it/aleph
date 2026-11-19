@@ -255,7 +255,9 @@ fn build_command(cli: &cli::Cli) -> ExitCode {
 
     let compiler = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
     // Extra flags, whitespace-separated, after the fixed ones so they win
-    // (e.g. `-O0`; tests/differential.rs passes `-Wall -Wextra`).
+    // (e.g. `-O0`). cc's stderr is discarded on success, so warning flags
+    // only matter with `-Werror` (tests/differential.rs adds
+    // `-Wall -Wextra -Werror`).
     let extra = std::env::var("ALEPH_CFLAGS").unwrap_or_default();
     let result = Command::new(&compiler)
         .args(["-std=c99", "-O2", "-pthread"])

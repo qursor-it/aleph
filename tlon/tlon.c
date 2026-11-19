@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700 /* POSIX 2008 plus realpath (not declared by _POSIX_C_SOURCE alone) */
 
 /*
  * Tlön, the Aleph runtime (v0.1).  See tlon/tlon.h and ADR-0024.
