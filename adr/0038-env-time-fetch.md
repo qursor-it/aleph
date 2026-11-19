@@ -88,3 +88,8 @@ Options for `fetch` transport (score 1-10):
 - Round 2: native stderr moved from a /tmp file to a pipe read with poll
   (no temp file, no TMPDIR dependence), child stdin from /dev/null, set-up
   failures are `curl failed`, `env` names with `=` or empty are `none`.
+- Round 3: the certain fix never offers a host outside the allowlist (an
+  IPv6 or `_` URL gets no fix); curl error text that is not UTF-8 is `curl
+  failed` in both engines; a failed stdout read is `fetch: io error` in both;
+  curl gets the default SIGPIPE. curl's stderr is not capped: only a hostile
+  `curl` on PATH could make it large.

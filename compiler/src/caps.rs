@@ -150,6 +150,14 @@ impl<'a> Normalized<'a> {
 /// Whether a `use` item is invalid (`C003`): an empty prefix, a prefix with a
 /// `..` segment, a host that is not a bare host name or IPv4 address
 /// (`[A-Za-z0-9.-]+`), or a filesystem/network capability without a path.
+/// A `net.host` value: `[A-Za-z0-9.-]+` (ADR-0038).
+fn valid_host(host: &str) -> bool {
+    !host.is_empty()
+        && host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+}
+
 fn invalid_use(item: &ast::Use) -> bool {
     match item.path.as_deref() {
         Some("") => true,
@@ -157,9 +165,7 @@ fn invalid_use(item: &ast::Use) -> bool {
             Capability::FsRead | Capability::FsWrite => {
                 path.split('/').any(|segment| segment == "..")
             }
-            Capability::NetHost => !path
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-'),
+            Capability::NetHost => !valid_host(path),
             Capability::Env | Capability::Time => false,
         },
         None => matches!(
@@ -315,10 +321,17 @@ fn literal_use_line(spec: &builtins::BuiltinSpec, args: &[Expr]) -> Option<Strin
             }
             value
         }
-        Capability::NetHost => url_host(match &args.first()?.kind {
-            ExprKind::Str { value } => value,
-            _ => return None,
-        })?,
+        Capability::NetHost => {
+            let host = url_host(match &args.first()?.kind {
+                ExprKind::Str { value } => value,
+                _ => return None,
+            })?;
+            // Never offer a line that is itself C003 (ADR-0028: fixes are certain).
+            if !valid_host(host) {
+                return None;
+            }
+            host
+        }
         Capability::Env | Capability::Time => return None,
     };
     Some(format!(
@@ -455,6 +468,17 @@ mod tests {
         );
         assert_eq!(codes(&diagnostics), ["C001"]);
         assert!(diagnostics[0].fix.is_none());
+    }
+
+    #[test]
+    fn fetch_fix_is_never_an_invalid_host() {
+        for url in ["http://[::1]:8080/x", "http://ex_a.com/x"] {
+            let source =
+                format!("fn main -> res unit str\n let body try fetch \"{url}\"\n ok nil\n");
+            let diagnostics = caps(&source);
+            assert_eq!(codes(&diagnostics), ["C001"], "{url}");
+            assert!(diagnostics[0].fix.is_none(), "{url}");
+        }
     }
 
     #[test]

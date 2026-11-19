@@ -3185,6 +3185,7 @@ AlValue aleph_b_fetch(AlValue url_value) {
         if (err_pipe[1] > STDERR_FILENO) {
             close(err_pipe[1]);
         }
+        (void)signal(SIGPIPE, SIG_DFL); /* Tlön ignores it; curl should not inherit that */
         execvp("curl", argv);
         saved = errno;
         ignored = write(exec_pipe[1], &saved, sizeof(saved));
@@ -3322,7 +3323,8 @@ AlValue aleph_b_fetch(AlValue url_value) {
             result = fetch_error("response too large", 18);
         } else {
             fetch_curl_line(err, err_len, &line, &line_len);
-            if (line_len == 0) {
+            if (line_len == 0 ||
+                !utf8_valid((const unsigned char *)line, line_len)) {
                 result = fetch_error("curl failed", 11);
             } else {
                 result = fetch_error(line, line_len);

@@ -203,7 +203,7 @@ Effectful:
 | `eprint s` | str -> unit | none |
 | `read path` | str -> res str str | `fs.read` covering path |
 | `write path s` | str, str -> res unit str | `fs.write` covering path |
-| `env name` | str -> opt str (`some` value, `none` if unset or not UTF-8) | `env` |
+| `env name` | str -> opt str (`some` value; `none` if unset, not UTF-8, or the name is empty or has `=`/NUL) | `env` |
 | `now` | -> i64 (milliseconds since the Unix epoch, wall clock) | `time` |
 | `fetch url` | str -> res str str (HTTP GET body) | `net.host` matching the URL host |
 

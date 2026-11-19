@@ -1599,12 +1599,13 @@ fn fetch(url: &str) -> Value {
     // Read at most one byte past the limit; anything more than the limit means
     // the response is too large and curl must be killed.
     let mut body = Vec::new();
-    let _ = stdout
+    let read_failed = stdout
         .by_ref()
         .take((LIMIT + 1) as u64)
-        .read_to_end(&mut body);
+        .read_to_end(&mut body)
+        .is_err();
     let too_large = body.len() > LIMIT;
-    if too_large {
+    if too_large || read_failed {
         let _ = child.kill();
     }
     let status = child.wait();
@@ -1612,6 +1613,9 @@ fn fetch(url: &str) -> Value {
 
     if too_large {
         return result_err("fetch: response too large");
+    }
+    if read_failed {
+        return result_err("fetch: io error"); // as Tlön
     }
 
     let error_text = curl_error_text(&stderr);
@@ -1623,7 +1627,7 @@ fn fetch(url: &str) -> Value {
         if status.as_ref().ok().and_then(|status| status.code()) == Some(63) {
             return result_err("fetch: response too large");
         }
-        if error_text.trim().is_empty() {
+        if error_text.is_empty() {
             return result_err("fetch: curl failed");
         }
         return result_err(&format!("fetch: {error_text}"));
@@ -1637,8 +1641,9 @@ fn fetch(url: &str) -> Value {
 /// The first line of curl's stderr with its `curl: (N) ` prefix removed.
 fn curl_error_text(stderr: &[u8]) -> String {
     let first = stderr.split(|byte| *byte == b'\n').next().unwrap_or(&[]);
-    let text = String::from_utf8_lossy(first);
-    let text = text.trim_end();
+    // Not UTF-8 -> empty, so the caller says `curl failed` (as Tlön).
+    let text = std::str::from_utf8(first).unwrap_or("");
+    let text = text.trim_end_matches([' ', '\t', '\r']);
     let Some(rest) = text.strip_prefix("curl: (") else {
         return text.to_string();
     };
