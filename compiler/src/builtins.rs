@@ -216,6 +216,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "fetch",
+        params: &[&STR],
+        ret: &RES_STR_STR,
+        bounds: &[],
+        effect: Effect::Effectful,
+        capability: Some(Capability::NetHost),
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "filter",
         params: &[&FILTER_FN, &LIST_A],
         ret: &LIST_A,
@@ -638,6 +647,7 @@ mod tests {
             ("args", 0),
             ("env", 1),
             ("now", 0),
+            ("fetch", 1),
             ("print", 1),
             ("eprint", 1),
             ("read", 1),
@@ -750,6 +760,11 @@ mod tests {
         assert_eq!(now.capability, Some(Capability::Time));
         assert_eq!(now.path_arg, None);
 
+        let fetch = lookup("fetch").unwrap();
+        assert_eq!(fetch.effect, Effect::Effectful);
+        assert_eq!(fetch.capability, Some(Capability::NetHost));
+        assert_eq!(fetch.path_arg, None);
+
         for spec in BUILTINS {
             if let Some(capability) = spec.capability {
                 assert_eq!(spec.effect, Effect::Effectful);
@@ -760,6 +775,7 @@ mod tests {
                         "write" => Capability::FsWrite,
                         "env" => Capability::Env,
                         "now" => Capability::Time,
+                        "fetch" => Capability::NetHost,
                         other => panic!("unexpected capability on `{other}`"),
                     }
                 );

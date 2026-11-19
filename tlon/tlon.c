@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -2904,6 +2905,350 @@ static AlValue io_error_value(int error) {
         break;
     }
     return aleph_err(aleph_str(text));
+}
+
+static bool ascii_case_equal(const char *left, const char *right,
+                            size_t len) {
+    size_t index;
+    for (index = 0; index < len; index += 1) {
+        unsigned char a = (unsigned char)left[index];
+        unsigned char b = (unsigned char)right[index];
+        if (a >= 'A' && a <= 'Z') {
+            a = (unsigned char)(a - 'A' + 'a');
+        }
+        if (b >= 'A' && b <= 'Z') {
+            b = (unsigned char)(b - 'A' + 'a');
+        }
+        if (a != b) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Host of an http:// or https:// URL (ADR-0038), as a slice of `url`. */
+static bool url_host_bytes(const char *url, size_t len, const char **host,
+                           size_t *host_len) {
+    const char *start;
+    const char *limit = url + len;
+    const char *authority_end;
+    const char *host_end;
+    const char *cursor;
+
+    if (memchr(url, '\0', len) != NULL) {
+        return false;
+    }
+    if (len >= 7 && memcmp(url, "http://", 7) == 0) {
+        start = url + 7;
+    } else if (len >= 8 && memcmp(url, "https://", 8) == 0) {
+        start = url + 8;
+    } else {
+        return false;
+    }
+    authority_end = limit;
+    for (cursor = start; cursor < limit; cursor += 1) {
+        if (*cursor == '/' || *cursor == '?' || *cursor == '#') {
+            authority_end = cursor;
+            break;
+        }
+    }
+    for (cursor = start; cursor < authority_end; cursor += 1) {
+        if (*cursor == '@') {
+            return false;
+        }
+    }
+    host_end = authority_end;
+    for (cursor = start; cursor < authority_end; cursor += 1) {
+        if (*cursor == ':') {
+            host_end = cursor;
+            break;
+        }
+    }
+    if (host_end == start) {
+        return false;
+    }
+    *host = start;
+    *host_len = (size_t)(host_end - start);
+    return true;
+}
+
+static bool host_allowed_bytes(const char *host, size_t host_len) {
+    size_t index;
+    for (index = 0; index < g_use_count; index += 1) {
+        const char *declared = g_uses[index].path;
+        if (g_uses[index].cap != AL_CAP_NET_HOST || declared == NULL) {
+            continue;
+        }
+        if (strlen(declared) == host_len &&
+            ascii_case_equal(declared, host, host_len)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void append_bytes(char **buffer, size_t *used, size_t *capacity,
+                         const char *data, size_t count) {
+    size_t next;
+    char *grown;
+    if (count == 0) {
+        return;
+    }
+    if (*used > SIZE_MAX - count) {
+        free(*buffer);
+        out_of_memory();
+    }
+    next = *used + count;
+    if (next > *capacity) {
+        size_t wanted = *capacity == 0 ? 4096 : *capacity;
+        while (wanted < next) {
+            if (wanted > SIZE_MAX / 2) {
+                free(*buffer);
+                out_of_memory();
+            }
+            wanted *= 2;
+        }
+        grown = (char *)realloc(*buffer, wanted);
+        if (grown == NULL) {
+            free(*buffer);
+            out_of_memory();
+        }
+        *buffer = grown;
+        *capacity = wanted;
+    }
+    memcpy(*buffer + *used, data, count);
+    *used = next;
+}
+
+/* `fetch: ` followed by `text`, as an `err` value. */
+static AlValue fetch_error(const char *text, size_t len) {
+    static const char prefix[] = "fetch: ";
+    size_t prefix_len = sizeof(prefix) - 1;
+    char *message = (char *)malloc(prefix_len + len + 1);
+    AlValue value;
+    if (message == NULL) {
+        out_of_memory();
+    }
+    memcpy(message, prefix, prefix_len);
+    if (len > 0) {
+        memcpy(message + prefix_len, text, len);
+    }
+    message[prefix_len + len] = '\0';
+    value = aleph_err(aleph_str_n(message, prefix_len + len));
+    free(message);
+    return value;
+}
+
+/* The first line of curl's stderr with its `curl: (N) ` prefix removed. */
+static AlValue fetch_curl_error(const char *stderr_data, size_t len) {
+    const char *line = stderr_data;
+    size_t line_len = 0;
+    const char *close;
+    size_t after;
+
+    while (line_len < len && stderr_data[line_len] != '\n') {
+        line_len += 1;
+    }
+    while (line_len > 0 &&
+           (line[line_len - 1] == ' ' || line[line_len - 1] == '\t' ||
+            line[line_len - 1] == '\r')) {
+        line_len -= 1;
+    }
+    if (line_len >= 7 && memcmp(line, "curl: (", 7) == 0) {
+        close = (const char *)memchr(line + 7, ')', line_len - 7);
+        if (close != NULL) {
+            after = (size_t)(close - line) + 1;
+            if (after < line_len && line[after] == ' ') {
+                after += 1;
+            }
+            line += after;
+            line_len -= after;
+        }
+    }
+    return fetch_error(line, line_len);
+}
+
+static AlValue fetch_not_found(void) {
+    static const char message[] = "curl not found";
+    return fetch_error(message, sizeof(message) - 1);
+}
+
+AlValue aleph_b_fetch(AlValue url_value) {
+    const char *host;
+    size_t host_len;
+    char *url;
+    int out_pipe[2];
+    int exec_pipe[2];
+    int stderr_fd;
+    char stderr_path[] = "/tmp/aleph-fetch-XXXXXX";
+    pid_t child;
+    ssize_t count;
+    int exec_error = 0;
+    int status = 0;
+    bool io_failed = false;
+    char *out = NULL;
+    char *err = NULL;
+    size_t out_len = 0;
+    size_t out_cap = 0;
+    size_t err_len = 0;
+    size_t err_cap = 0;
+    AlValue result;
+
+    if (!url_host_bytes(url_value.u.str->data, url_value.u.str->len, &host,
+                        &host_len)) {
+        aleph_trap("R003", "capability violation");
+    }
+    if (!host_allowed_bytes(host, host_len)) {
+        aleph_trap("R003", "capability violation");
+    }
+    url = string_to_cstr(url_value.u.str);
+    if (pipe(out_pipe) != 0) {
+        free(url);
+        return fetch_error("io error", 8);
+    }
+    if (pipe(exec_pipe) != 0) {
+        close(out_pipe[0]);
+        close(out_pipe[1]);
+        free(url);
+        return fetch_error("io error", 8);
+    }
+    stderr_fd = mkstemp(stderr_path);
+    if (stderr_fd < 0) {
+        close(out_pipe[0]);
+        close(out_pipe[1]);
+        close(exec_pipe[0]);
+        close(exec_pipe[1]);
+        free(url);
+        return fetch_error("io error", 8);
+    }
+    (void)unlink(stderr_path);
+    (void)fcntl(exec_pipe[1], F_SETFD, FD_CLOEXEC);
+
+    child = fork();
+    if (child < 0) {
+        close(out_pipe[0]);
+        close(out_pipe[1]);
+        close(exec_pipe[0]);
+        close(exec_pipe[1]);
+        close(stderr_fd);
+        free(url);
+        return fetch_error("io error", 8);
+    }
+    if (child == 0) {
+        char *const argv[] = {
+            (char *)"curl",          (char *)"-q",
+            (char *)"-sS",           (char *)"--fail",
+            (char *)"--max-time",    (char *)"30",
+            (char *)"--max-redirs",  (char *)"0",
+            (char *)"--proto",       (char *)"=http,https",
+            (char *)"--max-filesize", (char *)"16777216",
+            (char *)"--",            url,
+            NULL};
+        int saved;
+        ssize_t ignored;
+        close(out_pipe[0]);
+        close(exec_pipe[0]);
+        if (dup2(out_pipe[1], STDOUT_FILENO) < 0 ||
+            dup2(stderr_fd, STDERR_FILENO) < 0) {
+            _exit(127);
+        }
+        close(out_pipe[1]);
+        close(stderr_fd);
+        execvp("curl", argv);
+        saved = errno;
+        ignored = write(exec_pipe[1], &saved, sizeof(saved));
+        (void)ignored;
+        _exit(127);
+    }
+
+    close(out_pipe[1]);
+    close(exec_pipe[1]);
+    do {
+        count = read(exec_pipe[0], &exec_error, sizeof(exec_error));
+    } while (count < 0 && errno == EINTR);
+    close(exec_pipe[0]);
+
+    if (count != (ssize_t)sizeof(exec_error)) {
+        exec_error = 0;
+    }
+    for (;;) {
+        char chunk[8192];
+        count = read(out_pipe[0], chunk, sizeof(chunk));
+        if (count < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            io_failed = true;
+            break;
+        }
+        if (count == 0) {
+            break;
+        }
+        append_bytes(&out, &out_len, &out_cap, chunk, (size_t)count);
+    }
+    close(out_pipe[0]);
+    while (waitpid(child, &status, 0) < 0) {
+        if (errno != EINTR) {
+            io_failed = true;
+            break;
+        }
+    }
+
+    if (lseek(stderr_fd, 0, SEEK_SET) >= 0) {
+        for (;;) {
+            char chunk[8192];
+            count = read(stderr_fd, chunk, sizeof(chunk));
+            if (count < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                break;
+            }
+            if (count == 0) {
+                break;
+            }
+            append_bytes(&err, &err_len, &err_cap, chunk, (size_t)count);
+        }
+    }
+    close(stderr_fd);
+
+    if (exec_error != 0) {
+        free(out);
+        free(err);
+        free(url);
+        if (exec_error == ENOENT) {
+            return fetch_not_found();
+        }
+        return fetch_error(strerror(exec_error), strlen(strerror(exec_error)));
+    }
+    if (io_failed) {
+        free(out);
+        free(err);
+        free(url);
+        return fetch_error("io error", 8);
+    }
+    free(url);
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        result = fetch_curl_error(err, err_len);
+        free(out);
+        free(err);
+        return result;
+    }
+    if (out_len > 16777216) {
+        free(out);
+        free(err);
+        return fetch_error("response too large", 18);
+    }
+    if (!utf8_valid((const unsigned char *)out, out_len)) {
+        free(out);
+        free(err);
+        return fetch_error("body is not valid UTF-8", 23);
+    }
+    result = aleph_ok(aleph_str_n(out != NULL ? out : "", out_len));
+    free(out);
+    free(err);
+    return result;
 }
 
 AlValue aleph_b_read(AlValue path_value) {

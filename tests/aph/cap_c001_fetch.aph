@@ -1,0 +1,3 @@
+fn main -> res unit str
+ let body try fetch "http://example.com/ok"
+ ok nil

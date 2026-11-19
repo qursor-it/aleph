@@ -843,7 +843,8 @@ impl<'a> Generator<'a> {
                 let cap = match item.cap {
                     Capability::FsRead => "AL_CAP_FS_READ",
                     Capability::FsWrite => "AL_CAP_FS_WRITE",
-                    _ => return None,
+                    Capability::NetHost => "AL_CAP_NET_HOST",
+                    Capability::Env | Capability::Time => return None,
                 };
                 item.path.as_deref().map(|path| (cap, path))
             })

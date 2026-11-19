@@ -1,0 +1,1 @@
+{"code":"C002","severity":"error","file":"tests/aph/cap_c002_fetch_host.aph","line":3,"col":15,"node":"n8","msg":"host not covered by capability","expected":"example.com","found":"http://other.com/x","fix":{"op":"insert","node":"n0","with":"use net.host \"other.com\""}}

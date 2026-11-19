@@ -17,12 +17,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{BufWriter, Write};
 use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 use std::rc::Rc;
 
 use crate::ast::{
     self, BinOp, CalleeKind, Capability, Expr, ExprKind, NodeId, Span, StmtKind, UnOp,
 };
 use crate::builtins;
+use crate::caps;
 use crate::diag::Diagnostic;
 use crate::json;
 use crate::lexicon;
@@ -229,9 +231,9 @@ pub struct Interp<'a> {
     lams: BTreeMap<NodeId, LamInfo<'a>>,
     call_depth: usize,
     eval_depth: usize,
-    /// When set, every `read`/`write`/`env`/`now` call traps with R003 without
-    /// touching the filesystem, environment or clock (used for hermetic inline
-    /// examples, ADR-0022).
+    /// When set, every `read`/`write`/`env`/`now`/`fetch` call traps with R003
+    /// without touching the filesystem, environment, clock or network (used for
+    /// hermetic inline examples, ADR-0022).
     deny_fs: bool,
 }
 
@@ -297,9 +299,9 @@ impl<'a> Interp<'a> {
         }
     }
 
-    /// Deny the outside world: `read`, `write`, `env` and `now` trap with R003
-    /// without resolving paths, touching the filesystem, reading the
-    /// environment or reading the clock (ADR-0022).
+    /// Deny the outside world: `read`, `write`, `env`, `now` and `fetch` trap
+    /// with R003 without resolving paths, touching the filesystem, reading the
+    /// environment or clock, or using the network (ADR-0022).
     pub fn with_deny_fs(mut self, deny_fs: bool) -> Self {
         self.deny_fs = deny_fs;
         self
@@ -944,6 +946,16 @@ impl<'a> Interp<'a> {
                 let _ = self.err.flush();
                 Value::Unit
             }
+            "fetch" => {
+                if self.deny_fs {
+                    return Err(Trap::new("R003", "capability violation", node, span));
+                }
+                let url = as_str(&args[0]);
+                if !self.host_allowed(url) {
+                    return Err(Trap::new("R003", "capability violation", node, span));
+                }
+                fetch(url)
+            }
             "read" => {
                 if self.deny_fs {
                     return Err(Trap::new("R003", "capability violation", node, span));
@@ -1041,6 +1053,20 @@ impl<'a> Interp<'a> {
             _ => panic!("builtin `{name}` has no interpreter implementation"),
         };
         Ok(value)
+    }
+
+    /// Whether the literal URL's host is declared by a `net.host` capability.
+    fn host_allowed(&self, url: &str) -> bool {
+        let Some(host) = caps::url_host(url) else {
+            return false;
+        };
+        self.file.uses.iter().any(|item| {
+            item.cap == Capability::NetHost
+                && item
+                    .path
+                    .as_deref()
+                    .is_some_and(|declared| declared.eq_ignore_ascii_case(host))
+        })
     }
 
     /// Whether `path` is covered by a declared prefix for `capability`.
@@ -1363,6 +1389,61 @@ fn resolve_lenient(path: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Run `curl` without a shell and map its result to `fetch`'s result value.
+fn fetch(url: &str) -> Value {
+    let output = match Command::new("curl")
+        .args([
+            "-q",
+            "-sS",
+            "--fail",
+            "--max-time",
+            "30",
+            "--max-redirs",
+            "0",
+            "--proto",
+            "=http,https",
+            "--max-filesize",
+            "16777216",
+            "--",
+            url,
+        ])
+        .output()
+    {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return result_err("fetch: curl not found")
+        }
+        Err(error) => return result_err(&format!("fetch: {error}")),
+    };
+    if !output.status.success() {
+        return result_err(&format!("fetch: {}", curl_error_text(&output.stderr)));
+    }
+    if output.stdout.len() > 16_777_216 {
+        return result_err("fetch: response too large");
+    }
+    match String::from_utf8(output.stdout) {
+        Ok(body) => result_ok(Value::Str(Rc::from(body.as_str()))),
+        Err(_) => result_err("fetch: body is not valid UTF-8"),
+    }
+}
+
+/// The first line of curl's stderr with its `curl: (N) ` prefix removed.
+fn curl_error_text(stderr: &[u8]) -> String {
+    let first = stderr.split(|byte| *byte == b'\n').next().unwrap_or(&[]);
+    let text = String::from_utf8_lossy(first);
+    let text = text.trim_end();
+    let Some(rest) = text.strip_prefix("curl: (") else {
+        return text.to_string();
+    };
+    let Some(close) = rest.find(')') else {
+        return text.to_string();
+    };
+    rest[close + 1..]
+        .strip_prefix(' ')
+        .unwrap_or(&rest[close + 1..])
+        .to_string()
 }
 
 /// The io error kind as lowercase words (`not found`, `permission denied`).

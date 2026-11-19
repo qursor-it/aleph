@@ -37,6 +37,29 @@ pub fn covers(prefix: &str, path: &str) -> bool {
     path.segments.starts_with(&prefix.segments)
 }
 
+/// The host of an `http://` or `https://` URL (ADR-0038).
+///
+/// The host is the text after `//` up to the first `/`, `?`, `#` or `:`.
+/// Another scheme, an empty host, or an `@` before the first `/`, `?` or `#`
+/// gives `None` (userinfo is not allowed because a `@` there could hide the
+/// real host from the capability check).
+pub fn url_host(url: &str) -> Option<&str> {
+    if url.contains('\0') {
+        return None; // curl cannot receive it; Tlön rejects it too
+    }
+    let rest = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))?;
+    let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let authority = &rest[..authority_end];
+    if authority.contains('@') {
+        return None;
+    }
+    let host_end = authority.find(':').unwrap_or(authority.len());
+    let host = &authority[..host_end];
+    (!host.is_empty()).then_some(host)
+}
+
 /// The capabilities declared by a file, sorted and deduplicated.
 ///
 /// The first element is the canonical capability spelling (e.g. `fs.read`);
@@ -125,12 +148,24 @@ impl<'a> Normalized<'a> {
 }
 
 /// Whether a `use` item is invalid (`C003`): an empty prefix, a prefix with a
-/// `..` segment, or a filesystem capability without a path.
+/// `..` segment, a host with `/`, `:`, `@`, `?`, `#` or whitespace, or a
+/// filesystem/network capability without a path.
 fn invalid_use(item: &ast::Use) -> bool {
     match item.path.as_deref() {
         Some("") => true,
-        Some(path) => path.split('/').any(|segment| segment == ".."),
-        None => matches!(item.cap, Capability::FsRead | Capability::FsWrite),
+        Some(path) => match item.cap {
+            Capability::FsRead | Capability::FsWrite => {
+                path.split('/').any(|segment| segment == "..")
+            }
+            Capability::NetHost => path
+                .chars()
+                .any(|c| matches!(c, '/' | ':' | '@' | '?' | '#') || c.is_whitespace()),
+            Capability::Env | Capability::Time => false,
+        },
+        None => matches!(
+            item.cap,
+            Capability::FsRead | Capability::FsWrite | Capability::NetHost
+        ),
     }
 }
 
@@ -179,6 +214,12 @@ fn check_call(file: &str, ast: &ast::File, expr: &Expr, diagnostics: &mut Vec<Di
     }
 
     let declared = ast.uses.iter().filter(|item| item.cap == capability);
+
+    if capability == Capability::NetHost {
+        check_fetch_host(file, expr, declared, args, diagnostics);
+        return;
+    }
+
     let Some(index) = spec.path_arg else {
         return;
     };
@@ -215,23 +256,71 @@ fn check_call(file: &str, ast: &ast::File, expr: &Expr, diagnostics: &mut Vec<Di
     diagnostics.push(diagnostic);
 }
 
-/// The `use` line that would grant a literal, valid filesystem path, or `None`
-/// when the call has no such path (ADR-0028).
+/// Check a literal `fetch` URL against the declared `net.host` values.
+fn check_fetch_host<'a>(
+    file: &str,
+    expr: &Expr,
+    declared: impl Iterator<Item = &'a ast::Use>,
+    args: &[Expr],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(arg) = args.first() else {
+        return;
+    };
+    let ExprKind::Str { value } = &arg.kind else {
+        return;
+    };
+    let hosts: Vec<&str> = declared.filter_map(|item| item.path.as_deref()).collect();
+    if let Some(host) = url_host(value) {
+        if hosts
+            .iter()
+            .any(|declared| declared.eq_ignore_ascii_case(host))
+        {
+            return;
+        }
+    }
+
+    let expected = sorted_prefixes(hosts).join(" ");
+    let mut diagnostic = Diagnostic::error(
+        "C002",
+        file,
+        expr.span.line,
+        expr.span.col,
+        "host not covered by capability",
+    )
+    .with_node(node_name(expr.id))
+    .with_expected_found(expected, value.clone());
+    if let Some(line) = literal_use_line(builtins::lookup("fetch").expect("fetch"), args) {
+        diagnostic = diagnostic.with_fix("insert", "n0", line);
+    }
+    diagnostics.push(diagnostic);
+}
+
+/// The `use` line that would grant a literal, valid filesystem path or URL
+/// host, or `None` when the call has no such argument (ADR-0028, ADR-0038).
 fn literal_use_line(spec: &builtins::BuiltinSpec, args: &[Expr]) -> Option<String> {
     let capability = spec.capability?;
-    if !matches!(capability, Capability::FsRead | Capability::FsWrite) {
-        return None;
-    }
-    let arg = args.get(spec.path_arg?)?;
-    let ExprKind::Str { value } = &arg.kind else {
-        return None;
+    let value = match capability {
+        Capability::FsRead | Capability::FsWrite => {
+            let arg = args.get(spec.path_arg?)?;
+            let ExprKind::Str { value } = &arg.kind else {
+                return None;
+            };
+            // SPEC §8: prefixes are relative to the working directory. A path
+            // that normalizes to nothing (`.`, `./`) would grant the whole
+            // directory.
+            let normalized = Normalized::parse(value)?;
+            if normalized.absolute || normalized.segments.is_empty() {
+                return None;
+            }
+            value
+        }
+        Capability::NetHost => url_host(match &args.first()?.kind {
+            ExprKind::Str { value } => value,
+            _ => return None,
+        })?,
+        Capability::Env | Capability::Time => return None,
     };
-    // SPEC §8: prefixes are relative to the working directory. A path that
-    // normalizes to nothing (`.`, `./`) would grant the whole directory.
-    let normalized = Normalized::parse(value)?;
-    if normalized.absolute || normalized.segments.is_empty() {
-        return None;
-    }
     Some(format!(
         "{} {} \"{}\"",
         lexicon::keyword("capability").expect("use"),
@@ -309,6 +398,124 @@ mod tests {
         assert!(!covers("data", "/data/x"));
         assert!(!covers("", "/data"));
         assert!(!covers(".", "/data"));
+    }
+
+    #[test]
+    fn url_host_extracts_the_authority_host() {
+        assert_eq!(url_host("http://example.com"), Some("example.com"));
+        assert_eq!(url_host("https://example.com/a/b"), Some("example.com"));
+        assert_eq!(url_host("http://example.com:8080/x"), Some("example.com"));
+        assert_eq!(url_host("http://example.com?q=1"), Some("example.com"));
+        assert_eq!(url_host("http://example.com#frag"), Some("example.com"));
+        assert_eq!(url_host("HTTP://example.com"), None);
+        assert_eq!(url_host("ftp://example.com"), None);
+        assert_eq!(url_host("http://"), None);
+        assert_eq!(url_host("http://:80/x"), None);
+        assert_eq!(url_host("http://localhost:8080/ok"), Some("localhost"));
+        assert_eq!(url_host("http://user@example.com/x"), None);
+        assert_eq!(url_host("http://user:pass@example.com/x"), None);
+        assert_eq!(url_host("http://example.com@evil.com/x"), None);
+        assert_eq!(url_host("http://example.com/\0x"), None);
+    }
+
+    #[test]
+    fn c001_is_reported_for_fetch_without_a_use() {
+        let diagnostics = caps(
+            "fn main -> res unit str\n let body try fetch \"http://example.com/ok\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        let diagnostic = &diagnostics[0];
+        assert_eq!(diagnostic.msg, "missing capability");
+        assert_eq!(diagnostic.expected.as_deref(), Some("net.host"));
+        assert_eq!(diagnostic.line, 2);
+    }
+
+    #[test]
+    fn fetch_literals_get_a_certain_insert_fix() {
+        let diagnostics = caps(
+            "fn main -> res unit str\n let body try fetch \"http://Example.COM/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        assert_eq!(
+            diagnostics[0].fix.as_ref().map(|fix| fix.with.as_str()),
+            Some("use net.host \"Example.COM\"")
+        );
+
+        let diagnostics = caps(
+            "use net.host \"example.com\"\nfn main -> res unit str\n let body try fetch \"http://other.com/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C002"]);
+        assert_eq!(
+            diagnostics[0].fix.as_ref().map(|fix| fix.with.as_str()),
+            Some("use net.host \"other.com\"")
+        );
+
+        let diagnostics = caps(
+            "fn main -> res unit str\n let body try fetch \"mailto:x@example.com\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        assert!(diagnostics[0].fix.is_none());
+    }
+
+    #[test]
+    fn c002_is_reported_for_a_literal_url_with_another_host() {
+        let diagnostics = caps(
+            "use net.host \"example.com\"\nfn main -> res unit str\n let body try fetch \"http://other.com/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C002"]);
+        let diagnostic = &diagnostics[0];
+        assert_eq!(diagnostic.msg, "host not covered by capability");
+        assert_eq!(diagnostic.expected.as_deref(), Some("example.com"));
+        assert_eq!(diagnostic.found.as_deref(), Some("http://other.com/x"));
+        assert_eq!(diagnostic.line, 3);
+    }
+
+    #[test]
+    fn c002_lists_all_declared_hosts_sorted_and_ignores_case_when_covered() {
+        let diagnostics = caps(
+            "use net.host \"z.example\"\nuse net.host \"a.example\"\nfn main -> res unit str\n let body try fetch \"http://m.example/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C002"]);
+        assert_eq!(
+            diagnostics[0].expected.as_deref(),
+            Some("a.example z.example")
+        );
+
+        let diagnostics = caps(
+            "use net.host \"EXAMPLE.com\"\nfn main -> res unit str\n let body try fetch \"http://example.COM/x\"\n ok nil\n",
+        );
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    }
+
+    #[test]
+    fn c002_is_reported_for_a_literal_url_without_a_host() {
+        let diagnostics = caps(
+            "use net.host \"example.com\"\nfn main -> res unit str\n let body try fetch \"ftp://example.com/x\"\n ok nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["C002"]);
+        assert_eq!(diagnostics[0].msg, "host not covered by capability");
+        assert!(diagnostics[0].fix.is_none());
+    }
+
+    #[test]
+    fn computed_fetch_urls_are_not_checked_statically() {
+        let diagnostics = caps(
+            "use net.host \"example.com\"\nfn main -> res unit str\n let url \"http://other.com/x\"\n let body try fetch url\n ok nil\n",
+        );
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    }
+
+    #[test]
+    fn c003_reports_invalid_net_host_values() {
+        for value in ["example.com:80", "a/b", "a@b", "a?b", "a#b", "a b"] {
+            let source = format!("use net.host \"{value}\"\nfn main -> unit\n nil\n");
+            let diagnostics = caps(&source);
+            assert_eq!(codes(&diagnostics), ["C003"], "{value}");
+            assert_eq!(diagnostics[0].found.as_deref(), Some(value));
+        }
+        let diagnostics = caps("use net.host\nfn main -> unit\n nil\n");
+        assert_eq!(codes(&diagnostics), ["C003"]);
+        assert_eq!(diagnostics[0].msg, "missing capability path");
     }
 
     #[test]

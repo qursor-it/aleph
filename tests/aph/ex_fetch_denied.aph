@@ -1,0 +1,6 @@
+use net.host "example.com"
+fn probe -> res str str
+ ex probe = ok "x"
+ fetch "http://example.com/ok"
+fn main -> unit
+ nil

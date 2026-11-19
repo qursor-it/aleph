@@ -1,0 +1,4 @@
+use net.host "example.com"
+fn main -> res unit str
+ let body try fetch "http://other.com/x"
+ ok nil

@@ -205,8 +205,7 @@ Effectful:
 | `write path s` | str, str -> res unit str | `fs.write` covering path |
 | `env name` | str -> opt str (`some` value, `none` if unset or not UTF-8) | `env` |
 | `now` | -> i64 (milliseconds since the Unix epoch, wall clock) | `time` |
-
-`fetch`: v0.2 (ADR-0038).
+| `fetch url` | str -> res str str (HTTP GET body) | `net.host` matching the URL host |
 
 ### 5.2 Dicts (v0.2, ADR-0032 Proposed)
 
@@ -251,6 +250,7 @@ A `json` value is null, a bool, an integer (`i64`), a number (`f64`), a string, 
 
 - The checker MUST reject a call to an effectful builtin if the module lacks the required `use` (C001).
 - If the path/host argument is a string literal, the checker MUST verify it is covered by a declared prefix (C002). Otherwise Tlön checks at run time and traps with R003 on violation.
+- A `fetch` host is the text after `http://` or `https://` up to the first `/`, `?`, `#` or `:`; another scheme, an empty host or a `@` before the first `/`, `?`, `#` has no host. A host is covered iff it equals a declared `net.host` value ignoring ASCII case.
 - `aleph explain` MUST list all capabilities of a program.
 
 ## 9. Diagnostics (ADR-0011)

@@ -142,10 +142,11 @@ typedef struct AlLoc {
     uint32_t col;
 } AlLoc;
 
-/* Filesystem capabilities (ADR-0020). */
+/* Filesystem and network capabilities (ADR-0020, ADR-0038). */
 typedef enum {
     AL_CAP_FS_READ = 0,
-    AL_CAP_FS_WRITE = 1
+    AL_CAP_FS_WRITE = 1,
+    AL_CAP_NET_HOST = 2
 } AlCap;
 
 typedef struct AlUse {
@@ -441,6 +442,7 @@ AlValue aleph_b_eprint(AlValue text);
 AlValue aleph_b_env(AlValue name);
 AlValue aleph_b_now(void);
 AlValue aleph_b_read(AlValue path);
+AlValue aleph_b_fetch(AlValue url);
 AlValue aleph_b_write(AlValue path, AlValue text);
 
 /* Capability path check (exposed for the tests and future codegen). */
