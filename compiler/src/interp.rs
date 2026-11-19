@@ -15,9 +15,9 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::rc::Rc;
 
 use crate::ast::{
@@ -1011,10 +1011,17 @@ impl<'a> Interp<'a> {
                 if self.deny_fs {
                     return Err(Trap::new("R003", "capability violation", node, span));
                 }
-                let millis = std::time::SystemTime::now()
+                // Milliseconds since the epoch, flooring nanoseconds by 1e6
+                // (so times before 1970 round down, consistently with Tlön).
+                let millis = match std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .map(|elapsed| elapsed.as_millis().min(i64::MAX as u128) as i64)
-                    .unwrap_or(0);
+                {
+                    Ok(elapsed) => (elapsed.as_nanos() / 1_000_000).min(i64::MAX as u128) as i64,
+                    Err(error) => {
+                        let before = error.duration().as_nanos().div_ceil(1_000_000);
+                        -(before.min(i64::MAX as u128) as i64)
+                    }
+                };
                 Value::I64(millis)
             }
             "print" => {
@@ -1546,9 +1553,11 @@ fn resolve_lenient(path: &str) -> Option<PathBuf> {
 
 /// Run `curl` without a shell and map its result to `fetch`'s result value.
 fn fetch(url: &str) -> Value {
-    let output = match Command::new("curl")
+    const LIMIT: usize = 16_777_216;
+    let mut child = match Command::new("curl")
         .args([
             "-q",
+            "-g",
             "-sS",
             "--fail",
             "--max-time",
@@ -1562,21 +1571,60 @@ fn fetch(url: &str) -> Value {
             "--",
             url,
         ])
-        .output()
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
     {
-        Ok(output) => output,
+        Ok(child) => child,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return result_err("fetch: curl not found")
         }
-        Err(error) => return result_err(&format!("fetch: {error}")),
+        Err(_) => return result_err("fetch: curl failed"),
     };
-    if !output.status.success() {
-        return result_err(&format!("fetch: {}", curl_error_text(&output.stderr)));
+
+    let mut stdout = child.stdout.take().expect("curl stdout is piped");
+    let stderr = child.stderr.take().expect("curl stderr is piped");
+    let stderr_thread = std::thread::spawn(move || {
+        let mut buffer = Vec::new();
+        let mut stderr = stderr;
+        let _ = stderr.read_to_end(&mut buffer);
+        buffer
+    });
+
+    // Read at most one byte past the limit; anything more than the limit means
+    // the response is too large and curl must be killed.
+    let mut body = Vec::new();
+    let _ = stdout
+        .by_ref()
+        .take((LIMIT + 1) as u64)
+        .read_to_end(&mut body);
+    let too_large = body.len() > LIMIT;
+    if too_large {
+        let _ = child.kill();
     }
-    if output.stdout.len() > 16_777_216 {
+    let status = child.wait();
+    let stderr = stderr_thread.join().unwrap_or_default();
+
+    if too_large {
         return result_err("fetch: response too large");
     }
-    match String::from_utf8(output.stdout) {
+
+    let error_text = curl_error_text(&stderr);
+    let failed = match &status {
+        Ok(status) => !status.success(),
+        Err(_) => true,
+    };
+    if failed {
+        if status.as_ref().ok().and_then(|status| status.code()) == Some(63) {
+            return result_err("fetch: response too large");
+        }
+        if error_text.trim().is_empty() {
+            return result_err("fetch: curl failed");
+        }
+        return result_err(&format!("fetch: {error_text}"));
+    }
+    match String::from_utf8(body) {
         Ok(body) => result_ok(Value::Str(Rc::from(body.as_str()))),
         Err(_) => result_err("fetch: body is not valid UTF-8"),
     }

@@ -3040,7 +3040,8 @@ static AlValue fetch_error(const char *text, size_t len) {
 }
 
 /* The first line of curl's stderr with its `curl: (N) ` prefix removed. */
-static AlValue fetch_curl_error(const char *stderr_data, size_t len) {
+static void fetch_curl_line(const char *stderr_data, size_t len,
+                            const char **line_out, size_t *line_len_out) {
     const char *line = stderr_data;
     size_t line_len = 0;
     const char *close;
@@ -3065,7 +3066,8 @@ static AlValue fetch_curl_error(const char *stderr_data, size_t len) {
             line_len -= after;
         }
     }
-    return fetch_error(line, line_len);
+    *line_out = line;
+    *line_len_out = line_len;
 }
 
 static AlValue fetch_not_found(void) {
@@ -3137,7 +3139,8 @@ AlValue aleph_b_fetch(AlValue url_value) {
     if (child == 0) {
         char *const argv[] = {
             (char *)"curl",          (char *)"-q",
-            (char *)"-sS",           (char *)"--fail",
+            (char *)"-g",            (char *)"-sS",
+            (char *)"--fail",
             (char *)"--max-time",    (char *)"30",
             (char *)"--max-redirs",  (char *)"0",
             (char *)"--proto",       (char *)"=http,https",
@@ -3185,6 +3188,18 @@ AlValue aleph_b_fetch(AlValue url_value) {
             break;
         }
         append_bytes(&out, &out_len, &out_cap, chunk, (size_t)count);
+        if (out_len > 16777216) {
+            /* Streaming cut-off: stop reading, kill curl and report. */
+            kill(child, SIGKILL);
+            close(out_pipe[0]);
+            while (waitpid(child, &status, 0) < 0 && errno == EINTR) {
+            }
+            close(stderr_fd);
+            free(out);
+            free(err);
+            free(url);
+            return fetch_error("response too large", 18);
+        }
     }
     close(out_pipe[0]);
     while (waitpid(child, &status, 0) < 0) {
@@ -3219,7 +3234,7 @@ AlValue aleph_b_fetch(AlValue url_value) {
         if (exec_error == ENOENT) {
             return fetch_not_found();
         }
-        return fetch_error(strerror(exec_error), strlen(strerror(exec_error)));
+        return fetch_error("curl failed", 11);
     }
     if (io_failed) {
         free(out);
@@ -3230,7 +3245,18 @@ AlValue aleph_b_fetch(AlValue url_value) {
     free(url);
 
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-        result = fetch_curl_error(err, err_len);
+        const char *line;
+        size_t line_len;
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 63) {
+            result = fetch_error("response too large", 18);
+        } else {
+            fetch_curl_line(err, err_len, &line, &line_len);
+            if (line_len == 0) {
+                result = fetch_error("curl failed", 11);
+            } else {
+                result = fetch_error(line, line_len);
+            }
+        }
         free(out);
         free(err);
         return result;
@@ -3346,6 +3372,9 @@ AlValue aleph_b_now(void) {
     if (clock_gettime(CLOCK_REALTIME, &current) != 0) {
         return aleph_i64(0);
     }
+    /* Milliseconds since the epoch, flooring nanoseconds by 1e6. `tv_nsec` is
+       always non-negative, so this equals floor((tv_sec * 1e9 + tv_nsec) /
+       1e6) and times before 1970 round down like the interpreter. */
     return aleph_i64((int64_t)current.tv_sec * 1000 +
                      (int64_t)(current.tv_nsec / 1000000));
 }

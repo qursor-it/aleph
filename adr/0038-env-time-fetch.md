@@ -29,7 +29,7 @@ Options for `fetch` transport (score 1-10):
 - `env name` : `str -> opt str`, capability `use env`. `some` of the variable's
   value; `none` if it is unset or its value is not valid UTF-8.
 - `now` : `i64` (no arguments, like `args`), capability `use time`.
-  Milliseconds since the Unix epoch, wall clock.
+  Milliseconds since the Unix epoch, wall clock (negative before 1970).
 - `fetch url` : `str -> res str str`, capability `use net.host "HOST"`. HTTP
   GET of `url`; `ok` of the response body.
   - `url` starts with `http://` or `https://`; its host is the text after
@@ -40,15 +40,21 @@ Options for `fetch` transport (score 1-10):
     statically (C001 without any `net.host`, C002 when not covered or without
     a host, with a certain fix `use net.host "HOST"` as for paths, ADR-0028);
     a computed one at run time (R003).
-  - A `net.host` value that is empty or contains `/`, `:`, `@`, `?`, `#` or
-    whitespace is C003.
-  - Transport: `curl -q -sS --fail --max-time 30 --max-redirs 0
-    --proto =http,https --max-filesize 16777216 -- URL`, run without a shell.
-    Redirects are not followed.
-  - `err` messages: `fetch: curl not found`; `fetch: ` followed by curl's
-    error text with its `curl: (N) ` prefix removed (e.g. `fetch: The
-    requested URL returned error: 404 Not Found`); `fetch: response too
-    large` above 16 MiB; `fetch: body is not valid UTF-8`.
+  - A `net.host` value must be a bare host name or IPv4 address,
+    `[A-Za-z0-9.-]+`; anything else (empty, a port, a scheme, `%`, brackets)
+    is C003. IPv6 literals cannot be declared yet.
+  - Transport: `curl -q -g -sS --fail --max-time 30 --max-redirs 0
+    --proto =http,https --max-filesize 16777216 -- URL`, run without a shell
+    (`-g`: no URL globbing). Redirects are not followed: a 3xx response is
+    `ok` of its body. Reading stops after 16 MiB + 1 bytes and curl is
+    killed. curl honours the usual proxy and CA environment variables; the
+    host check applies to the URL, so they cannot widen the grant.
+  - `err` messages: `fetch: curl not found`; `fetch: curl failed` (curl
+    could not be started, or ended without an error text, e.g. killed);
+    `fetch: response too large` above 16 MiB (also curl exit 63); `fetch:
+    body is not valid UTF-8`; otherwise `fetch: ` followed by curl's error
+    text with its `curl: (N) ` prefix removed (e.g. `fetch: The requested
+    URL returned error: 404`).
 - All three trap with R003 inside examples (hermetic, as `read`/`write`).
 - `env`, `now` and `fetch` become reserved names (T005).
 
@@ -61,3 +67,12 @@ Options for `fetch` transport (score 1-10):
 - `use env` grants every variable; per-variable grants can come later.
 - `llms.txt` replaces "no builtins yet" with three builtin lines (ADR-0026
   budget).
+
+## Amendments (review round 1, 19 Nov 2026)
+- `net.host` values became an allowlist (`[A-Za-z0-9.-]+`): with the first
+  blocklist, `use net.host "["` granted every IPv6 literal and `%31` hosts
+  read differently from what curl contacted.
+- Added `-g` (curl globbing sent several requests for `[1-3]`), the streaming
+  16 MiB cut-off (curl 7.81 enforces `--max-filesize` only with a
+  Content-Length), the exit-63 and `curl failed` messages, and `now` before
+  1970.

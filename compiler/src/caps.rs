@@ -148,8 +148,8 @@ impl<'a> Normalized<'a> {
 }
 
 /// Whether a `use` item is invalid (`C003`): an empty prefix, a prefix with a
-/// `..` segment, a host with `/`, `:`, `@`, `?`, `#` or whitespace, or a
-/// filesystem/network capability without a path.
+/// `..` segment, a host that is not a bare host name or IPv4 address
+/// (`[A-Za-z0-9.-]+`), or a filesystem/network capability without a path.
 fn invalid_use(item: &ast::Use) -> bool {
     match item.path.as_deref() {
         Some("") => true,
@@ -157,9 +157,9 @@ fn invalid_use(item: &ast::Use) -> bool {
             Capability::FsRead | Capability::FsWrite => {
                 path.split('/').any(|segment| segment == "..")
             }
-            Capability::NetHost => path
+            Capability::NetHost => !path
                 .chars()
-                .any(|c| matches!(c, '/' | ':' | '@' | '?' | '#') || c.is_whitespace()),
+                .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-'),
             Capability::Env | Capability::Time => false,
         },
         None => matches!(
@@ -507,11 +507,30 @@ mod tests {
 
     #[test]
     fn c003_reports_invalid_net_host_values() {
-        for value in ["example.com:80", "a/b", "a@b", "a?b", "a#b", "a b"] {
-            let source = format!("use net.host \"{value}\"\nfn main -> unit\n nil\n");
+        for value in [
+            "example.com:80",
+            "a/b",
+            "a@b",
+            "a?b",
+            "a#b",
+            "a b",
+            "[",
+            "%31",
+            "a{b}",
+            "a\\b",
+            "a\tb",
+            "::1",
+        ] {
+            let source_value = value.replace('\\', "\\\\").replace('\t', "\\t");
+            let source = format!("use net.host \"{source_value}\"\nfn main -> unit\n nil\n");
             let diagnostics = caps(&source);
             assert_eq!(codes(&diagnostics), ["C003"], "{value}");
             assert_eq!(diagnostics[0].found.as_deref(), Some(value));
+        }
+        for value in ["example.com", "127.0.0.1", "my-host"] {
+            let source = format!("use net.host \"{value}\"\nfn main -> unit\n nil\n");
+            let diagnostics = caps(&source);
+            assert!(diagnostics.is_empty(), "{value}: {diagnostics:?}");
         }
         let diagnostics = caps("use net.host\nfn main -> unit\n nil\n");
         assert_eq!(codes(&diagnostics), ["C003"]);

@@ -250,7 +250,7 @@ A `json` value is null, a bool, an integer (`i64`), a number (`f64`), a string, 
 
 - The checker MUST reject a call to an effectful builtin if the module lacks the required `use` (C001).
 - If the path/host argument is a string literal, the checker MUST verify it is covered by a declared prefix (C002). Otherwise Tlön checks at run time and traps with R003 on violation.
-- A `fetch` host is the text after `http://` or `https://` up to the first `/`, `?`, `#` or `:`; another scheme, an empty host or a `@` before the first `/`, `?`, `#` has no host. A host is covered iff it equals a declared `net.host` value ignoring ASCII case.
+- A `fetch` host is the text after `http://` or `https://` up to the first `/`, `?`, `#` or `:`; another scheme, an empty host or a `@` before the first `/`, `?`, `#` has no host. A host is covered iff it equals a declared `net.host` value ignoring ASCII case. A `net.host` value is `[A-Za-z0-9.-]+` (no port, scheme or IPv6 literal), else C003. `fetch` does not follow redirects and is `err` for an HTTP status >= 400 (ADR-0038).
 - `aleph explain` MUST list all capabilities of a program.
 
 ## 9. Diagnostics (ADR-0011)

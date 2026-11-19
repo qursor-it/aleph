@@ -12,9 +12,13 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use common::TempDir;
+
+const STREAM_BYTES: usize = 17 * 1024 * 1024;
+const BIG_BYTES: usize = 17_000_000;
 
 fn curl_is_missing() -> bool {
     match Command::new("curl").arg("--version").output() {
@@ -36,7 +40,28 @@ fn cc_is_missing() -> bool {
     }
 }
 
-fn serve_connection(mut stream: TcpStream) {
+fn respond(stream: &mut TcpStream, status: &str, body: &[u8]) {
+    let head = format!(
+        "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    let _ = stream.write_all(head.as_bytes());
+    let _ = stream.write_all(body);
+}
+
+fn write_chunks(stream: &mut TcpStream, total: usize, byte: u8) {
+    let chunk = vec![byte; 64 * 1024];
+    let mut sent = 0;
+    while sent < total {
+        let count = (total - sent).min(chunk.len());
+        if stream.write_all(&chunk[..count]).is_err() {
+            return;
+        }
+        sent += count;
+    }
+}
+
+fn serve_connection(mut stream: TcpStream, paths: Arc<Mutex<Vec<String>>>) {
     let mut request = Vec::new();
     let mut buffer = [0u8; 1024];
     loop {
@@ -57,31 +82,46 @@ fn serve_connection(mut stream: TcpStream) {
         .next()
         .and_then(|line| line.split_whitespace().nth(1))
         .unwrap_or("/");
-    let (status, body): (&str, &[u8]) = match path {
-        "/ok" => ("200 OK", b"hello"),
-        "/bin" => ("200 OK", b"\xff\xfe\x80"),
-        _ => ("404 Not Found", b"missing"),
-    };
-    let head = format!(
-        "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()
-    );
-    let _ = stream.write_all(head.as_bytes());
-    let _ = stream.write_all(body);
+    paths.lock().unwrap().push(path.to_string());
+    match path {
+        "/ok" => respond(&mut stream, "200 OK", b"hello"),
+        "/bin" => respond(&mut stream, "200 OK", b"\xff\xfe\x80"),
+        "/redirect" => {
+            let head =
+                "HTTP/1.1 302 Found\r\nLocation: /ok\r\nContent-Length: 5\r\nConnection: close\r\n\r\n";
+            let _ = stream.write_all(head.as_bytes());
+            let _ = stream.write_all(b"moved");
+        }
+        "/stream" => {
+            let head = "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n";
+            let _ = stream.write_all(head.as_bytes());
+            write_chunks(&mut stream, STREAM_BYTES, b'x');
+        }
+        "/big" => {
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {BIG_BYTES}\r\nConnection: close\r\n\r\n"
+            );
+            let _ = stream.write_all(head.as_bytes());
+            write_chunks(&mut stream, BIG_BYTES, b'y');
+        }
+        _ => respond(&mut stream, "404 Not Found", b"missing"),
+    }
 }
 
-fn start_server() -> u16 {
+fn start_server() -> (u16, Arc<Mutex<Vec<String>>>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind loopback server");
     let port = listener.local_addr().expect("server address").port();
+    let paths = Arc::new(Mutex::new(Vec::new()));
+    let recorded = Arc::clone(&paths);
     thread::spawn(move || {
         for stream in listener.incoming() {
             match stream {
-                Ok(stream) => serve_connection(stream),
+                Ok(stream) => serve_connection(stream, Arc::clone(&recorded)),
                 Err(_) => break,
             }
         }
     });
-    port
+    (port, paths)
 }
 
 fn aleph(directory: &Path, args: &[&str]) -> Output {
@@ -137,13 +177,14 @@ fn fetch_runs_identically_in_both_engines() {
         println!("fetch: curl is not available; skipping the fetch integration test");
         return;
     }
-    let port = start_server();
+    let (port, _paths) = start_server();
     let directory = TempDir::new().expect("temporary directory");
     write_program(directory.path(), port, "127.0.0.1");
     let native = build_native(directory.path());
 
     let cases = [
         ("/ok", "hello\n", "", 0, "ok body"),
+        ("/redirect", "moved\n", "", 0, "3xx body"),
         (
             "/missing",
             "",
@@ -196,6 +237,102 @@ fn fetch_runs_identically_in_both_engines() {
             String::from_utf8_lossy(&output.stderr).contains("\"code\":\"R003\""),
             "native stderr: {}",
             String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+fn fetch_caps_large_bodies_and_does_not_glob_in_both_engines() {
+    if curl_is_missing() {
+        println!("fetch: curl is not available; skipping the large-body test");
+        return;
+    }
+    let (port, paths) = start_server();
+    let directory = TempDir::new().expect("temporary directory");
+    write_program(directory.path(), port, "127.0.0.1");
+    let native = build_native(directory.path());
+
+    for (path, label) in [("/stream", "streamed body"), ("/big", "declared body")] {
+        let output = aleph(directory.path(), &["run", "prog.aph", path]);
+        check(label, &output, "", "fetch: response too large\n", 1);
+        if let Some(binary) = &native {
+            let output = Command::new(binary)
+                .current_dir(directory.path())
+                .arg(path)
+                .output()
+                .expect("run native program");
+            check(label, &output, "", "fetch: response too large\n", 1);
+        }
+    }
+
+    // `-g` disables curl globbing: `[1-3]` is requested literally, once.
+    let glob = "/[1-3]";
+    paths.lock().unwrap().clear();
+    let output = aleph(directory.path(), &["run", "prog.aph", glob]);
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "fetch: The requested URL returned error: 404\n",
+        "glob: stderr"
+    );
+    assert_eq!(
+        paths.lock().unwrap().clone(),
+        vec![glob.to_string()],
+        "glob: interpreter requests"
+    );
+    if let Some(binary) = &native {
+        paths.lock().unwrap().clear();
+        let output = Command::new(binary)
+            .current_dir(directory.path())
+            .arg(glob)
+            .output()
+            .expect("run native program");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stderr),
+            "fetch: The requested URL returned error: 404\n",
+            "glob native: stderr"
+        );
+        assert_eq!(
+            paths.lock().unwrap().clone(),
+            vec![glob.to_string()],
+            "glob native: requests"
+        );
+    }
+}
+
+#[test]
+fn fetch_reports_missing_curl_in_both_engines() {
+    let (port, _paths) = start_server();
+    let directory = TempDir::new().expect("temporary directory");
+    write_program(directory.path(), port, "127.0.0.1");
+    let native = build_native(directory.path());
+    let empty = TempDir::new().expect("empty PATH directory");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_aleph"))
+        .current_dir(directory.path())
+        .env("PATH", empty.path())
+        .args(["run", "prog.aph", "/ok"])
+        .output()
+        .expect("run aleph");
+    check(
+        "missing curl (interpreter)",
+        &output,
+        "",
+        "fetch: curl not found\n",
+        1,
+    );
+    if let Some(binary) = &native {
+        let output = Command::new(binary)
+            .current_dir(directory.path())
+            .env("PATH", empty.path())
+            .arg("/ok")
+            .output()
+            .expect("run native program");
+        check(
+            "missing curl (native)",
+            &output,
+            "",
+            "fetch: curl not found\n",
+            1,
         );
     }
 }
