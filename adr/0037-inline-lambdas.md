@@ -146,3 +146,8 @@ Made while implementing T-048..T-049 (2026-11-19):
   reported at the call as before), then `ok`/`err`/`none` arguments, then
   lambdas. Unifying before the plain arguments moved mismatch errors into
   lambda bodies.
+- (review round 3) "`ok`/`err`/`none` arguments" means any non-lambda
+  argument containing one of them anywhere (`[ok 0]`, `if c ok 0 err e`,
+  a nested call), so they see the expected type as with a named helper.
+  Limit: an `ok`/`err` element type that only a lambda body could supply
+  (`map lam x else x 0 [ok 1]`) is still T010, as `ok` needs an expected type.

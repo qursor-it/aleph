@@ -663,3 +663,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - llms.txt: dropped the round-trip invariant sentence from §10 to stay within 2110 tokens
 - tests: 356 passed, clippy clean
 - decisions: ADR-0035
+
+## 2026-11-19T15:00 T-045..T-049 review round 3
+- Opus review 8/10.
+- IMPORTANT, fixed: `ok`/`err`/`none` nested inside a non-lambda argument (`[ok 0]`, `if`, a nested lambda call) gave T010 with `lam` but not with `@f`. Any argument that contains one now waits for the expected type. Golden lam_ok_nested covers the three forms; the mismatch goldens are unchanged.
+- minor, documented in the ADR: an `ok` element type that only a lambda body could supply is still T010.
+- minor, not changed: a misleading first T001 when a binder's type is unknown (no expected type).
+- The review cap (3 rounds) is reached; the round-3 fix was not re-reviewed.
+- tests: 356 passed, clippy clean
+- next: T-050 token recount, or the experiments tasks T-035..T-043

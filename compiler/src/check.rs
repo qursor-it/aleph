@@ -704,12 +704,18 @@ impl<'a> TypeChecker<'a> {
                 // then lambdas, whose binder types come from all of the above.
                 // A conflicting expected type rolls back and is reported at the call.
                 let has_lam = args.iter().any(is_lam);
+                // Anywhere inside the argument (`[ok 0]`, `if c ok 0 err e`).
                 let needs_expected = |arg: &Expr| {
-                    has_lam
-                        && matches!(
-                            arg.kind,
-                            ExprKind::Ok { .. } | ExprKind::Err { .. } | ExprKind::None { .. }
-                        )
+                    let mut found = false;
+                    if has_lam {
+                        crate::ast::walk_expr(arg, &mut |inner| {
+                            found |= matches!(
+                                inner.kind,
+                                ExprKind::Ok { .. } | ExprKind::Err { .. } | ExprKind::None { .. }
+                            );
+                        });
+                    }
+                    found
                 };
                 for pass in 0..3 {
                     if pass == 1 && has_lam {

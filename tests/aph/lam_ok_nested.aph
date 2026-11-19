@@ -1,0 +1,12 @@
+fn listed xs:list i64 -> list res i64 str
+ ex listed [1] = [ok 0 ok 1]
+ fold lam a x push a ok x [ok 0] xs
+fn mapped xs:list i64 -> list res i64 str
+ ex mapped [1 2] = [ok 1 ok 2]
+ fold lam a x a map lam y ok y xs xs
+fn picked xs:list i64 -> res i64 str
+ ex picked [1] = ok 0
+ fold lam a x a if true ok 0 err "x" xs
+fn main -> unit
+ do print show len listed [1 2]
+ print show isok picked [1]
