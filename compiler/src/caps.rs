@@ -340,6 +340,28 @@ mod tests {
     }
 
     #[test]
+    fn c001_is_reported_for_env_without_a_use() {
+        let diagnostics = caps("fn main -> unit\n do print show has env \"PATH\"\n nil\n");
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        let diagnostic = &diagnostics[0];
+        assert_eq!(diagnostic.msg, "missing capability");
+        assert_eq!(diagnostic.expected.as_deref(), Some("env"));
+        assert_eq!(diagnostic.line, 2);
+        assert!(diagnostic.fix.is_none());
+    }
+
+    #[test]
+    fn c001_is_reported_for_now_without_a_use() {
+        let diagnostics = caps("fn main -> unit\n do print show > now 1700000000000\n nil\n");
+        assert_eq!(codes(&diagnostics), ["C001"]);
+        let diagnostic = &diagnostics[0];
+        assert_eq!(diagnostic.msg, "missing capability");
+        assert_eq!(diagnostic.expected.as_deref(), Some("time"));
+        assert_eq!(diagnostic.line, 2);
+        assert!(diagnostic.fix.is_none());
+    }
+
+    #[test]
     fn c001_is_reported_when_only_the_other_filesystem_capability_is_declared() {
         let diagnostics = caps(
             "use fs.read \"data\"\nfn main -> res unit str\n let r write \"data/out.txt\" \"x\"\n ok nil\n",

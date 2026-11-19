@@ -1,0 +1,1 @@
+{"code":"E002","severity":"error","file":"tests/aph/ex_env_denied.aph","line":3,"col":2,"node":"n5","msg":"example failed","expected":"false","found":"trap R003"}

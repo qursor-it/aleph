@@ -438,6 +438,8 @@ AlValue aleph_b_float(AlValue text);
 AlValue aleph_b_args(void);
 AlValue aleph_b_print(AlValue text);
 AlValue aleph_b_eprint(AlValue text);
+AlValue aleph_b_env(AlValue name);
+AlValue aleph_b_now(void);
 AlValue aleph_b_read(AlValue path);
 AlValue aleph_b_write(AlValue path, AlValue text);
 

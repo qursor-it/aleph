@@ -1,0 +1,3 @@
+fn main -> unit
+ do print show has env "PATH"
+ nil

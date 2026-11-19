@@ -229,8 +229,9 @@ pub struct Interp<'a> {
     lams: BTreeMap<NodeId, LamInfo<'a>>,
     call_depth: usize,
     eval_depth: usize,
-    /// When set, every `read`/`write` call traps with R003 without touching
-    /// the filesystem (used for hermetic inline examples, ADR-0022).
+    /// When set, every `read`/`write`/`env`/`now` call traps with R003 without
+    /// touching the filesystem, environment or clock (used for hermetic inline
+    /// examples, ADR-0022).
     deny_fs: bool,
 }
 
@@ -296,8 +297,9 @@ impl<'a> Interp<'a> {
         }
     }
 
-    /// Deny all filesystem builtins: `read` and `write` trap with R003 without
-    /// resolving paths or touching the filesystem (ADR-0022).
+    /// Deny the outside world: `read`, `write`, `env` and `now` trap with R003
+    /// without resolving paths, touching the filesystem, reading the
+    /// environment or reading the clock (ADR-0022).
     pub fn with_deny_fs(mut self, deny_fs: bool) -> Self {
         self.deny_fs = deny_fs;
         self
@@ -909,6 +911,25 @@ impl<'a> Interp<'a> {
                     .map(|arg| Value::Str(Rc::from(arg.as_str())))
                     .collect(),
             )),
+            "env" => {
+                if self.deny_fs {
+                    return Err(Trap::new("R003", "capability violation", node, span));
+                }
+                match std::env::var(as_str(&args[0])) {
+                    Ok(text) => Value::Opt(Some(Rc::new(Value::Str(Rc::from(text.as_str()))))),
+                    Err(_) => Value::Opt(None),
+                }
+            }
+            "now" => {
+                if self.deny_fs {
+                    return Err(Trap::new("R003", "capability violation", node, span));
+                }
+                let millis = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|elapsed| elapsed.as_millis().min(i64::MAX as u128) as i64)
+                    .unwrap_or(0);
+                Value::I64(millis)
+            }
             "print" => {
                 let text = as_str(&args[0]);
                 let _ = self.out.write_all(text.as_bytes());

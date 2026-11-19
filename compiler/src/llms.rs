@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x4af6a7ddedd0e017,
+        hash: 0xe95305ecfcd825c3,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -154,12 +154,12 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("8."),
-        "Deny by default. `use fs.read \"PREFIX\"` / `use fs.write \"PREFIX\"`. `net.host`/`env`/`time`: no builtins yet. Relative/absolute POSIX prefixes, normalized (empty/`.` dropped), `..` never covered. Empty prefix, `..`, or a filesystem capability without a path -> C003. Literals checked statically (C001/C002); computed paths at run time (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 division by zero, R003 capability, R004 stack, R005 allocation.",
+        "Deny by default. `use fs.read \"PREFIX\"`/`use fs.write \"PREFIX\"` (`read`/`write`), `use env` (`env`), `use time` (`now`); `net.host`: no builtins yet. POSIX prefixes, relative/absolute, normalized (empty/`.` dropped), `..` never covered; empty/`..` prefix or fs capability without a path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.",
     );
     section(
         &mut out,
         "## Semantics",
-        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples are hermetic (fs denied -> R003, no args, output dropped). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (`a>=b` empty, >10,000,000 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.",
+        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples are hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (`a>=b` empty, >10,000,000 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars; `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.",
     );
     section(&mut out, spec_heading("9."), &diagnostics_section());
     section(
@@ -170,7 +170,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("11."),
-        "`llms` prints this text; `check FILE [--json]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE` (v0.2). Exit 0 ok, 1 error, 2 usage, 70 trap.",
+        "`llms` prints this text; `check FILE [--json]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
     );
 
     section(

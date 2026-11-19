@@ -198,6 +198,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "env",
+        params: &[&STR],
+        ret: &OPT_STR,
+        bounds: &[],
+        effect: Effect::Effectful,
+        capability: Some(Capability::Env),
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "eprint",
         params: &[&STR],
         ret: &UNIT,
@@ -393,6 +402,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         bounds: &[(TyVar::T, Bound::Numeric)],
         effect: Effect::Pure,
         capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "now",
+        params: &[],
+        ret: &I64,
+        bounds: &[],
+        effect: Effect::Effectful,
+        capability: Some(Capability::Time),
         path_arg: None,
     },
     BuiltinSpec {
@@ -618,6 +636,8 @@ mod tests {
             ("int", 1),
             ("float", 1),
             ("args", 0),
+            ("env", 1),
+            ("now", 0),
             ("print", 1),
             ("eprint", 1),
             ("read", 1),
@@ -720,6 +740,16 @@ mod tests {
             assert_eq!(spec.capability, None, "capability of `{name}`");
         }
 
+        let env = lookup("env").unwrap();
+        assert_eq!(env.effect, Effect::Effectful);
+        assert_eq!(env.capability, Some(Capability::Env));
+        assert_eq!(env.path_arg, None);
+
+        let now = lookup("now").unwrap();
+        assert_eq!(now.effect, Effect::Effectful);
+        assert_eq!(now.capability, Some(Capability::Time));
+        assert_eq!(now.path_arg, None);
+
         for spec in BUILTINS {
             if let Some(capability) = spec.capability {
                 assert_eq!(spec.effect, Effect::Effectful);
@@ -728,6 +758,8 @@ mod tests {
                     match spec.name {
                         "read" => Capability::FsRead,
                         "write" => Capability::FsWrite,
+                        "env" => Capability::Env,
+                        "now" => Capability::Time,
                         other => panic!("unexpected capability on `{other}`"),
                     }
                 );

@@ -1,0 +1,6 @@
+use env
+fn lookup -> opt str
+ ex has env "PATH" = false
+ env "ALEPH_SURELY_UNSET_VAR_38"
+fn main -> unit
+ nil

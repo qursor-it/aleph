@@ -1,0 +1,7 @@
+use env
+use time
+fn main -> unit
+ do print show has env "ALEPH_SURELY_UNSET_VAR_38"
+ do print show has env "PATH"
+ do print show > now 1700000000000
+ nil

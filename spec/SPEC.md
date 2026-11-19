@@ -203,8 +203,10 @@ Effectful:
 | `eprint s` | str -> unit | none |
 | `read path` | str -> res str str | `fs.read` covering path |
 | `write path s` | str, str -> res unit str | `fs.write` covering path |
+| `env name` | str -> opt str (`some` value, `none` if unset or not UTF-8) | `env` |
+| `now` | -> i64 (milliseconds since the Unix epoch, wall clock) | `time` |
 
-`fetch`, `now`, `env`: v0.2.
+`fetch`: v0.2 (ADR-0038).
 
 ### 5.2 Dicts (v0.2, ADR-0032 Proposed)
 

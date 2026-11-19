@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 /* ------------------------------------------------------------------ */
@@ -2973,6 +2974,35 @@ AlValue aleph_b_read(AlValue path_value) {
     result = aleph_ok(aleph_str_n(buffer != NULL ? buffer : "", used));
     free(buffer);
     return result;
+}
+
+AlValue aleph_b_env(AlValue name) {
+    char *key;
+    const char *value;
+
+    if (memchr(name.u.str->data, '\0', name.u.str->len) != NULL) {
+        return aleph_none();
+    }
+    key = string_to_cstr(name.u.str);
+    value = getenv(key);
+    free(key);
+    if (value == NULL) {
+        return aleph_none();
+    }
+    if (!utf8_valid((const unsigned char *)value, strlen(value))) {
+        return aleph_none();
+    }
+    return aleph_some(aleph_str(value));
+}
+
+AlValue aleph_b_now(void) {
+    struct timespec current;
+
+    if (clock_gettime(CLOCK_REALTIME, &current) != 0) {
+        return aleph_i64(0);
+    }
+    return aleph_i64((int64_t)current.tv_sec * 1000 +
+                     (int64_t)(current.tv_nsec / 1000000));
 }
 
 AlValue aleph_b_write(AlValue path_value, AlValue text) {
