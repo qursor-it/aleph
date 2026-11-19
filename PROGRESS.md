@@ -677,3 +677,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - experiments/pilot/tokens/verify_whatif.py runs the what-if variants against the hidden HumanEval tests: A 60/61, B 61/61, C (builtins + lambdas) 61/61 with no text change. So the ADR-0037 estimate (median 0.81 Aleph/Python, 42/61 shorter) holds for compiled, test-passing code. Report in NOTES.md, data in verify_whatif.json.
 - A/29 now fails with T005 (`let starts` vs the ADR-0036 builtin): new builtin names break existing programs.
 - token counts not re-run: no tiktoken, vocabularies or HumanEval file offline. The texts are unchanged, so a re-run should give whatif.json.
+
+## 2026-11-19T16:00 T-043 done
+- experiments/FREEZE.md lists what is in the freeze (ADR-0032..0037, T-034, tooling), what is out, and the commands that must pass. It also lists the decisions for a person: T-030/T-031 paused, ADRs still Proposed, llms.txt at budget.
+- humaneval_to_aleph.py: the reserved names gain `lam` and the ADR-0035/0036 builtins. `evaluate.py --validate` still gives 156/0 and the translator tests pass.
+- T-035..T-042 skipped: EXP-001..004 are `draft` (AGENTS.md, Experiments).
+- next: no open task is takeable (T-030/T-031 paused, experiment tasks need approved protocols)

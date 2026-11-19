@@ -29,8 +29,8 @@ import pathlib
 import re
 import sys
 
-KEYWORDS = set("fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match".split())
-BUILTINS = set("args at cat contains count del eprint filter float fold get int jbool jdict jint jlist jnum join jparse json jstr keys len lower map print push put range read rev show size slice sort split sum trim upper vals write".split())
+KEYWORDS = set("fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam".split())
+BUILTINS = set("abs args at cat chr contains count del eprint filter float fold get int jbool jdict jint jlist jnum join jparse json jstr keys len lower map map2 max min ord print push put range read rev show size slice sort split starts ends sum trim uniq upper vals write".split())
 TYPE_NAMES = {"i64", "f64", "bool", "str", "unit", "list", "opt", "res", "dict", "main"}
 RESERVED = KEYWORDS | BUILTINS | TYPE_NAMES
 # Unlike MultiPL-E, a new top-level `fn` does not stop the completion: Aleph has

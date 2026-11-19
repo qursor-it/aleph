@@ -58,7 +58,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 
 ## Experiment-ready (freeze for experiments)
 
-- [ ] T-043 Checklist for the `v0.2-experiment` freeze in `experiments/FREEZE.md`: which v0.2 features are in (dict, JSON, sum types + match, T-030, T-031, T-034), what is out, and the commands that must pass. A person creates the tag; the agent only prepares the checklist.
+- [x] T-043 Checklist for the `v0.2-experiment` freeze in `experiments/FREEZE.md`: which v0.2 features are in (dict, JSON, sum types + match, T-030, T-031, T-034), what is out, and the commands that must pass. A person creates the tag; the agent only prepares the checklist.
 
 ## Experiment tools (only when the named protocol is `approved`; see AGENTS.md, Experiments)
 
