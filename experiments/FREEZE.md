@@ -4,9 +4,10 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 
 ## Decisions for a person before tagging
 
-- [ ] **T-030 (scoped regions) and T-031 (`net.host`/`fetch`, `time`, `env`)** are listed for the freeze in T-043 but are paused until the rule-reduction pilot is evaluated. Tag without them, or wait? Without T-031 the capabilities `net.host`, `env` and `time` parse but have no builtins.
+- [ ] **T-030 (scoped regions)** is listed for the freeze in T-043 but is paused until the rule-reduction pilot is evaluated. Tag without it, or wait? (T-031 was resumed on 19 Nov and is in.)
 - [ ] **ADR status.** The v0.2 ADRs below are all `Proposed`. Agents never accept ADRs: decide which ones the tag freezes as they stand.
-- [ ] **`llms.txt` budget.** It is at its limit of 2110 tokens (ADR-0026). The experiments use it as the language description, so freeze its text together with the tag.
+- [ ] **`llms.txt` budget.** It is at its limit of 2110 tokens (ADR-0026). The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
+- [ ] **ADR-0037 amendments** record three review rounds; condense them into one rule for the order in which builtin arguments are checked before the ADR is frozen.
 
 ## In (implemented on `agent/aleph-m3`)
 
@@ -18,12 +19,13 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 | Builtins `ord`, `chr` | 0035 | T-044 |
 | Builtins `abs min max starts ends uniq map2` | 0036 | (PR #3) |
 | Inline lambdas `lam` (interpreter, native, tools) | 0037 | T-045..T-049 |
+| Builtins `env`, `now`, `fetch` (curl) for `use env`, `use time`, `use net.host` | 0038 | T-031 |
 | Generated C names no longer clash with Tlön | — | T-034 |
 | Tooling: `aleph edit`, `aleph mcp`, `aleph tokens`, `aleph llms`, fix objects in diagnostics | 0028–0031 | T-023..T-026 |
 
 ## Out (not in the tag)
 
-- T-030 scoped regions and T-031 network/time/env, unless the decision above says otherwise.
+- T-030 scoped regions, unless the decision above says otherwise.
 - User generics, modules/imports, general loops, LLVM/WASM backends, content addressing (SPEC §13).
 - Experiment tools T-035..T-042: their protocols are still `draft`.
 
@@ -35,7 +37,7 @@ Run from the repository root, with a C compiler (`cc`) installed:
 cd compiler
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
-ALEPH_REQUIRE_CC=1 cargo test --all   # interpreter vs native differential tests; generated C warning-free (-Werror)
+ALEPH_REQUIRE_CC=1 cargo test --all   # interpreter vs native; generated C must be -Werror clean (ALEPH_WERROR=0 to opt out on other compilers); fetch tests need curl
 cd ..
 cc -std=c99 -O2 -Wall -Wextra -Werror -pthread -o /tmp/tt tlon/test_tlon.c tlon/tlon.c -lm && /tmp/tt
 ./target/debug/aleph llms | diff - llms.txt                      # llms.txt is current
@@ -46,7 +48,7 @@ cd ../../..
 ALEPH=$PWD/target/debug/aleph python3 experiments/pilot/tokens/verify_whatif.py          # C 61/61 pass
 ```
 
-State on 19 Nov 2026 (commit after T-050): all of the above pass. `cargo test` runs 356 tests; `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61. A/29 fails because the `starts` builtin is now a reserved name.
+State on 19 Nov 2026 (after T-031 review round 2): all of the above pass. `cargo test` runs 375 tests; `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61. A/29 fails because the `starts` builtin is now a reserved name.
 
 ## After tagging
 

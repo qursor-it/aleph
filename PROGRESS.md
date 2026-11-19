@@ -721,3 +721,20 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 
 ## 2026-11-19T07:10 note on timestamps
 - The 19 Nov entries above (T-034 through T-051..T-052 review round 3, stamped 08:00–20:00) carry estimated times, not clock times. The work was actually done between about 21:00 UTC on 18 Nov and 07:00 UTC on 19 Nov. Commit dates are authoritative. Order and content are correct.
+
+## 2026-11-19T18:06 review of 17–19 Nov work, deep-sum fix
+- Owner asked for a review of the recent agent work, the experiments and the new ADRs, and a call on T-031. Independent Opus review of 8a3e073..1ea56f7: 7/10.
+- CRITICAL, fixed (3046ed7): a sum value 10^6 deep (`fold @succ z range 0 1000000`) overflowed the Rust stack in `aleph run` and `aleph check`; native worked. Value now drops iteratively, `values_equal` uses a stack, E002 text is capped at depth 100. Golden run_sum_deep_million.
+- minor, fixed: ADR-0035 wrongly said strings cannot be split into characters.
+- not changed (decisions for a person, see FREEZE.md): the llms budget raise in 8a3e073; the ADR-0037 amendments should be condensed before the freeze.
+- tests: 371 passed
+
+## 2026-11-19T18:06 T-031 done (review rounds 1-2 applied)
+- Decision: the pilot (experiments/pilot/probe) puts the token cost in rules and missing builtins, not capabilities; EXP-002 tasks need files and JSON, not network. T-031 adds three builtins and no rules, so it does not work against the pilot. The owner resumed it on 19 Nov.
+- ADR-0038 (Proposed): `env name` (use env) str -> opt str; `now` (use time) i64 ms; `fetch url` (use net.host "HOST") str -> res str str via the system curl (argv, no shell: HTTPS without a new crate). Host check static (C001/C002 + insert fix, C003 for a bad value) and at run time (R003); examples trap R003.
+- Implementation by the DeepSeek workers (967ce08, 1bc2911); integration test tests/fetch.rs with a loopback HTTP server, both engines.
+- Review round 1 (Opus) 6/10, all fixed in e526006: net.host was a blocklist (`"["` granted every IPv6 literal; `%31` hosts); curl globbing on; 16 MiB enforced only after buffering; exit-63 text; `curl failed` wording.
+- llms.txt: the run_higher_order example became run_lam_llms (lam + @f, shorter); the space pays for the fetch rules. 8435 chars (budget 2110 tokens).
+- tests: 373 passed (ALEPH_REQUIRE_CC=1), clippy clean; humaneval validate 156/0; verify_whatif A 60 B 61 C 61
+- Review round 2 (Opus) 8/10, fixed in 64af47f: native fetch wrote curl stderr to a /tmp file (failed without a writable /tmp) -> pipe + poll; set-up failures -> curl failed; child stdin /dev/null; llms.txt now says `now` is in ms; `env` of an empty name or one with `=` -> none. Not changed: execvp runs a shebang-less fake curl through sh (noted in the ADR).
+- tests: 375 passed (ALEPH_REQUIRE_CC=1), clippy clean
