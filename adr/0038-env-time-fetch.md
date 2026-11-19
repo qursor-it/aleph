@@ -27,7 +27,8 @@ Options for `fetch` transport (score 1-10):
 
 ## Decision
 - `env name` : `str -> opt str`, capability `use env`. `some` of the variable's
-  value; `none` if it is unset or its value is not valid UTF-8.
+  value; `none` if it is unset, its value is not valid UTF-8, or `name` is
+  empty or contains `=` or NUL.
 - `now` : `i64` (no arguments, like `args`), capability `use time`.
   Milliseconds since the Unix epoch, wall clock (negative before 1970).
 - `fetch url` : `str -> res str str`, capability `use net.host "HOST"`. HTTP
@@ -53,8 +54,13 @@ Options for `fetch` transport (score 1-10):
     could not be started, or ended without an error text, e.g. killed);
     `fetch: response too large` above 16 MiB (also curl exit 63); `fetch:
     body is not valid UTF-8`; otherwise `fetch: ` followed by curl's error
-    text with its `curl: (N) ` prefix removed (e.g. `fetch: The requested
-    URL returned error: 404`).
+    text with its `curl: (N) ` prefix removed, passed through as is (e.g.
+    `fetch: The requested URL returned error: 404`; a timeout names the
+    elapsed milliseconds). Failures to set up the child process (pipe, fork)
+    are `fetch: curl failed`. Tlön runs curl with `execvp`, which also runs
+    an executable script without a `#!` line through `/bin/sh`; the
+    interpreter does not, so only a broken `curl` on PATH can make the
+    engines' error texts differ.
 - All three trap with R003 inside examples (hermetic, as `read`/`write`).
 - `env`, `now` and `fetch` become reserved names (T005).
 
@@ -65,6 +71,9 @@ Options for `fetch` transport (score 1-10):
 - `fetch` needs `curl` on the machine that runs the program; without it every
   call is `err`, never a trap.
 - `use env` grants every variable; per-variable grants can come later.
+- The allowlist admits numeric host forms curl accepts (`0`, `2130706433`
+  reach 127.0.0.1); they still need an explicit declaration, which is what a
+  reviewer reads. A URL without a port uses the scheme's default port.
 - `llms.txt` replaces "no builtins yet" with three builtin lines (ADR-0026
   budget).
 
@@ -76,3 +85,6 @@ Options for `fetch` transport (score 1-10):
   16 MiB cut-off (curl 7.81 enforces `--max-filesize` only with a
   Content-Length), the exit-63 and `curl failed` messages, and `now` before
   1970.
+- Round 2: native stderr moved from a /tmp file to a pipe read with poll
+  (no temp file, no TMPDIR dependence), child stdin from /dev/null, set-up
+  failures are `curl failed`, `env` names with `=` or empty are `none`.

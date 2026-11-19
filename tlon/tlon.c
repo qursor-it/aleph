@@ -13,6 +13,7 @@
 #include <limits.h>
 #include <locale.h>
 #include <math.h>
+#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -3075,19 +3076,29 @@ static AlValue fetch_not_found(void) {
     return fetch_error(message, sizeof(message) - 1);
 }
 
+/* Close `*fd` when it is a real descriptor and mark it closed. */
+static void close_fd(int *fd) {
+    if (*fd >= 0) {
+        (void)close(*fd);
+        *fd = -1;
+    }
+}
+
 AlValue aleph_b_fetch(AlValue url_value) {
     const char *host;
     size_t host_len;
     char *url;
-    int out_pipe[2];
-    int exec_pipe[2];
-    int stderr_fd;
-    char stderr_path[] = "/tmp/aleph-fetch-XXXXXX";
+    int out_pipe[2] = {-1, -1};
+    int err_pipe[2] = {-1, -1};
+    int exec_pipe[2] = {-1, -1};
+    int null_fd;
     pid_t child;
     ssize_t count;
     int exec_error = 0;
     int status = 0;
     bool io_failed = false;
+    bool poll_failed = false;
+    bool too_large = false;
     char *out = NULL;
     char *err = NULL;
     size_t out_len = 0;
@@ -3104,37 +3115,45 @@ AlValue aleph_b_fetch(AlValue url_value) {
         aleph_trap("R003", "capability violation");
     }
     url = string_to_cstr(url_value.u.str);
-    if (pipe(out_pipe) != 0) {
+    null_fd = open("/dev/null", O_RDONLY);
+    if (null_fd < 0) {
         free(url);
-        return fetch_error("io error", 8);
+        return fetch_error("curl failed", 11);
+    }
+    if (pipe(out_pipe) != 0) {
+        close_fd(&null_fd);
+        free(url);
+        return fetch_error("curl failed", 11);
+    }
+    if (pipe(err_pipe) != 0) {
+        close_fd(&out_pipe[0]);
+        close_fd(&out_pipe[1]);
+        close_fd(&null_fd);
+        free(url);
+        return fetch_error("curl failed", 11);
     }
     if (pipe(exec_pipe) != 0) {
-        close(out_pipe[0]);
-        close(out_pipe[1]);
+        close_fd(&out_pipe[0]);
+        close_fd(&out_pipe[1]);
+        close_fd(&err_pipe[0]);
+        close_fd(&err_pipe[1]);
+        close_fd(&null_fd);
         free(url);
-        return fetch_error("io error", 8);
+        return fetch_error("curl failed", 11);
     }
-    stderr_fd = mkstemp(stderr_path);
-    if (stderr_fd < 0) {
-        close(out_pipe[0]);
-        close(out_pipe[1]);
-        close(exec_pipe[0]);
-        close(exec_pipe[1]);
-        free(url);
-        return fetch_error("io error", 8);
-    }
-    (void)unlink(stderr_path);
     (void)fcntl(exec_pipe[1], F_SETFD, FD_CLOEXEC);
 
     child = fork();
     if (child < 0) {
-        close(out_pipe[0]);
-        close(out_pipe[1]);
-        close(exec_pipe[0]);
-        close(exec_pipe[1]);
-        close(stderr_fd);
+        close_fd(&out_pipe[0]);
+        close_fd(&out_pipe[1]);
+        close_fd(&err_pipe[0]);
+        close_fd(&err_pipe[1]);
+        close_fd(&exec_pipe[0]);
+        close_fd(&exec_pipe[1]);
+        close_fd(&null_fd);
         free(url);
-        return fetch_error("io error", 8);
+        return fetch_error("curl failed", 11);
     }
     if (child == 0) {
         char *const argv[] = {
@@ -3149,14 +3168,23 @@ AlValue aleph_b_fetch(AlValue url_value) {
             NULL};
         int saved;
         ssize_t ignored;
-        close(out_pipe[0]);
-        close(exec_pipe[0]);
-        if (dup2(out_pipe[1], STDOUT_FILENO) < 0 ||
-            dup2(stderr_fd, STDERR_FILENO) < 0) {
+        close_fd(&out_pipe[0]);
+        close_fd(&err_pipe[0]);
+        close_fd(&exec_pipe[0]);
+        if (dup2(null_fd, STDIN_FILENO) < 0 ||
+            dup2(out_pipe[1], STDOUT_FILENO) < 0 ||
+            dup2(err_pipe[1], STDERR_FILENO) < 0) {
             _exit(127);
         }
-        close(out_pipe[1]);
-        close(stderr_fd);
+        if (null_fd > STDERR_FILENO) {
+            close(null_fd);
+        }
+        if (out_pipe[1] > STDERR_FILENO) {
+            close(out_pipe[1]);
+        }
+        if (err_pipe[1] > STDERR_FILENO) {
+            close(err_pipe[1]);
+        }
         execvp("curl", argv);
         saved = errno;
         ignored = write(exec_pipe[1], &saved, sizeof(saved));
@@ -3164,68 +3192,111 @@ AlValue aleph_b_fetch(AlValue url_value) {
         _exit(127);
     }
 
-    close(out_pipe[1]);
-    close(exec_pipe[1]);
+    close_fd(&out_pipe[1]);
+    close_fd(&err_pipe[1]);
+    close_fd(&exec_pipe[1]);
+    close_fd(&null_fd);
     do {
         count = read(exec_pipe[0], &exec_error, sizeof(exec_error));
     } while (count < 0 && errno == EINTR);
-    close(exec_pipe[0]);
+    close_fd(&exec_pipe[0]);
 
     if (count != (ssize_t)sizeof(exec_error)) {
         exec_error = 0;
     }
     for (;;) {
+        struct pollfd fds[2];
+        nfds_t nfds = 0;
+        int out_slot = -1;
+        int err_slot = -1;
         char chunk[8192];
-        count = read(out_pipe[0], chunk, sizeof(chunk));
+
+        if (out_pipe[0] >= 0) {
+            fds[nfds].fd = out_pipe[0];
+            fds[nfds].events = POLLIN;
+            fds[nfds].revents = 0;
+            out_slot = (int)nfds;
+            nfds += 1;
+        }
+        if (err_pipe[0] >= 0) {
+            fds[nfds].fd = err_pipe[0];
+            fds[nfds].events = POLLIN;
+            fds[nfds].revents = 0;
+            err_slot = (int)nfds;
+            nfds += 1;
+        }
+        if (nfds == 0) {
+            break;
+        }
+        do {
+            count = poll(fds, nfds, -1);
+        } while (count < 0 && errno == EINTR);
         if (count < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            io_failed = true;
+            poll_failed = true;
             break;
         }
-        if (count == 0) {
-            break;
-        }
-        append_bytes(&out, &out_len, &out_cap, chunk, (size_t)count);
-        if (out_len > 16777216) {
-            /* Streaming cut-off: stop reading, kill curl and report. */
-            kill(child, SIGKILL);
-            close(out_pipe[0]);
-            while (waitpid(child, &status, 0) < 0 && errno == EINTR) {
+
+        if (out_slot >= 0 && fds[out_slot].revents != 0) {
+            count = read(out_pipe[0], chunk, sizeof(chunk));
+            if (count < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                io_failed = true;
+                break;
             }
-            close(stderr_fd);
-            free(out);
-            free(err);
-            free(url);
-            return fetch_error("response too large", 18);
+            if (count == 0) {
+                close_fd(&out_pipe[0]);
+            } else {
+                append_bytes(&out, &out_len, &out_cap, chunk, (size_t)count);
+                if (out_len > 16777216) {
+                    /* Streaming cut-off: stop reading, kill curl and report. */
+                    too_large = true;
+                    break;
+                }
+            }
+        }
+        if (err_slot >= 0 && fds[err_slot].revents != 0) {
+            count = read(err_pipe[0], chunk, sizeof(chunk));
+            if (count < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                io_failed = true;
+                break;
+            }
+            if (count == 0) {
+                close_fd(&err_pipe[0]);
+            } else {
+                append_bytes(&err, &err_len, &err_cap, chunk, (size_t)count);
+            }
         }
     }
-    close(out_pipe[0]);
+
+    if (too_large || poll_failed || io_failed) {
+        kill(child, SIGKILL);
+        close_fd(&out_pipe[0]);
+        close_fd(&err_pipe[0]);
+        while (waitpid(child, &status, 0) < 0 && errno == EINTR) {
+        }
+        free(out);
+        free(err);
+        free(url);
+        if (too_large) {
+            return fetch_error("response too large", 18);
+        }
+        if (poll_failed) {
+            return fetch_error("curl failed", 11);
+        }
+        return fetch_error("io error", 8);
+    }
+
     while (waitpid(child, &status, 0) < 0) {
         if (errno != EINTR) {
             io_failed = true;
             break;
         }
     }
-
-    if (lseek(stderr_fd, 0, SEEK_SET) >= 0) {
-        for (;;) {
-            char chunk[8192];
-            count = read(stderr_fd, chunk, sizeof(chunk));
-            if (count < 0) {
-                if (errno == EINTR) {
-                    continue;
-                }
-                break;
-            }
-            if (count == 0) {
-                break;
-            }
-            append_bytes(&err, &err_len, &err_cap, chunk, (size_t)count);
-        }
-    }
-    close(stderr_fd);
 
     if (exec_error != 0) {
         free(out);
@@ -3351,7 +3422,9 @@ AlValue aleph_b_env(AlValue name) {
     char *key;
     const char *value;
 
-    if (memchr(name.u.str->data, '\0', name.u.str->len) != NULL) {
+    if (name.u.str->len == 0 ||
+        memchr(name.u.str->data, '\0', name.u.str->len) != NULL ||
+        memchr(name.u.str->data, '=', name.u.str->len) != NULL) {
         return aleph_none();
     }
     key = string_to_cstr(name.u.str);

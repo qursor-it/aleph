@@ -19,6 +19,7 @@ use common::TempDir;
 
 const STREAM_BYTES: usize = 17 * 1024 * 1024;
 const BIG_BYTES: usize = 17_000_000;
+const EXACT_BYTES: usize = 16_777_216;
 
 fn curl_is_missing() -> bool {
     match Command::new("curl").arg("--version").output() {
@@ -85,6 +86,8 @@ fn serve_connection(mut stream: TcpStream, paths: Arc<Mutex<Vec<String>>>) {
     paths.lock().unwrap().push(path.to_string());
     match path {
         "/ok" => respond(&mut stream, "200 OK", b"hello"),
+        "/empty" => respond(&mut stream, "200 OK", b""),
+        "/nul" => respond(&mut stream, "200 OK", b"a\0b"),
         "/bin" => respond(&mut stream, "200 OK", b"\xff\xfe\x80"),
         "/redirect" => {
             let head =
@@ -103,6 +106,13 @@ fn serve_connection(mut stream: TcpStream, paths: Arc<Mutex<Vec<String>>>) {
             );
             let _ = stream.write_all(head.as_bytes());
             write_chunks(&mut stream, BIG_BYTES, b'y');
+        }
+        "/exact" => {
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {EXACT_BYTES}\r\nConnection: close\r\n\r\n"
+            );
+            let _ = stream.write_all(head.as_bytes());
+            write_chunks(&mut stream, EXACT_BYTES, b'z');
         }
         _ => respond(&mut stream, "404 Not Found", b"missing"),
     }
@@ -171,6 +181,20 @@ fn write_program(directory: &Path, port: u16, host: &str) {
     fs::write(directory.join("prog.aph"), source).expect("write program");
 }
 
+fn write_count_program(directory: &Path, port: u16, path: &str) {
+    let source = format!(
+        "use net.host \"127.0.0.1\"\nfn main -> res unit str\n let url cat \"http://127.0.0.1:{port}\" \"{path}\"\n let body try fetch url\n do print show count body\n ok nil\n"
+    );
+    fs::write(directory.join("prog.aph"), source).expect("write program");
+}
+
+fn write_url_program(directory: &Path, port: u16) {
+    let source = format!(
+        "use net.host \"127.0.0.1\"\nfn main -> res unit str\n let url else at args 0 \"http://127.0.0.1:{port}/ok\"\n let body try fetch url\n do print body\n ok nil\n"
+    );
+    fs::write(directory.join("prog.aph"), source).expect("write program");
+}
+
 #[test]
 fn fetch_runs_identically_in_both_engines() {
     if curl_is_missing() {
@@ -184,6 +208,7 @@ fn fetch_runs_identically_in_both_engines() {
 
     let cases = [
         ("/ok", "hello\n", "", 0, "ok body"),
+        ("/empty", "\n", "", 0, "empty body"),
         ("/redirect", "moved\n", "", 0, "3xx body"),
         (
             "/missing",
@@ -334,5 +359,80 @@ fn fetch_reports_missing_curl_in_both_engines() {
             "fetch: curl not found\n",
             1,
         );
+    }
+}
+
+#[test]
+fn fetch_counts_nul_and_exact_size_bodies_in_both_engines() {
+    if curl_is_missing() {
+        println!("fetch: curl is not available; skipping the body-size test");
+        return;
+    }
+    let (port, _paths) = start_server();
+    let directory = TempDir::new().expect("temporary directory");
+
+    write_count_program(directory.path(), port, "/nul");
+    let native = build_native(directory.path());
+    let output = aleph(directory.path(), &["run", "prog.aph"]);
+    check("nul body", &output, "3\n", "", 0);
+    if let Some(binary) = &native {
+        let output = Command::new(binary)
+            .current_dir(directory.path())
+            .output()
+            .expect("run native program");
+        check("nul body (native)", &output, "3\n", "", 0);
+    }
+
+    write_count_program(directory.path(), port, "/exact");
+    let native = build_native(directory.path());
+    let output = aleph(directory.path(), &["run", "prog.aph"]);
+    check("exact body", &output, "16777216\n", "", 0);
+    if let Some(binary) = &native {
+        let output = Command::new(binary)
+            .current_dir(directory.path())
+            .output()
+            .expect("run native program");
+        check("exact body (native)", &output, "16777216\n", "", 0);
+    }
+}
+
+#[test]
+fn fetch_traps_on_computed_urls_without_host_in_both_engines() {
+    let (port, _paths) = start_server();
+    let directory = TempDir::new().expect("temporary directory");
+    write_url_program(directory.path(), port);
+    let native = build_native(directory.path());
+
+    let urls = [
+        format!("http://user@127.0.0.1:{port}/ok"),
+        format!("http://127.0.0.1@127.0.0.1:{port}/ok"),
+    ];
+    for url in urls {
+        let output = aleph(directory.path(), &["run", "prog.aph", &url]);
+        assert_eq!(output.status.code(), Some(70), "{url}: R003 exit code");
+        assert_eq!(output.stdout, b"", "{url}: stdout");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("\"code\":\"R003\""),
+            "{url}: stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        if let Some(binary) = &native {
+            let output = Command::new(binary)
+                .current_dir(directory.path())
+                .arg(&url)
+                .output()
+                .expect("run native program");
+            assert_eq!(
+                output.status.code(),
+                Some(70),
+                "{url} (native): R003 exit code"
+            );
+            assert_eq!(output.stdout, b"", "{url} (native): stdout");
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains("\"code\":\"R003\""),
+                "{url} (native): stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
     }
 }

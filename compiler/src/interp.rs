@@ -1002,7 +1002,11 @@ impl<'a> Interp<'a> {
                 if self.deny_fs {
                     return Err(Trap::new("R003", "capability violation", node, span));
                 }
-                match std::env::var(as_str(&args[0])) {
+                let name = as_str(&args[0]);
+                if name.is_empty() || name.contains('=') || name.contains('\0') {
+                    return Ok(Value::Opt(None));
+                }
+                match std::env::var(name) {
                     Ok(text) => Value::Opt(Some(Rc::new(Value::Str(Rc::from(text.as_str()))))),
                     Err(_) => Value::Opt(None),
                 }

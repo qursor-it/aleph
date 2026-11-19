@@ -154,7 +154,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("8."),
-        "Deny by default. `use fs.read \"PREFIX\"`/`use fs.write \"PREFIX\"` (`read`/`write`), `use env` (`env`), `use time` (`now`), `use net.host \"HOST\"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). Prefixes normalized (empty/`.` dropped), `..` never covered; empty/`..` prefix or fs capability without a path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.",
+        "Deny by default. `use fs.read \"PREFIX\"`/`use fs.write \"PREFIX\"` (`read`/`write`), `use env` (`env`), `use time` (`now` ms), `use net.host \"HOST\"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). Prefixes normalized (empty/`.` dropped), `..` never covered; empty/`..` prefix or fs capability without a path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.",
     );
     section(
         &mut out,
