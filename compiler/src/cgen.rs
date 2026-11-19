@@ -1466,11 +1466,16 @@ impl<'a> Generator<'a> {
         let id = lam.id.0;
         let captures = self.captures(lam);
         if captures.is_empty() {
-            self.assign(
-                indent,
-                id,
-                &format!("aleph_fnval_lam(aleph_lam_n{id}, NULL, 0)"),
+            // Nothing captured: one static value, no arena allocation per evaluation.
+            self.line(indent, "{");
+            self.line(
+                indent + 1,
+                &format!(
+                    "static const AlFn aleph_lamref_ = {{aleph_lam_n{id}, \"lam\", AL_FN_LAM, NULL, 0}};"
+                ),
             );
+            self.assign(indent + 1, id, "aleph_fnval_static(&aleph_lamref_)");
+            self.line(indent, "}");
             return;
         }
         let values = captures
@@ -1797,9 +1802,16 @@ mod tests {
         assert!(code.contains("int64_t l_k = aleph_self->captured[0].u.i64;"));
         assert!(code.contains("AlValue l_k = aleph_self->captured[0];"));
         assert!(code.contains("aleph_lam_enter();") && code.contains("aleph_lam_leave();"));
-        // No captures: no array; the body temps live only in the lifted functions.
-        assert!(code.contains("aleph_fnval_lam(aleph_lam_n"), "{code}");
-        assert!(code.contains(", NULL, 0)"), "{code}");
+        // No captures: one static AlFn, no arena allocation; the body temps
+        // live only in the lifted functions.
+        assert!(
+            code.contains("static const AlFn aleph_lamref_ = {aleph_lam_n"),
+            "{code}"
+        );
+        assert!(
+            code.contains("aleph_fnval_static(&aleph_lamref_)"),
+            "{code}"
+        );
         let fast_f = &code[code.find("static AlValue aleph_fn_f(").expect("fast f")..];
         let fast_f = &fast_f[..fast_f.find("\n}\n").expect("end of f")];
         assert!(

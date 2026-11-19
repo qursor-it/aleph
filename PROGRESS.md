@@ -632,3 +632,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 356 passed, clippy clean
 - decisions: ADR-0037 amendments (runtime layout, lifting, depth accounting, explain format, edit probe)
 - next: T-044 ord/chr; re-count the HumanEval token corpus with lambdas (ADR-0037 consequence)
+
+## 2026-11-19T12:00 T-045..T-049 review round 1
+- Opus review 8.5/10.
+- IMPORTANT, fixed: `ok`/`err` in a lambda body, or as fold's init, gave T010. A builtin call with a lambda now unifies the expected type with the builtin's result type first. Golden lam_ok, run in both engines.
+- minor, fixed: a lambda with no captures is one static AlFn (no arena allocation per evaluation).
+- minor, noted: the llms wording "Canonical, check-clean" became "Check-clean" in fb8c7f7, to fit the budget.
+- tests: 356 passed, clippy clean

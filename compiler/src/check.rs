@@ -523,7 +523,7 @@ impl<'a> TypeChecker<'a> {
                 callee,
                 callee_kind,
                 args,
-            } => self.check_call(expr, callee, *callee_kind, args),
+            } => self.check_call(expr, callee, *callee_kind, args, expected),
             ExprKind::BinOp { op, lhs, rhs } => self.check_binop(expr, *op, lhs, rhs),
             ExprKind::UnOp { op, operand } => self.check_unop(expr, *op, operand),
             ExprKind::If { cond, then_, else_ } => {
@@ -657,7 +657,14 @@ impl<'a> TypeChecker<'a> {
         Type::Error
     }
 
-    fn check_call(&mut self, expr: &Expr, callee: &str, kind: CalleeKind, args: &[Expr]) -> Type {
+    fn check_call(
+        &mut self,
+        expr: &Expr,
+        callee: &str,
+        kind: CalleeKind,
+        args: &[Expr],
+        expected: Option<&Type>,
+    ) -> Type {
         match kind {
             CalleeKind::Fn => {
                 let Some((params, ret)) = self.signatures.get(callee).cloned() else {
@@ -691,6 +698,14 @@ impl<'a> TypeChecker<'a> {
                 // Lambdas last: their binder types come from the other
                 // arguments (ADR-0037).
                 let is_lam = |arg: &Expr| matches!(arg.kind, ExprKind::Lam { .. });
+                // The expected result type can type `ok x` in a lambda body or
+                // `ok 0` as fold's init; only with lambdas, so other programs
+                // keep their diagnostics.
+                if args.iter().any(is_lam) {
+                    if let Some(expected) = expected {
+                        self.unify(&ret, expected);
+                    }
+                }
                 for lam_pass in [false, true] {
                     for (arg, param) in args.iter().zip(&params) {
                         if is_lam(arg) == lam_pass {

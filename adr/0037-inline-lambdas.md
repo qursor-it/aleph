@@ -135,3 +135,9 @@ Made while implementing T-048..T-049 (2026-11-19):
   nodes). A replacement fragment in the function position of a higher-order
   builtin is checked as `[CALLEE fragment 0 ..]` instead of `[fragment]`, since
   `lam` only parses there and takes its binder count from the callee.
+- (review round 1) In a builtin call with a lambda argument, the expected
+  type of the call is unified with the builtin's result type before the
+  arguments are checked, so `map lam x ok x xs` (expected `list res i64 str`)
+  and `fold lam a x .. ok 0 xs` type-check instead of T010. Calls without a
+  lambda are unchanged. A lambda with no captures is one static `AlFn` in
+  generated C (no arena allocation per evaluation).
