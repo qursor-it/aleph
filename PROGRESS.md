@@ -718,3 +718,6 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - minor, fixed: comments in main.rs and the differential.rs module doc.
 - The review cap (3 rounds) is reached; the round-3 fix was not re-reviewed.
 - tests: 358 passed (ALEPH_REQUIRE_CC=1), clippy clean
+
+## 2026-11-19T07:10 note on timestamps
+- The 19 Nov entries above (T-034 through T-051..T-052 review round 3, stamped 08:00–20:00) carry estimated times, not clock times. The work was actually done between about 21:00 UTC on 18 Nov and 07:00 UTC on 19 Nov. Commit dates are authoritative. Order and content are correct.
