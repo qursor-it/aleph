@@ -121,6 +121,8 @@ impl<'a> Generator<'a> {
     /// Drop the record infos and locations that no code refers to, so the C
     /// stays clean under `-Wall -Wextra` (unused-const-variable).
     fn prune_tables(&mut self, start: usize, end: usize) {
+        // Tables are only ever used by address (`&L_nN`, `&RI_name`); a use
+        // without `&` would drop the table and fail the C build loudly.
         // String literals may contain user text such as "&RI_pt": not references.
         let rest = without_string_literals(&self.out[end..]);
         let locations = used_names(&rest, "&L_n");
@@ -1647,7 +1649,6 @@ impl<'a> Generator<'a> {
     }
 }
 
-/// The C identifiers that follow each `prefix` in `code` (`&L_n12` -> `12`).
 /// `code` with the contents of every C string literal removed (escapes kept
 /// paired, so `\"` does not end a literal).
 fn without_string_literals(code: &str) -> String {
@@ -1676,6 +1677,7 @@ fn without_string_literals(code: &str) -> String {
     out
 }
 
+/// The C identifiers that follow each `prefix` in `code` (`&L_n12` -> `12`).
 fn used_names<'c>(code: &'c str, prefix: &str) -> BTreeSet<&'c str> {
     code.split(prefix)
         .skip(1)

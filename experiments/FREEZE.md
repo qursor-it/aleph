@@ -35,7 +35,7 @@ Run from the repository root, with a C compiler (`cc`) installed:
 cd compiler
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
-ALEPH_WERROR=1 cargo test --all    # includes interpreter vs native differential tests; generated C warning-free
+ALEPH_REQUIRE_CC=1 cargo test --all   # interpreter vs native differential tests; generated C warning-free (-Werror)
 cd ..
 cc -std=c99 -O2 -Wall -Wextra -Werror -pthread -o /tmp/tt tlon/test_tlon.c tlon/tlon.c -lm && /tmp/tt
 ./target/debug/aleph llms | diff - llms.txt                      # llms.txt is current

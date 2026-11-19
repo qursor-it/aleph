@@ -700,3 +700,14 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
   - ALEPH_CFLAGS now goes after the fixed flags, so it wins;
   - ALEPH_CFLAGS is documented in an ADR-0025 amendment.
 - tests: 357 passed (with ALEPH_WERROR=1 ALEPH_REQUIRE_CC=1), clippy clean
+
+## 2026-11-19T19:00 T-051..T-052 review round 2
+- Opus review 8/10.
+- IMPORTANT, fixed: without -Werror the warning check did nothing, because `aleph build` discards cc stderr on success. The differential test now always adds `-Wall -Wextra -Werror`, on top of any user ALEPH_CFLAGS; `ALEPH_WERROR=0` opts out.
+- minor, fixed:
+  - FREEZE.md uses ALEPH_REQUIRE_CC=1;
+  - doc comment moved to the right function;
+  - prune comment about address-only use;
+  - ADR-0025 amendment wording.
+- minor, not changed: a non-UTF-8 ALEPH_CFLAGS is ignored.
+- tests: 357 passed (ALEPH_REQUIRE_CC=1, default -Werror), clippy clean

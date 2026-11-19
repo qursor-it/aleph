@@ -449,18 +449,17 @@ fn interpreter_and_native_are_byte_identical_for_every_run_golden() {
         return;
     }
     // Safe: the only test in this binary, so no other thread reads the env.
-    // Warnings are visible by default; `ALEPH_WERROR=1` (CI, freeze checks)
-    // makes them fail, since other compilers warn differently. A value the
-    // user exported is kept.
-    if std::env::var_os("ALEPH_CFLAGS").is_none() {
-        let werror = std::env::var_os("ALEPH_WERROR").is_some_and(|v| v == "1");
-        let flags = if werror {
-            "-Wall -Wextra -Werror"
-        } else {
-            "-Wall -Wextra"
-        };
-        std::env::set_var("ALEPH_CFLAGS", flags);
-    }
+    // `aleph build` discards cc's stderr on success, so warnings are only
+    // caught as errors: `-Wall -Wextra -Werror` on top of any ALEPH_CFLAGS the
+    // user exported. `ALEPH_WERROR=0` drops `-Werror` for compilers that warn
+    // differently from gcc.
+    let base = std::env::var("ALEPH_CFLAGS").unwrap_or_default();
+    let werror = std::env::var_os("ALEPH_WERROR").is_none_or(|v| v != "0");
+    let flags = format!(
+        "{base} -Wall -Wextra{}",
+        if werror { " -Werror" } else { "" }
+    );
+    std::env::set_var("ALEPH_CFLAGS", flags.trim());
 
     let mut failures = Vec::new();
     for aph in run_cases() {

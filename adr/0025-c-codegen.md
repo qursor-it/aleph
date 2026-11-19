@@ -211,5 +211,6 @@ int main(int argc, char **argv)
 - `aleph build` appends the whitespace-separated flags of `ALEPH_CFLAGS`, when
   set, after `-std=c99 -O2 -pthread` (so they win, e.g. `-O0`); no shell, no
   quoting. Generated C is warning-free under `-Wall -Wextra` with gcc;
-  `cargo test` builds the differential goldens with `-Wall -Wextra`, and with
-  `-Werror` when `ALEPH_WERROR=1`.
+  `aleph build` discards cc's stderr on success, so `cargo test` builds the
+  differential goldens with `-Wall -Wextra -Werror` (added to any
+  `ALEPH_CFLAGS`); `ALEPH_WERROR=0` drops `-Werror` for other compilers.
