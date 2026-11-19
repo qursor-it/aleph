@@ -46,3 +46,17 @@ The HumanEval part rewritten, not compiled, with candidate features:
 | + inline lambdas `lam` | 0.81 | 42/61 | 0.20 |
 
 Followed by ADR-0036 (builtins, implemented, PR #3) and ADR-0037 (lambdas, proposed, PR #4). The lambda figure is an estimate until the corpus is rewritten in compiled, test-passing Aleph.
+
+## Verification, 19 Nov (T-050)
+
+The ADR-0036 builtins and ADR-0037 lambdas are now implemented, so the what-if variants were compiled and run against the hidden HumanEval tests. `verify_whatif.py` reads the B and C dicts from `whatif.py` and runs each program through `evaluate.py`, exactly as a model completion is run. Results are in `verify_whatif.json`.
+
+| Variant | Pass |
+|---|---|
+| A today | 60/61 |
+| B builtins | 61/61 |
+| C builtins + lambdas | 61/61 |
+
+- C passes every hidden test with no change to its text. Token counts depend only on the text, so the what-if figures stand for compiled, test-passing code: **median 0.81 Aleph/Python (o200k), pooled 0.81, Aleph shorter on 42/61, 0.20 helpers per program**. This confirms the ADR-0037 estimate.
+- A, problem 29, now fails with T005: its `let starts` clashes with the `starts` builtin that ADR-0036 added. This is a side effect of reserving new builtin names. Every new builtin can break existing programs this way.
+- Not re-run here: the token counts themselves. This machine has no `tiktoken`, no Hugging Face vocabularies and no HumanEval file, and no network access. Since the texts did not change, a re-run should reproduce `whatif.json` exactly; check with `count.py`/`whatif.py` where those files exist.

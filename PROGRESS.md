@@ -672,3 +672,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - The review cap (3 rounds) is reached; the round-3 fix was not re-reviewed.
 - tests: 356 passed, clippy clean
 - next: T-050 token recount, or the experiments tasks T-035..T-043
+
+## 2026-11-19T15:30 T-050 done
+- experiments/pilot/tokens/verify_whatif.py runs the what-if variants against the hidden HumanEval tests: A 60/61, B 61/61, C (builtins + lambdas) 61/61 with no text change. So the ADR-0037 estimate (median 0.81 Aleph/Python, 42/61 shorter) holds for compiled, test-passing code. Report in NOTES.md, data in verify_whatif.json.
+- A/29 now fails with T005 (`let starts` vs the ADR-0036 builtin): new builtin names break existing programs.
+- token counts not re-run: no tiktoken, vocabularies or HumanEval file offline. The texts are unchanged, so a re-run should give whatif.json.
