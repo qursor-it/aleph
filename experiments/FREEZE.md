@@ -48,7 +48,7 @@ cd ../../..
 ALEPH=$PWD/target/debug/aleph python3 experiments/pilot/tokens/verify_whatif.py          # C 61/61 pass
 ```
 
-State on 19 Nov 2026 (after T-031 review round 2): all of the above pass. `cargo test` runs 375 tests; `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61. A/29 fails because the `starts` builtin is now a reserved name.
+State on 19 Nov 2026 (after T-031 review round 3): all of the above pass. `cargo test` runs 376 tests; `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61. A/29 fails because the `starts` builtin is now a reserved name.
 
 ## After tagging
 

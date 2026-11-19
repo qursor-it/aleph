@@ -738,3 +738,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 373 passed (ALEPH_REQUIRE_CC=1), clippy clean; humaneval validate 156/0; verify_whatif A 60 B 61 C 61
 - Review round 2 (Opus) 8/10, fixed in 64af47f: native fetch wrote curl stderr to a /tmp file (failed without a writable /tmp) -> pipe + poll; set-up failures -> curl failed; child stdin /dev/null; llms.txt now says `now` is in ms; `env` of an empty name or one with `=` -> none. Not changed: execvp runs a shebang-less fake curl through sh (noted in the ADR).
 - tests: 375 passed (ALEPH_REQUIRE_CC=1), clippy clean
+
+## 2026-11-19T18:36 T-031 review round 3
+- Opus review 8/10, no CRITICAL. IMPORTANT, fixed (3a44497): the certain insert fix offered `use net.host "["` for an IPv6 URL (itself C003); now only allowlisted hosts get a fix.
+- minor, fixed: non-UTF-8 curl error text -> `curl failed` in both engines; Rust trims like C; failed stdout read -> `io error` in both; curl gets the default SIGPIPE; SPEC env row complete.
+- not changed: curl stderr is not capped (only a hostile curl on PATH); no test yet for curl killed mid-run or simultaneous heavy stdout/stderr (the reviewer ran both by hand).
+- The review cap (3 rounds) is reached; the round-3 fix was not re-reviewed.
+- tests: 376 passed (ALEPH_REQUIRE_CC=1), clippy clean
