@@ -32,6 +32,6 @@ Options (score 1-10):
 ## Consequences
 - `ord` and `chr` become reserved names (T005).
 - Caesar-style shifts are `else chr + 3 else ord c 0 ""`; per-character work
-  still needs splitting a string into characters, which Aleph lacks (`split s
-  ""` behaviour is unchanged by this ADR).
+  splits the string into characters with `split s ""` (already in the
+  language, unchanged by this ADR) and maps over them.
 - `llms.txt` grows by two builtin lines (ADR-0026 budget).
