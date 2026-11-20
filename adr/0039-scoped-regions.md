@@ -59,14 +59,19 @@ Options (score 1-10):
      once (forwarding through a side hash table keyed by address, so the
      old objects are never overwritten and a failed compaction leaves the
      arena untouched). String data and captured-value arrays are copied with
-     the object that owns them. The new chunk is at least 64 KiB and becomes
-     the newest one. If an internal `malloc` fails, compaction gives up and
+     the object that owns them. The new chunk has exactly the copied size
+     (a 64 KiB one would stay alive, mostly empty, under the caller's next
+     marks: 64 KiB per call in a loop) and becomes the newest one; the next
+     allocation takes a new or the spare chunk. If an internal `malloc` fails, compaction gives up and
      falls back to rule 3: it never adds a trap.
   3. Otherwise leave the region as it is: the caller's region absorbs it.
 - Scan budget: a failed compaction attempt (rule 2 traversal past its
   limit) adds the region's quarter to a global count of scanned bytes, and
-  rule 2 is skipped while that count exceeds a quarter of all bytes ever
-  allocated. Without it, data a deep recursion leaves to its callers is
+  rule 2 is attempted only if that count plus the new attempt's quarter
+  stays within a quarter of all bytes ever allocated (64-bit counters), so
+  failed scans never exceed that quarter. One large failed attempt can
+  pause compaction until about as much again has been allocated (a
+  constant factor of the bytes scanned). Without it, data a deep recursion leaves to its callers is
   rescanned by every outer level (quadratic in depth: a 4500-deep builder
   took 14 s natively instead of 0.03 s); with it, scanning stays linear in
   allocation.

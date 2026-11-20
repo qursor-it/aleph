@@ -1180,14 +1180,34 @@ static AlValue region_left_deep(size_t n) {
 
 static void test_region_scan_budget(void) {
     AlValue list = region_left_deep(3000);
-    size_t allocated = aleph_g_live_base + aleph_g_chunks->used + aleph_g_freed;
+    uint64_t allocated = aleph_g_live_base + aleph_g_chunks->used + aleph_g_freed;
     size_t levels = 0;
     for (; list.tag == AL_RECORD; list = list.u.rec->fields[1]) {
         levels += list.u.rec->fields[0].u.list->len == 100 ? 1 : 0;
     }
     check(levels == 3000, "region: left-deep result intact");
-    check(aleph_region_scanned() <= allocated / 2,
+    check(aleph_region_scanned() <= allocated / 4,
           "region: failed compaction scans stay linear");
+}
+
+/* A loop without a region over calls that compact a short result out of
+   ~300 KiB of temporaries: the arena grows by the results, not by a chunk
+   per call. */
+static void test_region_compact_loop(void) {
+    size_t first = 0;
+    size_t index;
+    AlValue kept = aleph_unit();
+    for (index = 0; index < 200; index += 1) {
+        AlMark mark = aleph_region_mark();
+        region_garbage(400 * 1024);
+        kept = aleph_region_exit(mark, aleph_show(aleph_i64((int64_t)index)));
+        if (index == 0) {
+            first = aleph_arena_bytes();
+        }
+    }
+    check_str(kept, "199", "region: compacting loop result");
+    check(aleph_arena_bytes() - first <= 199 * 1024,
+          "region: compacting loop keeps the arena flat");
 }
 
 static void test_regions(void) {
@@ -1360,6 +1380,7 @@ int main(int argc, char **argv) {
     test_effects();
     test_main_results();
     test_traps();
+    test_region_compact_loop();
     test_region_scan_budget();
     test_regions();
 

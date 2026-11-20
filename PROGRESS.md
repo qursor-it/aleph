@@ -789,3 +789,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - mark carries the live base (region size by subtraction, fast root check in the newest chunk); goldens run_region_compact_values/calls cover records, sums, json, dicts, lambdas, map/map2, try exits; ADR-0039 wording (256 KiB threshold, remaining costs)
 - follow-up added: T-053 regions for lambda bodies (reviewer MINOR 4)
 - tests: 377 passed, test_tlon ok, ASan/UBSan clean on test_tlon and region goldens
+
+## 2026-11-20T08:59 T-030 review round 2 (8/10) fixed
+- IMPORTANT: compaction chunk is now exact-size (a 64 KiB chunk leaked per compaction: fold @step repro 154.7 MB -> 2.2 MB); test_region_compact_loop
+- scan budget checked before the attempt (scanned <= allocated/4); counters uint64_t; ADR-0039 updated
+- tests: 377 passed, test_tlon ok, ASan/UBSan clean

@@ -143,24 +143,25 @@ static void out_of_memory(void) {
 #define AL_ROUND(n) (((n) + (AL_ALIGN - 1)) & ~(size_t)(AL_ALIGN - 1))
 
 AlChunk *aleph_g_chunks;
-size_t aleph_g_live_base;
-size_t aleph_g_freed;
+uint64_t aleph_g_live_base;
+uint64_t aleph_g_freed;
 /* One freed AL_CHUNK_MIN chunk kept for reuse, so a call that crosses a
    chunk boundary does not malloc/free on every iteration. */
 static AlChunk *g_spare;
 
-/* An unlinked chunk with room for `cap` bytes, or NULL. */
-static AlChunk *chunk_new(size_t cap) {
+/* An unlinked chunk with room for `cap` bytes, or NULL.  Unless `exact`,
+   it holds at least AL_CHUNK_MIN and may be the spare. */
+static AlChunk *chunk_new(size_t cap, bool exact) {
     size_t header = sizeof(AlChunk) + (AL_ALIGN - 1);
     unsigned char *base;
     AlChunk *chunk;
-    if (cap <= AL_CHUNK_MIN && g_spare != NULL) {
+    if (!exact && cap <= AL_CHUNK_MIN && g_spare != NULL) {
         chunk = g_spare;
         g_spare = NULL;
         chunk->used = 0;
         return chunk;
     }
-    if (cap < AL_CHUNK_MIN) {
+    if (!exact && cap < AL_CHUNK_MIN) {
         cap = AL_CHUNK_MIN;
     }
     if (cap > SIZE_MAX - header) {
@@ -187,7 +188,7 @@ static void chunk_release(AlChunk *chunk) {
     }
 }
 
-static size_t live_bytes(void) {
+static uint64_t live_bytes(void) {
     return aleph_g_live_base + (aleph_g_chunks != NULL ? aleph_g_chunks->used : 0);
 }
 
@@ -211,7 +212,7 @@ void *aleph_alloc(size_t size) {
     size = AL_ROUND(size);
     chunk = aleph_g_chunks;
     if (chunk == NULL || chunk->cap - chunk->used < size) {
-        chunk = chunk_new(size);
+        chunk = chunk_new(size, false);
         if (chunk == NULL) {
             out_of_memory();
         }
@@ -238,7 +239,7 @@ size_t aleph_arena_bytes(void) {
 #define AL_REGION_MIN (256u * 1024u)
 
 void aleph_region_free_to(AlMark mark) {
-    size_t before = live_bytes();
+    uint64_t before = live_bytes();
     while (aleph_g_chunks != mark.chunk && aleph_g_chunks != NULL) {
         AlChunk *chunk = aleph_g_chunks;
         aleph_g_chunks = chunk->next;
@@ -608,7 +609,9 @@ static bool region_compact(AlMark mark, size_t total, AlValue *result) {
     if (bytes == SIZE_MAX) {
         goto out;
     }
-    fresh = chunk_new(bytes);
+    /* Exact size: a 64 KiB chunk here would stay alive, mostly empty, under
+       the caller's next marks.  The next allocation takes a new chunk. */
+    fresh = chunk_new(bytes, true);
     if (fresh == NULL) {
         goto out;
     }
@@ -650,9 +653,9 @@ static bool region_holds(AlMark mark, uintptr_t p) {
 /* Bytes scanned by compaction attempts that failed; rule 2 is skipped while
    they exceed a quarter of all bytes allocated, so the scanning of data a
    region leaves to its callers stays linear in allocation. */
-static size_t g_scanned;
+static uint64_t g_scanned;
 
-size_t aleph_region_scanned(void) { return g_scanned; }
+uint64_t aleph_region_scanned(void) { return g_scanned; }
 
 AlValue aleph_region_leave(AlMark mark, AlValue result) {
     size_t total;
@@ -660,9 +663,9 @@ AlValue aleph_region_leave(AlMark mark, AlValue result) {
         aleph_region_reset(mark);
         return result;
     }
-    total = live_bytes() - (mark.base + mark.used);
+    total = (size_t)(live_bytes() - (mark.base + mark.used));
     if (total >= AL_REGION_MIN &&
-        g_scanned <= (live_bytes() + aleph_g_freed) / 4 &&
+        g_scanned + total / 4 <= (live_bytes() + aleph_g_freed) / 4 &&
         !region_compact(mark, total, &result)) {
         g_scanned += total / 4;
     }

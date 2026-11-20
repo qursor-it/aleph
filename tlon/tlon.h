@@ -365,22 +365,22 @@ typedef struct AlChunk {
 typedef struct AlMark {
     AlChunk *chunk;
     size_t used;
-    size_t base; /* aleph_g_live_base at the mark */
+    uint64_t base; /* aleph_g_live_base at the mark */
 } AlMark;
 
 extern AlChunk *aleph_g_chunks; /* newest chunk first */
 /* Live arena bytes are aleph_g_live_base + aleph_g_chunks->used: the used
    bytes of every chunk but the newest.  aleph_g_freed counts the bytes
    regions have given back, so live + freed only grows (bytes allocated). */
-extern size_t aleph_g_live_base;
-extern size_t aleph_g_freed;
+extern uint64_t aleph_g_live_base;
+extern uint64_t aleph_g_freed;
 
 void aleph_region_free_to(AlMark mark);
 AlValue aleph_region_leave(AlMark mark, AlValue result);
 /* Bytes of chunk capacity currently held by the arena (for the tests). */
 size_t aleph_arena_bytes(void);
 /* Bytes scanned by failed compaction attempts so far (for the tests). */
-size_t aleph_region_scanned(void);
+uint64_t aleph_region_scanned(void);
 
 static inline AlMark aleph_region_mark(void) {
     AlMark mark;
