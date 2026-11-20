@@ -816,3 +816,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - no CRITICAL/IMPORTANT; captured values, fold accumulators, filter, map2, nested lambdas, traps and R004 checked under ASan with a scribbling runtime
 - MINOR not done: hot map lam with fresh boxed results costs ~13% (out-of-line region_leave per element); an inline rule-3 fast path in aleph_region_exit would remove it
 - EXP-004 approved under the owner's delegation (36935de)
+
+## 2026-11-20T09:49 T-042 done
+- experiments/tools/reward/: reward = fraction of hidden tests passed, gated on aleph check clean and no R003 (Aleph) or no access outside declared files (Python); time limit; ex lines never add reward; reward_many for a trainer
+- tests: test_reward 11 passed; built by a Claude subagent (Sonnet) in parallel with the T-039 fixes, so T-042 lands before T-041
+- pain points seen writing Aleph test programs: function order is enforced (F001, fix offered), no way to write a long-running loop without R004/R005
