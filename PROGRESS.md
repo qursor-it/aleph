@@ -811,3 +811,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - baseline (chars4 estimate, no real vocabulary yet): median Aleph/Python 1.235 without examples (95% CI 0.86-1.59), 1.764 with examples; break-even never. This is the starting point for the token metric of the autonomous phase
 - tests: test_corpus 17 passed
 - next: T-039 fixes (review 4/10), then EXP-004 approval and T-041/T-042
+
+## 2026-11-20T09:46 T-053 review (9/10)
+- no CRITICAL/IMPORTANT; captured values, fold accumulators, filter, map2, nested lambdas, traps and R004 checked under ASan with a scribbling runtime
+- MINOR not done: hot map lam with fresh boxed results costs ~13% (out-of-line region_leave per element); an inline rule-3 fast path in aleph_region_exit would remove it
+- EXP-004 approved under the owner's delegation (36935de)
