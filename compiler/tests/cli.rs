@@ -5,7 +5,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 /// Deadline for ordinary `aleph` runs (`check`, `run`, `fmt`, ...).
-const RUN_TIMEOUT: Duration = Duration::from_secs(30);
+/// Hang guard for non-build commands (the debug interpreter runs the deep
+/// recursion tests in tens of seconds on a loaded 2-CPU machine).
+const RUN_TIMEOUT: Duration = Duration::from_secs(300);
 /// Default deadline for `aleph build`, which runs `cc`.
 const BUILD_TIMEOUT: Duration = Duration::from_secs(300);
 

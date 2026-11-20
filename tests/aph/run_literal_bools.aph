@@ -1,0 +1,4 @@
+fn main -> unit
+ let flags [true false true false true false]
+ do print show len flags
+ print show flags

@@ -100,6 +100,7 @@ impl<'a> Generator<'a> {
         let tables_start = self.out.len();
         self.record_infos();
         self.locations();
+        self.literal_tables();
         let tables_end = self.out.len();
         self.forward_declarations();
         self.references();
@@ -200,6 +201,41 @@ impl<'a> Generator<'a> {
         for (id, span) in spans {
             self.location(id, span);
         }
+    }
+
+    /// One `static const AlValue` table per list literal whose items are all
+    /// i64 or bool literals (T-062). `aleph_list` copies the table into the
+    /// arena, so the list itself still lives in the region.
+    fn literal_tables(&mut self) {
+        let file = self.file;
+        let mut tables = Vec::new();
+        for function in &file.fns {
+            for root in frame_roots(function) {
+                ast::walk_expr(root, &mut |expr| {
+                    if let Some(items) = literal_list_items(expr) {
+                        tables.push((expr.id.0, items.to_vec()));
+                    }
+                });
+            }
+        }
+        if tables.is_empty() {
+            return;
+        }
+        for (id, items) in tables {
+            self.line(0, &format!("static const AlValue aleph_list_n{id}[] = {{"));
+            for item in items {
+                let entry = match &item.kind {
+                    ExprKind::Int { value } => {
+                        format!("{{AL_I64, {{.i64 = {}}}}}", int_literal(*value))
+                    }
+                    ExprKind::Bool { value } => format!("{{AL_BOOL, {{.b = {value}}}}}"),
+                    _ => unreachable!("literal_list_items only returns int/bool items"),
+                };
+                self.line(1, &format!("{entry},"));
+            }
+            self.line(0, "};");
+        }
+        self.out.push('\n');
     }
 
     fn location(&mut self, id: NodeId, span: ast::Span) {
@@ -662,15 +698,29 @@ impl<'a> Generator<'a> {
                 self.line(indent, "}");
             }
             ExprKind::List { elems } => {
-                for elem in elems {
-                    self.emit_expr(elem, depth + 1, indent);
-                }
-                self.assign(indent, id, &format!("aleph_list_new({})", elems.len()));
-                for (index, elem) in elems.iter().enumerate() {
-                    self.line(
+                if let Some(items) = literal_list_items(expr) {
+                    // The interpreter evaluates each item in a child frame;
+                    // literal items cannot trap except by depth, and all sit
+                    // at the same depth, so one frame of the first item
+                    // reproduces the R004 trap and its location.
+                    self.line(indent, &format!("aleph_eval_enter(&L_n{});", items[0].id.0));
+                    self.line(indent, "aleph_eval_leave();");
+                    self.assign(
                         indent,
-                        &format!("t_n{id}.u.list->items[{index}] = t_n{};", elem.id.0),
+                        id,
+                        &format!("aleph_list(aleph_list_n{id}, {})", elems.len()),
                     );
+                } else {
+                    for elem in elems {
+                        self.emit_expr(elem, depth + 1, indent);
+                    }
+                    self.assign(indent, id, &format!("aleph_list_new({})", elems.len()));
+                    for (index, elem) in elems.iter().enumerate() {
+                        self.line(
+                            indent,
+                            &format!("t_n{id}.u.list->items[{index}] = t_n{};", elem.id.0),
+                        );
+                    }
                 }
             }
             ExprKind::Empty { .. } | ExprKind::EmptyList => {
@@ -1058,9 +1108,31 @@ fn frame_roots(function: &ast::Fn) -> impl Iterator<Item = &Expr> {
 /// bodies of lambdas (each is lifted to its own C function).
 fn frame_nodes(root: &Expr, ids: &mut Vec<NodeId>) {
     ids.push(root.id);
+    // A compact literal list has no per-item temporaries (T-062).
+    if literal_list_items(root).is_some() {
+        return;
+    }
     for child in children(root) {
         frame_nodes(child, ids);
     }
+}
+
+/// Items of a list literal that can become one static `AlValue` table: a
+/// non-empty list whose items are all i64 literals or all bool literals.
+fn literal_list_items(expr: &Expr) -> Option<&[Expr]> {
+    let ExprKind::List { elems } = &expr.kind else {
+        return None;
+    };
+    if elems.is_empty() {
+        return None;
+    }
+    let all_int = elems
+        .iter()
+        .all(|item| matches!(item.kind, ExprKind::Int { .. }));
+    let all_bool = elems
+        .iter()
+        .all(|item| matches!(item.kind, ExprKind::Bool { .. }));
+    (all_int || all_bool).then_some(elems.as_slice())
 }
 
 /// Direct sub-expressions, in evaluation order.
@@ -1337,16 +1409,24 @@ impl Generator<'_> {
                 self.line(indent, "}");
             }
             ExprKind::List { elems } => {
-                for elem in elems {
-                    self.fast_expr(elem, depth + 1, indent);
-                }
-                self.assign(indent, id, &format!("aleph_list_new({})", elems.len()));
-                for (index, elem) in elems.iter().enumerate() {
-                    let value = self.boxed_temp(elem);
-                    self.line(
+                if literal_list_items(expr).is_some() {
+                    self.assign(
                         indent,
-                        &format!("t_n{id}.u.list->items[{index}] = {value};"),
+                        id,
+                        &format!("aleph_list(aleph_list_n{id}, {})", elems.len()),
                     );
+                } else {
+                    for elem in elems {
+                        self.fast_expr(elem, depth + 1, indent);
+                    }
+                    self.assign(indent, id, &format!("aleph_list_new({})", elems.len()));
+                    for (index, elem) in elems.iter().enumerate() {
+                        let value = self.boxed_temp(elem);
+                        self.line(
+                            indent,
+                            &format!("t_n{id}.u.list->items[{index}] = {value};"),
+                        );
+                    }
                 }
             }
             ExprKind::Field { name, value } => {
@@ -1872,6 +1952,47 @@ mod tests {
             checked.diagnostics
         );
         emit("t.aph", &file, &checked).expect("supported program")
+    }
+
+    #[test]
+    fn literal_list_emits_one_static_table_without_per_item_frames() {
+        let items = (1..=100)
+            .map(|number| number.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let code = generate(&format!(
+            "fn mk -> list i64\n [{items}]\nfn main -> unit\n print show len mk\n"
+        ));
+        assert_eq!(
+            code.matches("static const AlValue aleph_list_n").count(),
+            1,
+            "one table per literal list:\n{code}"
+        );
+        let slow = &code[code.find("static AlValue aleph_slow_mk(").expect("slow mk")..];
+        let slow = &slow[..slow.find("\n}\n").expect("end of slow mk")];
+        assert!(slow.contains("aleph_list(aleph_list_n"), "{slow}");
+        assert!(!code.contains("aleph_i64("), "no per-item boxing:\n{code}");
+        // The slow body enters the list node and the first item only; the
+        // fast body has no per-node frames. The other 99 items share it.
+        assert_eq!(
+            slow.matches("aleph_eval_enter(&L_n").count(),
+            2,
+            "one child frame for the whole list:\n{slow}"
+        );
+    }
+
+    #[test]
+    fn literal_bool_list_emits_one_static_table() {
+        let code = generate(
+            "fn mk -> list bool\n [true false true]\nfn main -> unit\n print show len mk\n",
+        );
+        assert_eq!(
+            code.matches("static const AlValue aleph_list_n").count(),
+            1,
+            "{code}"
+        );
+        assert!(code.contains("{AL_BOOL, {.b = true}}"), "{code}");
+        assert!(code.contains("{AL_BOOL, {.b = false}}"), "{code}");
     }
 
     #[test]
