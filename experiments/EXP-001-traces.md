@@ -1,10 +1,10 @@
 ---
 id: EXP-001
 title: Where an agent's tokens go
-status: draft
+status: approved
 question: What share of a coding agent's tokens is code, and so what is the most a more compact language could save?
 owner: Bernardo Manfriani
-updated: 2026-11-18
+updated: 2026-11-20
 ---
 
 # EXP-001 · Where an agent's tokens go
@@ -65,4 +65,8 @@ No model calls: it only reads existing traces. No GPU.
 
 ## Amendments
 
-None.
+- **2026-11-20, proposed by agent; approved under the owner's delegation of 20 Nov 2026** (the owner asked the agent to bring experiment protocols to `approved` before building their tools). Hypotheses, Metrics and Success criterion are unchanged. Clarifications needed to build T-035:
+  - Trace formats supported by the importer: (1) the opencode JSON event stream (`opencode run --format json`, as read by `pilot/probe/probe_opencode.py`); (2) Claude Code session JSONL (one message per line, content blocks `text`, `thinking`, `tool_use`, `tool_result`). Any other source is converted to the importer's own JSONL schema by an adapter added when the source is chosen.
+  - Public trajectories are chosen by the person who runs the experiment and listed in the run notes before the run; the agent does not search for or download them (no network).
+  - Tokenizers are read from local vocabulary files given by path (tiktoken format, e.g. `o200k_base.tiktoken`); nothing is downloaded. Without a vocabulary the report says so and uses a labelled `chars/4` estimate, never presented as a real count.
+  - The tool reads only the files it is given. Collecting traces, removing secrets and the hand check of the classifier on 20 sessions are done by people.
