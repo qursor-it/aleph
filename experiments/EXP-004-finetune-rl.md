@@ -1,10 +1,10 @@
 ---
 id: EXP-004
 title: Fine-tuning and RL on a verifiable language
-status: draft
+status: approved
 question: Does fine-tuning plus RL with verifier rewards make a small open-weights model better at Aleph than the same training makes it at Python?
 owner: Bernardo Manfriani
-updated: 2026-11-18
+updated: 2026-11-20
 ---
 
 # EXP-004 · Fine-tuning and RL on a verifiable language
@@ -49,7 +49,7 @@ As EXP-002 for evaluation. Training curves compared at equal steps; area under t
 
 ## Cost and limits
 
-Needs GPUs: budget and provider set at approval ([GPU BUDGET TO SET]). Started by a person, never by the agent loop.
+Needs GPUs: budget and provider set by the person who starts the run (see Amendments). Started by a person, never by the agent loop.
 
 ## Tools to build
 
@@ -64,4 +64,7 @@ Needs GPUs: budget and provider set at approval ([GPU BUDGET TO SET]). Started b
 
 ## Amendments
 
-None.
+- **2026-11-20, proposed by agent; approved under the owner's delegation of 20 Nov 2026** (the owner asked the agent to bring experiment protocols to `approved` before building their tools). Hypotheses, Metrics and Success criterion are unchanged. Clarifications needed to build T-041 and T-042:
+  - **GPU budget.** `[GPU BUDGET TO SET]` is resolved as: budget and provider are chosen by the person who starts the training run and recorded in the run notes. The agent builds no training job and starts none.
+  - **Orbis generator (T-041).** Programs come from a model behind the same backend interface as the EXP-002 harness (a fake model in tests); every kept program passes `aleph check` and its tests, repair triples pair a failing attempt, its JSON diagnostics and the fixed program. The agent runs the generator only with the fake model. Deduplication compares task statements (normalised word n-grams) against the EXP-002 suite and the HumanEval-Aleph prompts; it never reads hidden tests.
+  - **Reward (T-042).** A pure function of a program and a task folder: hidden tests passed (fraction), plus `aleph check` clean and no capability violation for Aleph, with a per-program time limit; the model's own `ex` lines never add reward.
