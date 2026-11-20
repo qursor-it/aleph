@@ -66,7 +66,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 
 - [x] T-035 Trace importer (two formats → one JSONL schema), span classifier, token counter and report — EXP-001
 - [x] T-036 Task suite format, 5 sample tasks and validator (statement, inputs, hidden tests, declared files) — EXP-002
-- [ ] T-037 A/B harness: one condition × one task, round loop with per-language feedback, token and cost log, spending cap; offline tests with a fake model — EXP-002
+- [x] T-037 A/B harness: one condition × one task, round loop with per-language feedback, token and cost log, spending cap; offline tests with a fake model — EXP-002
 - [ ] T-038 File-access logging sandbox for Python and bash programs — EXP-002
 - [ ] T-039 BPE counter in `aleph tokens` reading a local vocabulary file given by path (follow-up to ADR-0031) — EXP-003
 - [ ] T-040 Corpus layout (one folder per program, one file per language, shared tests), verification script and report — EXP-003

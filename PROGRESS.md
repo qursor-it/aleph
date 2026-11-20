@@ -765,3 +765,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: test_suite 12 passed (with ALEPH set); validate --refs exit 0
 - feedback for the autonomous phase (from writing the Aleph refs): no sort by key (top-3 words needed zero-padded complemented keys), no substring, `aleph --help` unknown, jdict gives opt not res, T005 on a local named like a function, `do if` needed for a statement before the result
 - next: T-037 harness
+
+## 2026-11-20T08:01 T-037 done
+- experiments/tools/harness/: one condition x one task, up to 5 rounds (check, hidden tests, same-shape feedback for every language), published prompt templates, fake and OpenAI-compatible backends, required --cap-eur shared across a log, per-round token/cost log, summary (pass@1, pass@k, rounds, cost per solved task)
+- tests: test_harness 7 passed (fake model only; the OpenAI backend is never run by the agent)
+- next: T-038 sandbox

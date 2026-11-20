@@ -1,0 +1,6 @@
+Task: {statement}
+
+Files the program may read: {read_files}
+Files the program may write: {write_files}
+
+Write the program in Python.
