@@ -908,3 +908,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 ## 2026-11-20T20:06 decision: T-063, T-064 (autonoma)
 - after T-060..T-062 the corpus median is 1.043; the remaining long programs (gcd 1.54, files-copy-prefix 1.63, points 1.49, json-field 1.40) are mostly long because they were written before lambdas (one-line helpers), not because a feature is missing; points lacks sqrt
 - EXP-003 asks for idiomatic, not golfed, versions in every language, so rewriting the Aleph side with current features is in protocol; Python stays as written
+
+## 2026-11-20T20:12 T-063 done (autonoma)
+- 8 Aleph corpus programs rewritten with lambdas and current builtins (helpers removed: divides, primes, even, evens, matches, keep, nonempty, number, addword, addwords, bump); every version still passes corpus verify; points left to T-064
+- corpus median Aleph/Python without examples (chars4): 1.043 -> 0.829; changed: algorithm-primes 1.23->0.95, primes 1.03->0.72, evens 1.24->0.69, files-copy-prefix 1.63->1.07, gcd 1.54->1.36, linecount 1.06->0.90, text-top-words 2.60->2.15, wordcount 0.96->0.86
+- caveat: chars4 is an estimate; the H3.1 threshold (0.8) must be judged with real tokenizers (vocabularies needed)
+- maxmin keeps an `emit` helper: `do` is not allowed inside `if` (a possible language task)

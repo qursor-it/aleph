@@ -2,20 +2,8 @@ use fs.read "in.txt"
 use fs.write "out.txt"
 fn collect prefix:str text:str -> str
  ex collect "a" "ab\nx\n" = "ab\n"
- let lines filter @nonempty split text "\n"
- let kept keep prefix lines
+ let kept filter lam line and > count line 0 starts line prefix split text "\n"
  if == 0 len kept "" cat join kept "\n" "\n"
-fn keep prefix:str lines:list str -> list str
- ex keep "a" ["ab" "x" "ac"] = ["ab" "ac"]
- filter lam line matches prefix line lines
-fn matches prefix:str line:str -> bool
- ex matches "a" "abc" = true
- ex matches "a" "xbc" = false
- starts line prefix
-fn nonempty s:str -> bool
- ex nonempty "" = false
- ex nonempty "x" = true
- > count s 0
 fn main -> res unit str
  let text try read "in.txt"
  let prefix else at args 0 ""

@@ -1,27 +1,17 @@
 use fs.read "text.txt"
-fn addword acc:list str w:str -> list str
- ex addword empty str "a" = ["a"]
- push acc w
-fn addwords acc:list str line:str -> list str
- ex addwords empty str "a b" = ["a" "b"]
- fold @addword acc filter @nonempty split line " "
-fn bump d:dict str i64 w:str -> dict str i64
- ex bump dict str i64 "a" = put dict str i64 "a" 1
- put d w + 1 else get d w 0
-fn nonempty s:str -> bool
- ex nonempty "" = false
- ex nonempty "x" = true
- > count s 0
+fn addline acc:list str line:str -> list str
+ ex addline empty str "a b" = ["a" "b"]
+ fold lam a w push a w acc filter lam w > count w 0 split line " "
 fn tally ws:list str -> dict str i64
  ex tally ["a" "b" "a"] = put put dict str i64 "a" 2 "b" 1
- fold @bump dict str i64 ws
+ fold lam d w put d w + 1 else get d w 0 dict str i64 ws
 fn top d:dict str i64 -> list str
  ex top put dict str i64 "a" 2 = ["a 2"]
  let ws sortby lam w neg else get d w 0 sort keys d
- map lam w cat cat w " " show else get d w 0 slice ws 0 3
+ map lam w join [w show else get d w 0] " " slice ws 0 3
 fn words text:str -> list str
  ex words "a b\nc" = ["a" "b" "c"]
- fold @addwords empty str split text "\n"
+ fold @addline empty str split text "\n"
 fn main -> res unit str
  let text try read "text.txt"
  let d tally words text

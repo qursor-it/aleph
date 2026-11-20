@@ -2,12 +2,7 @@ use fs.read "data"
 fn lines text:str -> i64
  ex lines "a\n\nb" = 2
  ex lines "" = 0
- len filter @nonempty split text "\n"
-fn nonempty s:str -> bool
- ex nonempty "" = false
- ex nonempty " " = false
- ex nonempty "x" = true
- > count trim s 0
+ len filter lam s > count trim s 0 split text "\n"
 fn main -> res unit str
  let text try read "data/in.txt"
  do print show lines text

@@ -2,12 +2,7 @@ use fs.read "data"
 fn linewords s:str -> i64
  ex linewords "a b" = 2
  ex linewords "" = 0
- len filter @nonempty split trim s " "
-fn nonempty s:str -> bool
- ex nonempty "" = false
- ex nonempty " " = false
- ex nonempty "x" = true
- > count trim s 0
+ len filter lam w > count trim w 0 split trim s " "
 fn words text:str -> i64
  ex words "a b c" = 3
  ex words "" = 0

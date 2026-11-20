@@ -1,9 +1,2 @@
-fn even n:i64 -> bool
- ex even 2 = true
- ex even 3 = false
- == 0 % n 2
-fn evens xs:list i64 -> list i64
- ex evens [1 2 3 4] = [2 4]
- filter @even xs
 fn main -> unit
- print join map @show evens range 0 21 " "
+ print join map @show filter lam n == 0 % n 2 range 0 21 " "
