@@ -73,3 +73,13 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-040 Corpus layout (one folder per program, one file per language, shared tests), verification script and report — EXP-003
 - [ ] T-041 Orbis generator: task statements → verified programs and repair triples, deduplicated against the EXP-002 suite — EXP-004
 - [x] T-042 RL reward function wrapping `aleph check`, examples and hidden tests, with a time limit — EXP-004
+
+## Autonomous (owner mandate of 20 Nov 2026)
+
+Goal: make Aleph the cheapest language for agents to read and write correctly. Metrics: tokens vs Python on verified programs (`experiments/tools/corpus` report), problems solved by a model writing Aleph (EXP-002 harness, run by a person), compile errors per problem (replay of recorded model answers). Tasks below are chosen by the agent ("autonoma"); each decision is logged in PROGRESS.md.
+
+- [ ] T-054 (autonoma) Replay metric: `experiments/tools/replay/` re-checks every recorded model answer (pilot probe runs, harness logs) with the current compiler, raw and after `aleph fmt`, and reports check-clean rate and diagnostic codes per condition; baseline logged. Offline, never reads hidden tests
+- [ ] T-055 (autonoma) Formatting left to the toolchain: `check`/`run`/`test`/`build` accept any layout that parses (F001 becomes a warning with the canonical text; `--strict` keeps it an error for CI and the goldens); llms.txt drops the layout rules it no longer needs. Proposed ADR (refines ADR-0003; text stays canonical through `aleph fmt`)
+- [ ] T-056 (autonoma) `[]` as an empty list when the expected type is known (`empty T` stays valid and canonical printing keeps `empty T`); pilot answers failed with P001 "empty list". Proposed ADR
+- [ ] T-057 (autonoma) `sortby f xs` (key function, stable, keys i64/f64/str): ranking tasks needed zero-padded complemented string keys (EXP-002 sample text-top-words). Proposed ADR, both engines, llms.txt within budget
+- [ ] T-058 (autonoma) Inline rule-3 fast path in `aleph_region_exit` (root in the head chunk past the mark and region < 256 KiB: return without the call); T-053 review measured ~13% on hot `map lam`

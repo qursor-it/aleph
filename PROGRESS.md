@@ -821,3 +821,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - experiments/tools/reward/: reward = fraction of hidden tests passed, gated on aleph check clean and no R003 (Aleph) or no access outside declared files (Python); time limit; ex lines never add reward; reward_many for a trainer
 - tests: test_reward 11 passed; built by a Claude subagent (Sonnet) in parallel with the T-039 fixes, so T-042 lands before T-041
 - pain points seen writing Aleph test programs: function order is enforced (F001, fix offered), no way to write a long-running loop without R004/R005
+
+## 2026-11-20T09:50 autonomous plan (decision)
+- open tasks left: T-039 (fixes in progress), T-041; then the autonomous phase
+- chose T-054..T-058 from data: pilot run C (lite spec) failures were all compiler-named errors ([] instead of empty T = P001, arity P002); the corpus baseline is Aleph/Python 1.235 (chars4, no examples); writing EXP-002 refs needed sort-by-key workarounds; agents hit F001 (layout, function order) that fmt fixes mechanically
+- metric for "problems solved by a model": the harness is ready but runs only when a person starts it with a cap (AGENTS.md: the agent runs no model); the agent tracks tokens (corpus report) and compile errors (replay of recorded answers)
+- added experiments/tools/.gitignore for __pycache__
