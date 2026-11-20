@@ -890,3 +890,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - IMPORTANT: `[]` inside a lambda could leave `list V` unresolved: check passed, build failed with X006. Inferred types are now rejected when they contain a variable anywhere (contains_var); golden type_t010_empty_list_nested. ADR-0041 amendment (checking-order dependence, shared T010 message)
 - MINOR left: pilot prompts in experiments/pilot/probe/prompts still say `[e..] n>=1` (frozen pilot material, not changed)
 - tests: 407 passed (with the builtins below), clippy clean
+
+## 2026-11-20T19:21 T-059 done; ADR-0042 review (8/10) fixed
+- T-059: native builds and runs in the Rust tests have a deadline (BUILD_TIMEOUT 300 s, ALEPH_TEST_BUILD_TIMEOUT), the child runs in its own process group and the group is killed on expiry (cc1 included); helper test. Started by deepseek-coder (bridge timed out mid-run), finished by the orchestrator
+- cause found: the build_deep_list program generates 916 KB of C (a temporary and eval_enter/leave per list item); gcc -O2 -c takes 47 s user and 646 MB RSS alone, so with two test runs at once on 2 CPUs it can stall for hours -> T-062
+- ADR-0042 review IMPORTANT: repeat had no fixed cap (interpreter tried to allocate 2 TB): both engines now trap R005 above 100,000,000 bytes; golden run_trap_repeat; SPEC row
+- MINOR: llms.txt says sortby is stable (8436/8440 chars); not done: `let r mapr lam x ok x [1 2]` leaves E unresolved until first use (harmless, fixed at first use), lambdas allocating <256 KiB per call keep it until the caller region ends (ADR-0039 rule 3)
+- tests: 408 passed (ALEPH_REQUIRE_CC=1), clippy clean

@@ -41,6 +41,8 @@ pub const MAX_EVAL_DEPTH: usize = 20_000;
 
 /// The largest list `range` may allocate (R005).
 pub const MAX_RANGE_LEN: i64 = 10_000_000;
+/// The longest string `repeat` may build, in bytes (R005, ADR-0042).
+pub const MAX_REPEAT_BYTES: usize = 100_000_000;
 
 /// Stack size for [`run_main`]'s interpreter thread.
 pub const MAIN_STACK_SIZE: usize = 256 * 1024 * 1024;
@@ -913,7 +915,7 @@ impl<'a> Interp<'a> {
                     let length = text
                         .len()
                         .checked_mul(count)
-                        .filter(|length| *length <= isize::MAX as usize)
+                        .filter(|length| *length <= MAX_REPEAT_BYTES)
                         .ok_or_else(|| {
                             Trap::new("R005", "allocation limit exceeded", node, span)
                         })?;

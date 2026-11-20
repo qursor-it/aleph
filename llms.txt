@@ -67,7 +67,7 @@ show T->str (T primitive, list of primitive or json)
 size dict A B->i64
 slice list T,i64,i64->list T
 sort list T->list T (T primitive)
-sortby (A->T),list A->list A (T i64, f64 or str)
+sortby (A->T),list A->list A (T i64/f64/str; stable)
 split str,str->list str
 starts str,str->bool
 sum list i64->i64

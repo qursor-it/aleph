@@ -197,7 +197,7 @@ Pure:
 | `uniq xs` | list T -> list T (T primitive; ascending, no duplicates) (ADR-0036) |
 | `map2 @f xs ys` | (A, B -> T), list A, list B -> list T (length of the shorter) (ADR-0036) |
 | `mapr @f xs` | (A -> res B E), list A -> res (list B) E (first `err`; later elements not visited) (ADR-0042) |
-| `repeat s n` | str, i64 -> str (`s` repeated `n` times; `""` when `n <= 0`; above the allocation limit R005) (ADR-0042) |
+| `repeat s n` | str, i64 -> str (`s` repeated `n` times; `""` when `n <= 0`; R005 above 100,000,000 bytes) (ADR-0042) |
 | `index xs x` | list A, A -> opt i64 (A primitive; first position of `x`, `none` if absent) (ADR-0042) |
 
 Effectful:

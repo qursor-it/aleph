@@ -22,6 +22,20 @@ use std::time::{Duration, Instant};
 /// A spawned process that runs longer than this is killed.
 pub const PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Default deadline for a native build (`aleph build`, and the `cc` it runs).
+pub const BUILD_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Deadline for a native build, from `ALEPH_TEST_BUILD_TIMEOUT` seconds when
+/// set to a positive integer, otherwise [`BUILD_TIMEOUT`].
+pub fn build_timeout() -> Duration {
+    std::env::var("ALEPH_TEST_BUILD_TIMEOUT")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .map(Duration::from_secs)
+        .unwrap_or(BUILD_TIMEOUT)
+}
+
 pub fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -158,27 +172,53 @@ pub fn prepare_case(temp: &TempDir, aph: &Path, expected_files: &[PathBuf]) -> R
     Ok(())
 }
 
-/// Poll `child` until it exits or [`PROCESS_TIMEOUT`] elapses.
-fn wait_for(child: &mut Child) -> Result<ExitStatus, String> {
+/// Put the child in its own process group (Unix) so a timeout can kill it and
+/// everything it spawned, such as the `cc1` run by `cc`.
+fn isolate_process_group(command: &mut Command) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+}
+
+/// Kill the child and, on Unix, its process group. A plain `Child::kill`
+/// leaves grandchildren such as `cc1` running.
+fn kill_process_group(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        let _ = Command::new("kill")
+            .args(["-s", "KILL", "--", &format!("-{}", child.id())])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Poll `child` until it exits or `timeout` elapses.
+fn wait_for(child: &mut Child, timeout: Duration, label: &str) -> Result<ExitStatus, String> {
     let start = Instant::now();
     loop {
         match child.try_wait() {
             Ok(Some(status)) => return Ok(status),
             Ok(None) => {
-                if start.elapsed() >= PROCESS_TIMEOUT {
-                    let _ = child.kill();
-                    let _ = child.wait();
+                let elapsed = start.elapsed();
+                if elapsed >= timeout {
+                    kill_process_group(child);
                     return Err(format!(
-                        "program did not finish within {} s",
-                        PROCESS_TIMEOUT.as_secs()
+                        "{label} did not finish within {} s (killed after {:.1} s)",
+                        timeout.as_secs_f64(),
+                        elapsed.as_secs_f64()
                     ));
                 }
                 thread::sleep(Duration::from_millis(20));
             }
             Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(format!("failed to wait for program: {error}"));
+                kill_process_group(child);
+                return Err(format!("{label}: failed to wait: {error}"));
             }
         }
     }
@@ -194,32 +234,48 @@ fn read_thread(
         .map_err(|error| format!("cannot read child {stream}: {error}"))
 }
 
-/// Run `program` with separate stdout/stderr pipes.
-///
-/// Both pipes are drained on reader threads while the child runs, so output
-/// larger than the pipe buffer cannot deadlock the parent.
+/// Run `program` with separate stdout/stderr pipes and [`PROCESS_TIMEOUT`].
 pub fn run_separate<S: AsRef<OsStr>>(
     directory: &Path,
     program: impl AsRef<OsStr>,
     args: &[S],
 ) -> Result<Output, String> {
-    let mut child = Command::new(program)
+    run_separate_with_timeout(directory, program, args, PROCESS_TIMEOUT, "program")
+}
+
+/// Run `program` with separate stdout/stderr pipes and a deadline.
+///
+/// Both pipes are drained on reader threads while the child runs, so output
+/// larger than the pipe buffer cannot deadlock the parent. On timeout the
+/// child's process group is killed and the label plus elapsed time is reported.
+pub fn run_separate_with_timeout<S: AsRef<OsStr>>(
+    directory: &Path,
+    program: impl AsRef<OsStr>,
+    args: &[S],
+    timeout: Duration,
+    label: &str,
+) -> Result<Output, String> {
+    let mut command = Command::new(program);
+    command
         .current_dir(directory)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    isolate_process_group(&mut command);
+
+    let mut child = command
         .spawn()
-        .map_err(|error| format!("failed to spawn program: {error}"))?;
+        .map_err(|error| format!("failed to spawn {label}: {error}"))?;
 
     let mut stdout = child
         .stdout
         .take()
-        .ok_or_else(|| "child stdout was not piped".to_string())?;
+        .ok_or_else(|| format!("{label}: child stdout was not piped"))?;
     let mut stderr = child
         .stderr
         .take()
-        .ok_or_else(|| "child stderr was not piped".to_string())?;
+        .ok_or_else(|| format!("{label}: child stderr was not piped"))?;
     let stdout_thread = thread::spawn(move || {
         let mut buffer = Vec::new();
         io::copy(&mut stdout, &mut buffer)?;
@@ -231,11 +287,11 @@ pub fn run_separate<S: AsRef<OsStr>>(
         Ok(buffer)
     });
 
-    let status = wait_for(&mut child)?;
+    let status = wait_for(&mut child, timeout, label);
     let stdout = read_thread("stdout", stdout_thread)?;
     let stderr = read_thread("stderr", stderr_thread)?;
     Ok(Output {
-        status,
+        status: status?,
         stdout,
         stderr,
     })
@@ -261,17 +317,21 @@ pub fn run_merged<S: AsRef<OsStr>>(
         .try_clone()
         .map_err(|error| format!("cannot clone {}: {error}", merged.display()))?;
 
-    let mut child = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .current_dir(directory)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::from(stdout))
-        .stderr(Stdio::from(stderr))
+        .stderr(Stdio::from(stderr));
+    isolate_process_group(&mut command);
+
+    let mut child = command
         .spawn()
         .map_err(|error| format!("failed to spawn program: {error}"))?;
     drop(file);
 
-    let status = wait_for(&mut child)?;
+    let status = wait_for(&mut child, PROCESS_TIMEOUT, "program")?;
     let bytes =
         fs::read(merged).map_err(|error| format!("cannot read {}: {error}", merged.display()))?;
     Ok(MergedOutput { status, bytes })

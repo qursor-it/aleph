@@ -1,0 +1,2 @@
+fn main -> unit
+ print show count repeat "ab" 1000000000000

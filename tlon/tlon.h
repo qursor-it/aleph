@@ -25,6 +25,8 @@
 #define AL_MAX_CALL_DEPTH 10000
 #define AL_MAX_EVAL_DEPTH 20000
 #define AL_MAX_RANGE_LEN 10000000
+/* Longest string `repeat` may build, in bytes (ADR-0042). */
+#define AL_MAX_REPEAT_BYTES 100000000u
 #define AL_MAIN_STACK_SIZE (256u * 1024u * 1024u)
 
 typedef enum {

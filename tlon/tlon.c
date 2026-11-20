@@ -1922,7 +1922,7 @@ AlValue aleph_b_repeat(AlValue text, AlValue count_value) {
     if (count <= 0 || len == 0) {
         return aleph_str_n("", 0);
     }
-    if ((uint64_t)count > (uint64_t)(SIZE_MAX - 1) / len) {
+    if ((uint64_t)count > (uint64_t)AL_MAX_REPEAT_BYTES / len) {
         out_of_memory();
     }
     total = (size_t)count * len;

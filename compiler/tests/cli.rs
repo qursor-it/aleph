@@ -1,5 +1,13 @@
+use std::io;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
+
+/// Deadline for ordinary `aleph` runs (`check`, `run`, `fmt`, ...).
+const RUN_TIMEOUT: Duration = Duration::from_secs(30);
+/// Default deadline for `aleph build`, which runs `cc`.
+const BUILD_TIMEOUT: Duration = Duration::from_secs(300);
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -8,11 +16,148 @@ fn repo_root() -> PathBuf {
         .to_path_buf()
 }
 
+/// `aleph build` deadline: `ALEPH_TEST_BUILD_TIMEOUT` seconds when set to a
+/// positive integer, otherwise 300 s.
+fn build_timeout() -> Duration {
+    std::env::var("ALEPH_TEST_BUILD_TIMEOUT")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .map(Duration::from_secs)
+        .unwrap_or(BUILD_TIMEOUT)
+}
+
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_aleph"))
+    let is_build = args.first() == Some(&"build");
+    let (timeout, label) = if is_build {
+        (
+            build_timeout(),
+            format!(
+                "aleph build {}",
+                args.get(1).copied().unwrap_or("<program>")
+            ),
+        )
+    } else {
+        (RUN_TIMEOUT, "aleph".to_string())
+    };
+    run_with_timeout(
+        Command::new(env!("CARGO_BIN_EXE_aleph")),
+        args,
+        timeout,
+        &label,
+    )
+    .unwrap_or_else(|error| panic!("{error}"))
+}
+
+/// Put the child in its own process group (Unix) so a timeout can kill it and
+/// everything it spawned, such as the `cc1` run by `cc`.
+fn isolate_process_group(command: &mut Command) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+}
+
+/// Kill the child and, on Unix, its process group.
+fn kill_process_group(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        let _ = Command::new("kill")
+            .args(["-s", "KILL", "--", &format!("-{}", child.id())])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Poll `child` until it exits or `timeout` elapses.
+fn wait_for(child: &mut Child, timeout: Duration, label: &str) -> Result<ExitStatus, String> {
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(status),
+            Ok(None) => {
+                let elapsed = start.elapsed();
+                if elapsed >= timeout {
+                    kill_process_group(child);
+                    return Err(format!(
+                        "{label} did not finish within {} s (killed after {:.1} s)",
+                        timeout.as_secs_f64(),
+                        elapsed.as_secs_f64()
+                    ));
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+            Err(error) => {
+                kill_process_group(child);
+                return Err(format!("{label}: failed to wait: {error}"));
+            }
+        }
+    }
+}
+
+fn read_thread(
+    stream: &str,
+    handle: thread::JoinHandle<io::Result<Vec<u8>>>,
+) -> Result<Vec<u8>, String> {
+    handle
+        .join()
+        .map_err(|_| format!("{stream} reader thread panicked"))?
+        .map_err(|error| format!("cannot read child {stream}: {error}"))
+}
+
+/// Spawn `command` with `args`, capture both pipes and enforce `timeout`.
+///
+/// Pipes are drained on reader threads so a child writing more than a pipe
+/// buffer cannot deadlock the parent. On expiry the child's process group is
+/// killed and the error names the program and elapsed time.
+fn run_with_timeout(
+    mut command: Command,
+    args: &[&str],
+    timeout: Duration,
+    label: &str,
+) -> Result<Output, String> {
+    command
         .args(args)
-        .output()
-        .expect("failed to run aleph")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    isolate_process_group(&mut command);
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("failed to spawn {label}: {error}"))?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| format!("{label}: stdout was not piped"))?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| format!("{label}: stderr was not piped"))?;
+    let stdout_thread = thread::spawn(move || {
+        let mut buffer = Vec::new();
+        io::copy(&mut stdout, &mut buffer)?;
+        Ok(buffer)
+    });
+    let stderr_thread = thread::spawn(move || {
+        let mut buffer = Vec::new();
+        io::copy(&mut stderr, &mut buffer)?;
+        Ok(buffer)
+    });
+
+    let status = wait_for(&mut child, timeout, label);
+    let stdout = read_thread("stdout", stdout_thread)?;
+    let stderr = read_thread("stderr", stderr_thread)?;
+    Ok(Output {
+        status: status?,
+        stdout,
+        stderr,
+    })
 }
 
 /// The compiler to probe: `$CC` when set, otherwise `cc`.
@@ -53,6 +198,26 @@ fn run_built(path: &Path, args: &[&str]) -> Output {
         .args(args)
         .output()
         .expect("failed to run the built program")
+}
+
+#[cfg(unix)]
+#[test]
+fn run_with_timeout_kills_a_sleeping_command() {
+    let started = Instant::now();
+    let error = run_with_timeout(
+        Command::new("sh"),
+        &["-c", "sleep 5"],
+        Duration::from_millis(200),
+        "sleep self-test",
+    )
+    .expect_err("the helper must time out");
+    assert!(error.contains("sleep self-test"), "{error}");
+    assert!(error.contains("did not finish within"), "{error}");
+    assert!(
+        started.elapsed() < Duration::from_secs(4),
+        "helper waited too long: {:?}",
+        started.elapsed()
+    );
 }
 
 fn build_program(source: &str, name: &str) -> PathBuf {
@@ -795,11 +960,15 @@ fn build_handles_user_bindings_named_after_generated_identifiers() {
 fn build_reports_x004_when_the_c_compiler_fails() {
     let source = temp_source("build_cc_fail.aph", "fn main -> unit\n nil\n");
     let binary = temp_output("build_cc_fail");
-    let out = Command::new(env!("CARGO_BIN_EXE_aleph"))
-        .env("CC", "/bin/false")
-        .args(["build", source.as_str(), "-o", binary.to_str().unwrap()])
-        .output()
-        .expect("failed to run aleph");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aleph"));
+    command.env("CC", "/bin/false");
+    let out = run_with_timeout(
+        command,
+        &["build", source.as_str(), "-o", binary.to_str().unwrap()],
+        build_timeout(),
+        &format!("aleph build {source}"),
+    )
+    .expect("failed to run aleph");
 
     assert_eq!(out.status.code(), Some(1));
     assert!(!binary.exists());

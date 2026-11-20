@@ -185,11 +185,14 @@ fn check_case(aph: &Path, failures: &mut Vec<String>) {
             }
         };
 
-    // 2. Native build (sequential) and run.
-    let built = match common::run_separate(
+    // 2. Native build (sequential) and run. The build gets the longer build
+    // deadline: `cc -O2` on a generated program can be slow on a loaded host.
+    let built = match common::run_separate_with_timeout(
         native.path(),
         env!("CARGO_BIN_EXE_aleph"),
         &["build", name.as_str(), "-o", "prog"],
+        common::build_timeout(),
+        &format!("aleph build {name}"),
     ) {
         Ok(output) => output,
         Err(error) => {

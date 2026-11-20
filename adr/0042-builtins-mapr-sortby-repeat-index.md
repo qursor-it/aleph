@@ -35,8 +35,9 @@ Options (score 1-10):
   Stable sort of `xs` by `f x` ascending, same key order as `sort` (f64 NaN
   rule of ADR-0024). `f` is called once per element.
 - `repeat s n` : `str, i64 -> str`. `s` concatenated `n` times; `""` when
-  `n <= 0`. A result above the allocation limit is R005, as for other
-  strings.
+  `n <= 0`. A result longer than 100,000,000 bytes is R005 in both engines
+  (like the 10,000,000-element limit of `range`); without a fixed cap the
+  interpreter tried to allocate terabytes before failing (review).
 - `index xs x` : `list A, A -> opt i64`, A a primitive (`==` rules). `some`
   of the first position of `x`, `none` if absent.
 - Pure, no capability; both engines identical (T-020); traps inside `f` as
