@@ -138,17 +138,52 @@ static void out_of_memory(void) {
 /* Arena                                                               */
 /* ------------------------------------------------------------------ */
 
-typedef struct AlChunk {
-    struct AlChunk *next;
-    size_t used;
-    size_t cap;
-    unsigned char *data;
-} AlChunk;
-
 #define AL_CHUNK_MIN (64u * 1024u)
 #define AL_ALIGN 16u
+#define AL_ROUND(n) (((n) + (AL_ALIGN - 1)) & ~(size_t)(AL_ALIGN - 1))
 
-static AlChunk *g_chunks;
+AlChunk *aleph_g_chunks;
+/* One freed AL_CHUNK_MIN chunk kept for reuse, so a call that crosses a
+   chunk boundary does not malloc/free on every iteration. */
+static AlChunk *g_spare;
+
+/* An unlinked chunk with room for `cap` bytes, or NULL. */
+static AlChunk *chunk_new(size_t cap) {
+    size_t header = sizeof(AlChunk) + (AL_ALIGN - 1);
+    unsigned char *base;
+    AlChunk *chunk;
+    if (cap <= AL_CHUNK_MIN && g_spare != NULL) {
+        chunk = g_spare;
+        g_spare = NULL;
+        chunk->used = 0;
+        return chunk;
+    }
+    if (cap < AL_CHUNK_MIN) {
+        cap = AL_CHUNK_MIN;
+    }
+    if (cap > SIZE_MAX - header) {
+        return NULL;
+    }
+    chunk = (AlChunk *)malloc(header + cap);
+    if (chunk == NULL) {
+        return NULL;
+    }
+    base = (unsigned char *)chunk + sizeof(AlChunk);
+    chunk->next = NULL;
+    chunk->used = 0;
+    chunk->cap = cap;
+    chunk->data = (unsigned char *)(((uintptr_t)base + (AL_ALIGN - 1)) &
+                                    ~(uintptr_t)(AL_ALIGN - 1));
+    return chunk;
+}
+
+static void chunk_release(AlChunk *chunk) {
+    if (g_spare == NULL && chunk->cap == AL_CHUNK_MIN) {
+        g_spare = chunk;
+    } else {
+        free(chunk);
+    }
+}
 
 void *aleph_alloc(size_t size) {
     AlChunk *chunk;
@@ -159,29 +194,447 @@ void *aleph_alloc(size_t size) {
     if (size > SIZE_MAX - (AL_ALIGN - 1)) {
         out_of_memory();
     }
-    size = (size + (AL_ALIGN - 1)) & ~(size_t)(AL_ALIGN - 1);
-    chunk = g_chunks;
+    size = AL_ROUND(size);
+    chunk = aleph_g_chunks;
     if (chunk == NULL || chunk->cap - chunk->used < size) {
-        size_t cap = size > AL_CHUNK_MIN ? size : AL_CHUNK_MIN;
-        size_t header = sizeof(AlChunk) + (AL_ALIGN - 1);
-        unsigned char *base;
-        if (cap < size || cap > SIZE_MAX - header) {
-            out_of_memory();
-        }
-        chunk = (AlChunk *)malloc(header + cap);
+        chunk = chunk_new(size);
         if (chunk == NULL) {
             out_of_memory();
         }
-        base = (unsigned char *)chunk + sizeof(AlChunk);
-        chunk->next = g_chunks;
-        chunk->used = 0;
-        chunk->cap = cap;
-        chunk->data = (unsigned char *)(((uintptr_t)base + (AL_ALIGN - 1)) &
-                                        ~(uintptr_t)(AL_ALIGN - 1));
-        g_chunks = chunk;
+        chunk->next = aleph_g_chunks;
+        aleph_g_chunks = chunk;
     }
     result = chunk->data + chunk->used;
     chunk->used += size;
+    return result;
+}
+
+size_t aleph_arena_bytes(void) {
+    size_t total = 0;
+    const AlChunk *chunk;
+    for (chunk = aleph_g_chunks; chunk != NULL; chunk = chunk->next) {
+        total += chunk->cap;
+    }
+    return total;
+}
+
+/* ------------------------------------------------------------------ */
+/* Scoped regions (ADR-0039)                                           */
+/* ------------------------------------------------------------------ */
+
+#define AL_REGION_MIN (256u * 1024u)
+
+void aleph_region_free_to(AlMark mark) {
+    while (aleph_g_chunks != mark.chunk && aleph_g_chunks != NULL) {
+        AlChunk *chunk = aleph_g_chunks;
+        aleph_g_chunks = chunk->next;
+        chunk_release(chunk);
+    }
+    if (mark.chunk != NULL) {
+        mark.chunk->used = mark.used;
+    }
+}
+
+/* The object a value points to, or NULL for scalars. */
+static const void *value_root(AlValue value) {
+    switch (value.tag) {
+    case AL_STR:
+        return value.u.str;
+    case AL_LIST:
+    case AL_DICT:
+        return value.u.list;
+    case AL_SOME:
+    case AL_OK:
+    case AL_ERR:
+    case AL_JSON:
+        return value.u.box;
+    case AL_RECORD:
+        return value.u.rec;
+    case AL_FN:
+        return value.u.fn;
+    default:
+        return NULL;
+    }
+}
+
+typedef struct {
+    uintptr_t lo;
+    uintptr_t hi;
+} AlRange;
+
+typedef struct {
+    const void *old;
+    void *copy;
+} AlFwd;
+
+/* State of one compaction: the region's chunk ranges (sorted), a
+   forwarding table keyed by object address and an explicit work stack. */
+typedef struct {
+    AlRange *ranges;
+    size_t nranges;
+    AlFwd *table;
+    size_t tcap;
+    size_t tlen;
+    void **stack;
+    size_t slen;
+    size_t scap;
+    unsigned char *bump;
+} AlCompact;
+
+static int range_cmp(const void *a, const void *b) {
+    uintptr_t x = ((const AlRange *)a)->lo;
+    uintptr_t y = ((const AlRange *)b)->lo;
+    return x < y ? -1 : x > y ? 1 : 0;
+}
+
+static bool in_region(const AlCompact *c, const void *ptr) {
+    uintptr_t p = (uintptr_t)ptr;
+    size_t lo = 0;
+    size_t hi = c->nranges;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (p < c->ranges[mid].lo) {
+            hi = mid;
+        } else if (p >= c->ranges[mid].hi) {
+            lo = mid + 1;
+        } else {
+            return true;
+        }
+    }
+    return false;
+}
+
+static size_t fwd_slot(const AlCompact *c, const void *old) {
+    size_t mask = c->tcap - 1;
+    size_t index = (size_t)(((uintptr_t)old >> 4) * (uintptr_t)0x9E3779B97F4A7C15ull) & mask;
+    while (c->table[index].old != NULL && c->table[index].old != old) {
+        index = (index + 1) & mask;
+    }
+    return index;
+}
+
+/* Inserts `old`; returns 1 if new, 0 if already present, -1 on failure. */
+static int fwd_insert(AlCompact *c, const void *old) {
+    size_t index;
+    if (2 * (c->tlen + 1) > c->tcap) {
+        size_t cap = c->tcap * 2;
+        AlFwd *table = (AlFwd *)calloc(cap, sizeof(AlFwd));
+        AlFwd *previous = c->table;
+        size_t pcap = c->tcap;
+        size_t i;
+        if (table == NULL) {
+            return -1;
+        }
+        c->table = table;
+        c->tcap = cap;
+        for (i = 0; i < pcap; i += 1) {
+            if (previous[i].old != NULL) {
+                c->table[fwd_slot(c, previous[i].old)] = previous[i];
+            }
+        }
+        free(previous);
+    }
+    index = fwd_slot(c, old);
+    if (c->table[index].old != NULL) {
+        return 0;
+    }
+    c->table[index].old = old;
+    c->table[index].copy = NULL;
+    c->tlen += 1;
+    return 1;
+}
+
+static bool push(AlCompact *c, void *item) {
+    if (c->slen == c->scap) {
+        size_t cap = c->scap * 2;
+        void **stack = (void **)realloc(c->stack, cap * sizeof(void *));
+        if (stack == NULL) {
+            return false;
+        }
+        c->stack = stack;
+        c->scap = cap;
+    }
+    c->stack[c->slen++] = item;
+    return true;
+}
+
+/* Pushes the pointer-holding values of `items[0..n)`. */
+static bool push_values(AlCompact *c, AlValue *items, size_t n) {
+    size_t i;
+    for (i = 0; i < n; i += 1) {
+        if (value_root(items[i]) != NULL && !push(c, &items[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Size in bytes of the object a value points to, without the separate
+   string data or captured array. */
+static size_t object_size(AlValue value) {
+    switch (value.tag) {
+    case AL_STR:
+        return AL_ROUND(sizeof(AlStr));
+    case AL_LIST:
+    case AL_DICT:
+        return AL_ROUND(sizeof(AlList) + value.u.list->len * sizeof(AlValue));
+    case AL_JSON:
+        return AL_ROUND(sizeof(AlJson));
+    case AL_RECORD:
+        return AL_ROUND(sizeof(AlRecord) + value.u.rec->n * sizeof(AlValue));
+    case AL_FN:
+        return AL_ROUND(sizeof(AlFn));
+    default:
+        return AL_ROUND(sizeof(AlBox));
+    }
+}
+
+/* Bytes the separate allocation of a value (string data, captured values)
+   takes when it lies in the region, else 0. */
+static size_t extra_size(const AlCompact *c, AlValue value) {
+    if (value.tag == AL_STR && in_region(c, value.u.str->data)) {
+        return AL_ROUND(value.u.str->len + 1);
+    }
+    if (value.tag == AL_FN && value.u.fn->ncaptured > 0 &&
+        in_region(c, value.u.fn->captured)) {
+        return AL_ROUND(value.u.fn->ncaptured * sizeof(AlValue));
+    }
+    return 0;
+}
+
+/* The values directly inside the object a value points to. */
+static AlValue *children(AlValue value, size_t *n) {
+    switch (value.tag) {
+    case AL_LIST:
+    case AL_DICT:
+        *n = value.u.list->len;
+        return value.u.list->items;
+    case AL_SOME:
+    case AL_OK:
+    case AL_ERR:
+    case AL_JSON:
+        *n = 1;
+        return &value.u.box->value;
+    case AL_RECORD:
+        *n = value.u.rec->n;
+        return value.u.rec->fields;
+    case AL_FN:
+        *n = value.u.fn->ncaptured;
+        return (AlValue *)value.u.fn->captured;
+    default:
+        *n = 0;
+        return NULL;
+    }
+}
+
+/* Bytes of the region reachable from `root`, each object counted once;
+   SIZE_MAX if past `limit` or out of memory.  Iterative. */
+static size_t region_reach(AlCompact *c, AlValue *root, size_t limit) {
+    size_t total = 0;
+    c->slen = 0;
+    if (!push(c, root)) {
+        return SIZE_MAX;
+    }
+    while (c->slen > 0) {
+        AlValue value = *(AlValue *)c->stack[--c->slen];
+        const void *object = value_root(value);
+        size_t n;
+        AlValue *items;
+        int fresh;
+        if (!in_region(c, object)) {
+            continue;
+        }
+        fresh = fwd_insert(c, object);
+        if (fresh < 0) {
+            return SIZE_MAX;
+        }
+        if (fresh == 0) {
+            continue;
+        }
+        total += object_size(value) + extra_size(c, value);
+        if (total > limit) {
+            return SIZE_MAX;
+        }
+        items = children(value, &n);
+        if (!push_values(c, items, n)) {
+            return SIZE_MAX;
+        }
+    }
+    return total;
+}
+
+static void *bump(AlCompact *c, const void *from, size_t size) {
+    void *to = c->bump;
+    memcpy(to, from, size);
+    c->bump += AL_ROUND(size);
+    return to;
+}
+
+/* Copies one object into the new chunk and points the value at it. */
+static void *copy_object(AlCompact *c, AlValue *slot) {
+    size_t extra = extra_size(c, *slot);
+    switch (slot->tag) {
+    case AL_STR: {
+        AlStr *str = (AlStr *)bump(c, slot->u.str, sizeof(AlStr));
+        if (extra > 0) {
+            /* Tlön strings own NUL-terminated data. */
+            str->data = (const char *)bump(c, str->data, str->len + 1);
+        }
+        slot->u.str = str;
+        return str;
+    }
+    case AL_LIST:
+    case AL_DICT:
+        slot->u.list = (AlList *)bump(c, slot->u.list, object_size(*slot));
+        return slot->u.list;
+    case AL_JSON:
+        slot->u.box = (AlBox *)bump(c, slot->u.box, sizeof(AlJson));
+        return slot->u.box;
+    case AL_RECORD:
+        slot->u.rec = (AlRecord *)bump(c, slot->u.rec, object_size(*slot));
+        return slot->u.rec;
+    case AL_FN: {
+        AlFn *fn = (AlFn *)bump(c, slot->u.fn, sizeof(AlFn));
+        if (extra > 0) {
+            fn->captured = (const AlValue *)bump(
+                c, fn->captured, fn->ncaptured * sizeof(AlValue));
+        }
+        slot->u.fn = fn;
+        return fn;
+    }
+    default:
+        slot->u.box = (AlBox *)bump(c, slot->u.box, sizeof(AlBox));
+        return slot->u.box;
+    }
+}
+
+/* Deep-copies the region objects reachable from `root` (all already in the
+   forwarding table) into c->bump.  Iterative. */
+static bool region_copy(AlCompact *c, AlValue *root) {
+    c->slen = 0;
+    if (!push(c, root)) {
+        return false;
+    }
+    while (c->slen > 0) {
+        AlValue *slot = (AlValue *)c->stack[--c->slen];
+        const void *object = value_root(*slot);
+        AlFwd *entry;
+        size_t n;
+        AlValue *items;
+        if (!in_region(c, object)) {
+            continue;
+        }
+        entry = &c->table[fwd_slot(c, object)];
+        if (entry->copy != NULL) {
+            switch (slot->tag) {
+            case AL_STR:
+                slot->u.str = (const AlStr *)entry->copy;
+                break;
+            case AL_LIST:
+            case AL_DICT:
+                slot->u.list = (AlList *)entry->copy;
+                break;
+            case AL_RECORD:
+                slot->u.rec = (AlRecord *)entry->copy;
+                break;
+            case AL_FN:
+                slot->u.fn = (const AlFn *)entry->copy;
+                break;
+            default:
+                slot->u.box = (AlBox *)entry->copy;
+                break;
+            }
+            continue;
+        }
+        entry->copy = copy_object(c, slot);
+        items = children(*slot, &n);
+        if (!push_values(c, items, n)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Copies the result out of a large region when it is small (rule 2);
+   returns false, with the arena untouched, when it does not pay. */
+static bool region_compact(AlMark mark, size_t total, AlValue *result) {
+    AlCompact c;
+    AlChunk *chunk;
+    AlChunk *fresh = NULL;
+    AlValue root = *result;
+    size_t i = 0;
+    size_t bytes;
+    bool done = false;
+    memset(&c, 0, sizeof(c));
+    for (chunk = aleph_g_chunks; chunk != mark.chunk; chunk = chunk->next) {
+        c.nranges += 1;
+    }
+    c.nranges += mark.chunk != NULL ? 1 : 0;
+    c.ranges = (AlRange *)malloc(c.nranges * sizeof(AlRange));
+    c.tcap = 1024;
+    c.table = (AlFwd *)calloc(c.tcap, sizeof(AlFwd));
+    c.scap = 256;
+    c.stack = (void **)malloc(c.scap * sizeof(void *));
+    if (c.ranges == NULL || c.table == NULL || c.stack == NULL) {
+        goto out;
+    }
+    for (chunk = aleph_g_chunks; chunk != mark.chunk; chunk = chunk->next) {
+        c.ranges[i].lo = (uintptr_t)chunk->data;
+        c.ranges[i].hi = (uintptr_t)(chunk->data + chunk->used);
+        i += 1;
+    }
+    if (mark.chunk != NULL) {
+        c.ranges[i].lo = (uintptr_t)(mark.chunk->data + mark.used);
+        c.ranges[i].hi = (uintptr_t)(mark.chunk->data + mark.chunk->used);
+    }
+    qsort(c.ranges, c.nranges, sizeof(AlRange), range_cmp);
+    bytes = region_reach(&c, &root, total / 4);
+    if (bytes == SIZE_MAX) {
+        goto out;
+    }
+    fresh = chunk_new(bytes);
+    if (fresh == NULL) {
+        goto out;
+    }
+    c.bump = fresh->data;
+    if (!region_copy(&c, &root)) {
+        chunk_release(fresh);
+        goto out;
+    }
+    fresh->used = (size_t)(c.bump - fresh->data);
+    aleph_region_free_to(mark);
+    fresh->next = aleph_g_chunks;
+    aleph_g_chunks = fresh;
+    *result = root;
+    done = true;
+out:
+    free(c.ranges);
+    free(c.table);
+    free(c.stack);
+    return done;
+}
+
+AlValue aleph_region_leave(AlMark mark, AlValue result) {
+    const void *root = value_root(result);
+    uintptr_t p = (uintptr_t)root;
+    bool inside = false;
+    size_t total = 0;
+    AlChunk *chunk;
+    for (chunk = aleph_g_chunks; chunk != mark.chunk; chunk = chunk->next) {
+        uintptr_t lo = (uintptr_t)chunk->data;
+        inside = inside || (p >= lo && p < lo + chunk->used);
+        total += chunk->used;
+    }
+    if (mark.chunk != NULL) {
+        uintptr_t lo = (uintptr_t)mark.chunk->data;
+        inside = inside || (p >= lo + mark.used && p < lo + mark.chunk->used);
+        total += mark.chunk->used - mark.used;
+    }
+    if (!inside) {
+        aleph_region_reset(mark);
+    } else if (total >= AL_REGION_MIN) {
+        region_compact(mark, total, &result);
+    }
     return result;
 }
 

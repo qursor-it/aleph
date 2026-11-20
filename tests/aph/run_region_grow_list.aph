@@ -1,0 +1,9 @@
+fn build n:i64 -> list str
+ ex build 2 = ["n1" "n2"]
+ if == n 0 empty str push build - n 1 cat "n" show n
+fn main -> unit
+ let xs build 3000
+ do print show len xs
+ do print show slice xs 0 3
+ do print show slice xs 2997 3000
+ print show count join xs ""

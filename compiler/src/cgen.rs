@@ -410,6 +410,7 @@ impl<'a> Generator<'a> {
             }
         }
         self.line(1, "AlValue aleph_ret_;");
+        self.region_mark(function);
         self.line(1, "aleph_ret_ = aleph_unit();");
 
         for stmt in &function.stmts {
@@ -434,12 +435,73 @@ impl<'a> Generator<'a> {
         if function_has_try(function) {
             self.line(0, "L_epilogue:");
         }
+        self.region_exit(function, Repr::Boxed);
         self.line(
             1,
             &format!("return {};", Repr::of(&ret).unbox("aleph_ret_")),
         );
         self.line(0, "}");
         self.out.push('\n');
+    }
+
+    /// Scoped region of a user function body (ADR-0039); `main` has none,
+    /// nor has a body that cannot allocate in the arena.
+    fn region_mark(&mut self, function: &ast::Fn) {
+        if self.needs_region(function) {
+            self.line(1, "AlMark aleph_mark_ = aleph_region_mark();");
+        }
+    }
+
+    fn region_exit(&mut self, function: &ast::Fn, repr: Repr) {
+        if !self.needs_region(function) {
+            return;
+        }
+        if repr == Repr::Boxed {
+            self.line(
+                1,
+                "aleph_ret_ = aleph_region_exit(aleph_mark_, aleph_ret_);",
+            );
+        } else {
+            self.line(1, "aleph_region_reset(aleph_mark_);");
+        }
+    }
+
+    /// Conservative: a body needs no region when every node is an unboxed
+    /// i64/f64/bool literal, variable, operator, `if` or call to a user
+    /// function (callees reset their own regions).
+    fn needs_region(&self, function: &ast::Fn) -> bool {
+        if function.name == "main" {
+            return false;
+        }
+        let mut allocates = false;
+        let mut visit = |expr: &Expr| {
+            let plain = matches!(
+                expr.kind,
+                ExprKind::Int { .. }
+                    | ExprKind::Float { .. }
+                    | ExprKind::Bool { .. }
+                    | ExprKind::Var { .. }
+                    | ExprKind::BinOp { .. }
+                    | ExprKind::UnOp { .. }
+                    | ExprKind::If { .. }
+                    | ExprKind::Call {
+                        callee_kind: CalleeKind::Fn,
+                        ..
+                    }
+            );
+            if !plain || self.repr(expr) == Repr::Boxed {
+                allocates = true;
+            }
+        };
+        for stmt in &function.stmts {
+            match &stmt.kind {
+                StmtKind::Let { value, .. } | StmtKind::Do { value } => {
+                    ast::walk_expr(value, &mut visit);
+                }
+            }
+        }
+        ast::walk_expr(&function.result, &mut visit);
+        allocates
     }
 
     fn emit_expr(&mut self, expr: &Expr, depth: usize, indent: usize) {
@@ -1066,6 +1128,7 @@ impl Generator<'_> {
         let ret_repr = Repr::of(&ret);
         self.line(1, &format!("{} aleph_ret_;", ret_repr.c_type()));
         self.line(1, "aleph_loc_push();");
+        self.region_mark(function);
 
         for stmt in &function.stmts {
             match &stmt.kind {
@@ -1087,6 +1150,7 @@ impl Generator<'_> {
         if function_has_try(function) {
             self.line(0, "L_epilogue:");
         }
+        self.region_exit(function, ret_repr);
         self.line(1, "aleph_loc_pop();");
         self.line(1, "return aleph_ret_;");
         self.line(0, "}");
@@ -1820,6 +1884,35 @@ mod tests {
         assert!(!fast.contains("AlValue t_n"), "{fast}");
         assert!(code.contains("AL_COLD static int64_t aleph_slow_fib(int64_t p_n);"));
         assert!(code.contains("AlValue l_n = aleph_box_i64(p_n);"));
+    }
+
+    #[test]
+    fn region_only_where_the_body_can_allocate() {
+        let source = "fn fib n:i64 -> i64\n if < n 2 n + fib - n 1 fib - n 2\nfn greet n:i64 -> i64\n count cat \"n\" show n\nfn main -> unit\n print show + fib 10 greet 3\n";
+        let code = generate(source);
+        let body = |name: &str| {
+            let param = if name.starts_with("slow") {
+                "p_n"
+            } else {
+                "l_n"
+            };
+            let start = code
+                .find(&format!("aleph_{name}(int64_t {param})\n{{"))
+                .expect(name);
+            let rest = &code[start..];
+            rest[..rest.find("\n}\n").expect("end of body")].to_string()
+        };
+        assert!(!body("fn_fib").contains("aleph_region_mark"), "{code}");
+        assert!(!body("slow_fib").contains("aleph_region"), "{code}");
+        assert!(
+            body("slow_greet").contains("aleph_region_exit(aleph_mark_"),
+            "{code}"
+        );
+        assert!(body("fn_greet").contains("aleph_region_mark()"), "{code}");
+        assert!(
+            body("fn_greet").contains("aleph_region_reset(aleph_mark_);"),
+            "{code}"
+        );
     }
 
     #[test]

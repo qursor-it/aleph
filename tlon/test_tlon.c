@@ -1132,6 +1132,161 @@ static int split_mode(void) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Scoped regions (ADR-0039)                                           */
+/* ------------------------------------------------------------------ */
+
+static AlValue region_dummy_code(const AlFn *self, AlValue *args, size_t n) {
+    (void)self;
+    (void)args;
+    (void)n;
+    return aleph_unit();
+}
+
+/* Allocates about `bytes` of temporaries in small strings. */
+static void region_garbage(size_t bytes) {
+    size_t done;
+    for (done = 0; done < bytes; done += 64) {
+        (void)aleph_str("some temporary text");
+    }
+}
+
+/* show(value) copied out of the arena. */
+static char *region_show(AlValue value) {
+    AlValue shown = aleph_show(value);
+    char *text = (char *)malloc(shown.u.str->len + 1);
+    memcpy(text, shown.u.str->data, shown.u.str->len + 1);
+    return text;
+}
+
+static void test_regions(void) {
+    static const AlRecordInfo info = {"point", 2};
+    size_t before;
+    AlMark mark;
+    AlValue result;
+
+    /* Scalar result: everything the call allocated is freed. */
+    (void)aleph_str("warm up");
+    before = aleph_arena_bytes();
+    mark = aleph_region_mark();
+    region_garbage(1024 * 1024);
+    result = aleph_region_exit(mark, aleph_i64(7));
+    check_i64(result, 7, "region: scalar result");
+    check(aleph_arena_bytes() == before, "region: scalar result resets");
+
+    /* Result older than the mark: reset, value untouched. */
+    {
+        AlValue old = aleph_str("kept");
+        before = aleph_arena_bytes();
+        mark = aleph_region_mark();
+        region_garbage(1024 * 1024);
+        result = aleph_region_exit(mark, old);
+        check(result.u.str == old.u.str, "region: older root is shared");
+        check_str(result, "kept", "region: older root intact");
+        check(aleph_arena_bytes() == before, "region: older root resets");
+    }
+
+    /* Small result in a large region: compacted, sharing kept. */
+    {
+        AlValue outside = aleph_str("outside");
+        AlValue shared;
+        AlValue items[9];
+        AlValue fields[2];
+        AlValue captured[2];
+        AlValue built;
+        char *expected;
+        char *got;
+        uint32_t json_depth_before;
+        before = aleph_arena_bytes();
+        mark = aleph_region_mark();
+        region_garbage(512 * 1024);
+        items[0] = aleph_str("a");
+        items[1] = aleph_i64(1);
+        shared = aleph_list(items, 2);
+        fields[0] = shared;
+        fields[1] = aleph_str("y");
+        captured[0] = shared;
+        captured[1] = outside;
+        items[0] = shared;
+        items[1] = shared;
+        items[2] = aleph_str("hello");
+        items[3] = aleph_record(&info, fields, 2);
+        items[4] = aleph_b_put(aleph_dict_empty(), aleph_str("k"), shared);
+        items[5] = aleph_b_jparse(aleph_str("{\"a\":[1,2.5,\"x\",null]}"));
+        items[6] = aleph_some(aleph_str("s"));
+        items[7] = aleph_fnval_lam(region_dummy_code, captured, 2);
+        items[8] = outside;
+        built = aleph_list(items, 9);
+        region_garbage(512 * 1024);
+        expected = region_show(built);
+        json_depth_before = ((const AlJson *)items[5].u.box->value.u.box)->depth;
+        result = aleph_region_exit(mark, built);
+        check(result.u.list != built.u.list, "region: result compacted");
+        check(aleph_arena_bytes() <= before + 64 * 1024,
+              "region: compaction frees the region");
+        got = region_show(result);
+        check(strcmp(expected, got) == 0, "region: compacted value intact");
+        check(result.u.list->items[0].u.list ==
+                  result.u.list->items[1].u.list,
+              "region: shared list copied once");
+        check(result.u.list->items[3].u.rec->fields[0].u.list ==
+                  result.u.list->items[0].u.list,
+              "region: record field shares the copy");
+        check(result.u.list->items[7].u.fn->captured[0].u.list ==
+                  result.u.list->items[0].u.list,
+              "region: captured value shares the copy");
+        check(result.u.list->items[8].u.str == outside.u.str,
+              "region: object outside the region not copied");
+        check(result.u.list->items[7].u.fn->captured[1].u.str ==
+                  outside.u.str,
+              "region: captured outside value not copied");
+        check_str(result.u.list->items[7].u.fn->captured[1], "outside",
+                  "region: captured outside value intact");
+        check(((const AlJson *)result.u.list->items[5].u.box->value.u.box)->depth ==
+                  json_depth_before,
+              "region: json depth copied");
+        free(expected);
+        free(got);
+    }
+
+    /* Result large relative to the region: left to the caller. */
+    {
+        AlValue built = aleph_list_new(20000);
+        size_t index;
+        mark = aleph_region_mark();
+        built = aleph_list_new(20000);
+        for (index = 0; index < 20000; index += 1) {
+            built.u.list->items[index] = aleph_str("item");
+        }
+        before = aleph_arena_bytes();
+        result = aleph_region_exit(mark, built);
+        check(result.u.list == built.u.list, "region: large result kept");
+        check(aleph_arena_bytes() == before, "region: large result not freed");
+        check_str(result.u.list->items[19999], "item",
+                  "region: large result intact");
+    }
+
+    /* A million nested boxes: traversal and copy do not recurse. */
+    {
+        AlValue deep;
+        size_t index;
+        mark = aleph_region_mark();
+        for (index = 0; index < 60; index += 1) {
+            (void)aleph_alloc(1024 * 1024);
+        }
+        deep = aleph_i64(42);
+        for (index = 0; index < 1000000; index += 1) {
+            deep = aleph_some(deep);
+        }
+        result = aleph_region_exit(mark, deep);
+        check(result.u.box != deep.u.box, "region: deep result compacted");
+        for (index = 0; index < 1000000 && result.tag == AL_SOME; index += 1) {
+            result = result.u.box->value;
+        }
+        check_i64(result, 42, "region: deep result intact");
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* f64 formatting mode                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -1173,6 +1328,7 @@ int main(int argc, char **argv) {
     test_effects();
     test_main_results();
     test_traps();
+    test_regions();
 
     if (failures != 0) {
         fprintf(stderr, "%d failure(s)\n", failures);

@@ -165,7 +165,8 @@ void aleph_set_file(const char *file);
 void aleph_set_uses(const AlUse *uses, size_t count);
 void aleph_set_args(int argc, const char *const *argv);
 
-/* Arena allocation (ADR-0007): 16-byte aligned, never freed. */
+/* Arena allocation (ADR-0007): 16-byte aligned, freed only by regions
+   (ADR-0039, below). */
 void *aleph_alloc(size_t size);
 
 /*
@@ -344,6 +345,60 @@ static inline AlValue aleph_box_bool(bool v) {
     r.tag = AL_BOOL;
     r.u.b = v;
     return r;
+}
+
+/*
+ * Scoped regions (ADR-0039).  A user function body saves the arena top at
+ * entry (aleph_region_mark) and, at return, either resets the arena to it
+ * (pointer-free result, or a result whose root is older than the mark),
+ * compacts a small result out of a large region, or leaves the region to the
+ * caller.  Invariant: an object allocated before a mark never points to one
+ * allocated after it.
+ */
+typedef struct AlChunk {
+    struct AlChunk *next; /* older chunk */
+    size_t used;
+    size_t cap;
+    unsigned char *data;
+} AlChunk;
+
+typedef struct AlMark {
+    AlChunk *chunk;
+    size_t used;
+} AlMark;
+
+extern AlChunk *aleph_g_chunks; /* newest chunk first */
+
+void aleph_region_free_to(AlMark mark);
+AlValue aleph_region_leave(AlMark mark, AlValue result);
+/* Bytes of chunk capacity currently held by the arena (for the tests). */
+size_t aleph_arena_bytes(void);
+
+static inline AlMark aleph_region_mark(void) {
+    AlMark mark;
+    mark.chunk = aleph_g_chunks;
+    mark.used = mark.chunk != NULL ? mark.chunk->used : 0;
+    return mark;
+}
+static inline void aleph_region_reset(AlMark mark) {
+    if (AL_UNLIKELY(aleph_g_chunks != mark.chunk)) {
+        aleph_region_free_to(mark);
+    } else if (mark.chunk != NULL) {
+        mark.chunk->used = mark.used;
+    }
+}
+static inline AlValue aleph_region_exit(AlMark mark, AlValue result) {
+    switch (result.tag) {
+    case AL_UNIT:
+    case AL_I64:
+    case AL_F64:
+    case AL_BOOL:
+    case AL_NONE:
+        aleph_region_reset(mark);
+        return result;
+    default:
+        return aleph_region_leave(mark, result);
+    }
 }
 
 /* Value constructors. */

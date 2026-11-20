@@ -1,0 +1,5 @@
+fn step acc:i64 i:i64 -> i64
+ ex step 1 2 = 8
+ + acc count join [show i "tmp" show acc] "-"
+fn main -> unit
+ print show fold @step 0 range 0 100000

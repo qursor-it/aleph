@@ -770,3 +770,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - experiments/tools/harness/: one condition x one task, up to 5 rounds (check, hidden tests, same-shape feedback for every language), published prompt templates, fake and OpenAI-compatible backends, required --cap-eur shared across a log, per-round token/cost log, summary (pass@1, pass@k, rounds, cost per solved task)
 - tests: test_harness 7 passed (fake model only; the OpenAI backend is never run by the agent)
 - next: T-038 sandbox
+
+## 2026-11-20T08:07 T-030 done
+- resumed: the owner asked on 20 Nov to complete the open tasks in order; regions are runtime-only (no syntax, no rule, no token cost)
+- ADR-0039 (Proposed): mark/reset per user call, compaction of small results in large regions, no region for bodies that cannot allocate
+- tlon: region mark/exit, iterative count and copy with forwarding table, spare chunk; cgen: region in slow/fast bodies; goldens run_region_scalar_loop, run_region_grow_list
+- tests: 377 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok, ASan+UBSan clean on test_tlon and 38 native goldens; grow-list RSS 72 MB -> 2.8 MB; fib35 unchanged (0.31 vs 0.29-0.32 s)
+- implemented by a Claude subagent; independent review next
