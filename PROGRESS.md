@@ -854,3 +854,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - reviews: 4/10 (case-blind o200k words, HF pre-tokenizer ignored, quadratic loop) -> 8/10 -> round-3 fixes (merge loop, DeepSeek message, add_prefix_space) not re-reviewed (cap)
 - counts are unvalidated until a person cross-checks one real vocabulary against tiktoken/tokenizers (none on disk, no network)
 - correction to the previous entry: the T-055 fix run passed 380 tests, not 381
+
+## 2026-11-20T17:33 T-041 done
+- experiments/tools/orbis/: generate verified Aleph programs and repair triples from task statements through the harness backends (fake in tests), only severity error fails, kept programs canonical, optional hidden tests through the suite runner, word 5-gram Jaccard dedup against the EXP-002 suite and HumanEval-Aleph prompts (prompt field only), cap required for real backends
+- tests: test_orbis 4 passed
+- all open TASKS.md tasks up to T-042 are now done; the autonomous phase continues with T-056..T-059

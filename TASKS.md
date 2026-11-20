@@ -71,7 +71,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-038 File-access logging sandbox for Python and bash programs — EXP-002
 - [x] T-039 BPE counter in `aleph tokens` reading a local vocabulary file given by path (follow-up to ADR-0031) — EXP-003
 - [x] T-040 Corpus layout (one folder per program, one file per language, shared tests), verification script and report — EXP-003
-- [ ] T-041 Orbis generator: task statements → verified programs and repair triples, deduplicated against the EXP-002 suite — EXP-004
+- [x] T-041 Orbis generator: task statements → verified programs and repair triples, deduplicated against the EXP-002 suite — EXP-004
 - [x] T-042 RL reward function wrapping `aleph check`, examples and hidden tests, with a time limit — EXP-004
 
 ## Autonomous (owner mandate of 20 Nov 2026)
