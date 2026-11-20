@@ -1,0 +1,1 @@
+{"code":"T004","severity":"error","file":"tests/aph/type_t004_sortby.aph","line":2,"col":2,"node":"n7","msg":"type constraint not satisfied","expected":"i64, f64 or str","found":"bool"}

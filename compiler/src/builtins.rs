@@ -44,6 +44,8 @@ pub enum Bound {
     Showable,
     /// A dict key type: `i64`, `bool` or `str` (ADR-0032).
     Key,
+    /// A `sortby` key: `i64`, `f64` or `str` (ADR-0042).
+    SortKey,
     /// `i64` or `f64` (ADR-0036).
     Numeric,
     /// A type `json x` accepts: `unit`, `bool`, `i64`, `f64`, `str`, `json`,
@@ -101,6 +103,10 @@ static MAP_FN: Ty = Ty::Fn(&[&A], &B);
 static FILTER_FN: Ty = Ty::Fn(&[&A], &BOOL);
 static FOLD_FN: Ty = Ty::Fn(&[&B, &A], &B);
 static MAP2_FN: Ty = Ty::Fn(&[&A, &B], &T);
+static RES_B_T: Ty = Ty::Res(&B, &T);
+static MAPR_FN: Ty = Ty::Fn(&[&A], &RES_B_T);
+static RES_LIST_B_T: Ty = Ty::Res(&LIST_B, &T);
+static SORTBY_FN: Ty = Ty::Fn(&[&A], &T);
 static DICT_AB: Ty = Ty::Dict(&A, &B);
 static OPT_B: Ty = Ty::Opt(&B);
 static JSON: Ty = Ty::Json;
@@ -261,6 +267,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "index",
+        params: &[&LIST_A, &A],
+        ret: &OPT_I64,
+        bounds: &[(TyVar::A, Bound::Primitive)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "int",
         params: &[&STR],
         ret: &RES_I64_STR,
@@ -396,6 +411,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "mapr",
+        params: &[&MAPR_FN, &LIST_A],
+        ret: &RES_LIST_B_T,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "max",
         params: &[&T, &T],
         ret: &T,
@@ -477,6 +501,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: Some(0),
     },
     BuiltinSpec {
+        name: "repeat",
+        params: &[&STR, &I64],
+        ret: &STR,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "rev",
         params: &[&LIST_T],
         ret: &LIST_T,
@@ -517,6 +550,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         params: &[&LIST_T],
         ret: &LIST_T,
         bounds: &[(TyVar::T, Bound::Primitive)],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
+        name: "sortby",
+        params: &[&SORTBY_FN, &LIST_A],
+        ret: &LIST_A,
+        bounds: &[(TyVar::T, Bound::SortKey)],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -628,9 +670,13 @@ mod tests {
             ("slice", 3),
             ("rev", 1),
             ("sort", 1),
+            ("sortby", 2),
+            ("repeat", 2),
+            ("index", 2),
             ("range", 2),
             ("sum", 1),
             ("map", 2),
+            ("mapr", 2),
             ("filter", 2),
             ("fold", 3),
             ("cat", 2),

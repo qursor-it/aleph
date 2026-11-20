@@ -1,0 +1,6 @@
+fn main -> unit
+ do print repeat "ab" 3
+ do print repeat "x" 0
+ do print repeat "x" -2
+ do print repeat "" 5
+ nil

@@ -136,7 +136,7 @@ All expressions are prefix with fixed arity. There are no parentheses. The parse
 | literal int/float/string, `true`, `false`, `nil` | 0 | i64 / f64 / str / bool / unit |
 | variable `x` | 0 | type of binding |
 | `@f` | 0 | function value (only as argument to higher-order builtins) |
-| `lam x1 .. xk body` | k binders + 1 | inline function value, only as the function argument of `map filter fold map2` (elsewhere P001); k is that parameter's arity (`map`/`filter` 1, `fold`/`map2` 2). The other arguments are checked first, then the call's expected type applies (so `ok`/`err`/`none` arguments and the body can use it); binders get the parameter types (`fold`: B from init, A from the list), the body must have the result type (`filter`: bool). Binders follow T005; the body may read enclosing params, lets, match binders and outer binders (captured by value), may call effectful builtins under the same capabilities, and may not use `try` (T007) (v0.2, ADR-0037) |
+| `lam x1 .. xk body` | k binders + 1 | inline function value, only as the function argument of `map filter fold map2 mapr sortby` (elsewhere P001); k is that parameter's arity (`map`/`filter`/`mapr`/`sortby` 1, `fold`/`map2` 2). The other arguments are checked first, then the call's expected type applies (so `ok`/`err`/`none` arguments and the body can use it); binders get the parameter types (`fold`: B from init, A from the list), the body must have the result type (`filter`: bool). Binders follow T005; the body may read enclosing params, lets, match binders and outer binders (captured by value), may call effectful builtins under the same capabilities, and may not use `try` (T007) (v0.2, ADR-0037) |
 | `f a1 .. an` | n = declared arity | user fn, builtin, or record constructor |
 | `+ - * / %` | 2 | both i64 or both f64; result same. `%` i64 only |
 | `== !=` | 2 | same primitive type (i64, f64, bool, str); result bool |
@@ -172,6 +172,7 @@ Pure:
 | `slice xs a b` | list T, i64, i64 -> list T (clamped) |
 | `rev xs` | list T -> list T |
 | `sort xs` | list T -> list T (T primitive, ascending) |
+| `sortby @f xs` | (A -> K), list A -> list A (K i64/f64/str; stable, ascending by `f x`; f called once per element) (ADR-0042) |
 | `range a b` | i64, i64 -> list i64 (a inclusive, b exclusive) |
 | `sum xs` | list i64 -> i64 |
 | `map @f xs` | (A -> B), list A -> list B |
@@ -195,6 +196,9 @@ Pure:
 | `chr n` | i64 -> opt str (one-character string; `none` outside Unicode scalar values; ADR-0035) |
 | `uniq xs` | list T -> list T (T primitive; ascending, no duplicates) (ADR-0036) |
 | `map2 @f xs ys` | (A, B -> T), list A, list B -> list T (length of the shorter) (ADR-0036) |
+| `mapr @f xs` | (A -> res B E), list A -> res (list B) E (first `err`; later elements not visited) (ADR-0042) |
+| `repeat s n` | str, i64 -> str (`s` repeated `n` times; `""` when `n <= 0`; above the allocation limit R005) (ADR-0042) |
+| `index xs x` | list A, A -> opt i64 (A primitive; first position of `x`, `none` if absent) (ADR-0042) |
 
 Effectful:
 

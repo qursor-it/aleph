@@ -1,0 +1,2 @@
+fn main -> unit
+ print show len map lam x len map lam y + y y x []

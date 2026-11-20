@@ -1,0 +1,2 @@
+fn f xs:list i64 -> list i64
+ sortby lam x [x] xs

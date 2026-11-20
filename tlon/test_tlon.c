@@ -114,9 +114,35 @@ static AlValue hof_add(const AlFn *self, AlValue *args, size_t count) {
     return aleph_i64(args[0].u.i64 + args[1].u.i64);
 }
 
+/* ADR-0042 callbacks. */
+static AlValue hof_parse(const AlFn *self, AlValue *args, size_t count) {
+    (void)self;
+    (void)count;
+    if (args[0].u.i64 < 0) {
+        return aleph_err(strv("negative"));
+    }
+    return aleph_ok(aleph_i64(args[0].u.i64 * 2));
+}
+
+static AlValue hof_mod2(const AlFn *self, AlValue *args, size_t count) {
+    (void)self;
+    (void)count;
+    return aleph_i64(args[0].u.i64 % 2);
+}
+
+static AlValue hof_identity(const AlFn *self, AlValue *args, size_t count) {
+    (void)self;
+    (void)count;
+    return args[0];
+}
+
 /* The static AlFn values used through aleph_fnval_static. */
 static const AlFn hof_inc_fn = {hof_inc, "hof_inc", AL_FN_USER, NULL, 0};
 static const AlFn hof_add_fn = {hof_add, "hof_add", AL_FN_USER, NULL, 0};
+static const AlFn hof_parse_fn = {hof_parse, "hof_parse", AL_FN_USER, NULL, 0};
+static const AlFn hof_mod2_fn = {hof_mod2, "hof_mod2", AL_FN_USER, NULL, 0};
+static const AlFn hof_identity_fn = {hof_identity, "hof_identity", AL_FN_USER,
+                                     NULL, 0};
 
 /* A lambda body reading its captured values: x * captured[0] + captured[1]. */
 static AlValue lam_affine(const AlFn *self, AlValue *args, size_t count) {
@@ -543,6 +569,41 @@ static void test_adr36(void) {
     check_show(aleph_b_map2(aleph_fnval_static(&hof_add_fn), aleph_list_new(0),
                             list3(i64v(1), i64v(2), i64v(3))),
                "[]", "map2 empty");
+}
+
+/* ADR-0042 builtins. */
+static void test_adr42(void) {
+    check_show(aleph_b_mapr(aleph_fnval_static(&hof_parse_fn),
+                            list3(i64v(1), i64v(2), i64v(3))),
+               "ok [2 4 6]", "mapr all ok");
+    check_show(aleph_b_mapr(aleph_fnval_static(&hof_parse_fn),
+                            list3(i64v(1), i64v(-1), i64v(3))),
+               "err \"negative\"", "mapr first error");
+    check_show(aleph_b_mapr(aleph_fnval_static(&hof_parse_fn),
+                            aleph_list_new(0)),
+               "ok []", "mapr empty");
+    check_show(aleph_b_sortby(aleph_fnval_static(&hof_mod2_fn),
+                              list3(i64v(3), i64v(1), i64v(2))),
+               "[2 3 1]", "sortby stable i64 keys");
+    check_show(aleph_b_sortby(aleph_fnval_static(&hof_identity_fn),
+                              list3(aleph_f64(2.5), aleph_f64(-1.0),
+                                    aleph_f64(0.5))),
+               "[-1.0 0.5 2.5]", "sortby f64 keys");
+    check_show(aleph_b_sortby(aleph_fnval_static(&hof_identity_fn),
+                              list3(strv("b"), strv("a"), strv("c"))),
+               "[\"a\" \"b\" \"c\"]", "sortby str keys");
+    check_show(aleph_b_sortby(aleph_fnval_static(&hof_identity_fn),
+                              aleph_list_new(0)),
+               "[]", "sortby empty");
+    check_str(aleph_b_repeat(strv("ab"), i64v(3)), "ababab", "repeat");
+    check_str(aleph_b_repeat(strv("ab"), i64v(0)), "", "repeat zero");
+    check_str(aleph_b_repeat(strv("ab"), i64v(-2)), "", "repeat negative");
+    check_show(aleph_b_index(list3(i64v(10), i64v(20), i64v(10)), i64v(20)),
+               "some 1", "index found");
+    check_show(aleph_b_index(list2(i64v(10), i64v(20)), i64v(30)),
+               "none", "index absent");
+    check_show(aleph_b_index(list2(strv("a"), strv("b")), strv("b")),
+               "some 1", "index str");
 }
 
 /* ------------------------------------------------------------------ */
@@ -1438,6 +1499,7 @@ int main(int argc, char **argv) {
     test_json();
     test_higher_order();
     test_adr36();
+    test_adr42();
     test_filesystem();
     test_effects();
     test_main_results();

@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x65676dd91bf345c3,
+        hash: 0xa6017ea62ff5b996,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -117,20 +117,20 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("1."),
-        "`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout and item order are free (`aleph fmt` canonicalizes). One file = one module (imports v0.2).",
+        "`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout/order free (`aleph fmt` canonicalizes). One file = module (imports v0.2).",
     );
     section(
         &mut out,
         spec_heading("2."),
         &format!(
-            "Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\\.[0-9]+`; string `\"...\"` escapes `\\n \\t \\\" \\\\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `{}`.",
+            "Col 0 = item; one space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\\.[0-9]+`; string `\"...\"` escapes `\\n \\t \\\" \\\\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `{}`.",
             keyword_list()
         ),
     );
     section(
         &mut out,
         spec_heading("3."),
-        "Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type names (P001).",
+        "Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful), `let`/`do`*, one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).",
     );
     let primitives = lexicon::TYPES
         .iter()
@@ -142,13 +142,13 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
         ),
     );
     section(
         &mut out,
         spec_heading("5."),
-        "No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010, write `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder for map/filter, 2 fold/map2; no `try`): fn value, only as higher-order arg.",
+        "No parens; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010; `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder map/filter/mapr/sortby, 2 fold/map2; no `try`): fn value, only higher-order arg.",
     );
     section(&mut out, spec_heading("5.1"), &builtins_table());
     section(
@@ -159,7 +159,7 @@ pub fn render() -> String {
     section(
         &mut out,
         "## Semantics",
-        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples are hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.",
+        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.",
     );
     section(&mut out, spec_heading("9."), &diagnostics_section());
     section(
@@ -216,7 +216,7 @@ fn keyword_list() -> String {
 
 /// Markdown table of `builtins::BUILTINS` (name, signature, effect, capability).
 fn builtins_table() -> String {
-    let mut out = String::from("`name signature`; effectful: `!` then capability, if any.\n");
+    let mut out = String::from("`name signature`; effectful: `!` capability.\n");
     for spec in builtins::BUILTINS {
         let capability = match spec.capability {
             Some(Capability::FsRead) => " fs.read",
@@ -270,6 +270,7 @@ fn bound_text(var: TyVar, bound: Bound) -> String {
         Bound::Jsonable => "jsonable",
         // Stated once in section 4 instead of on every dict builtin.
         Bound::Key => "i64/bool/str",
+        Bound::SortKey => "i64, f64 or str",
         Bound::Numeric => "i64 or f64",
     };
     format!("{var:?} {restriction}")

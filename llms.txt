@@ -3,22 +3,22 @@
 Aleph is a programming language whose primary authors and readers are AI agents. Goals: few tokens, native speed, correctness on the first attempt, safe by default. Human readability is NOT a goal of the source text; humans read the generated explanation (`aleph explain`).
 
 ## 1. Source files
-`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout and item order are free (`aleph fmt` canonicalizes). One file = one module (imports v0.2).
+`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout/order free (`aleph fmt` canonicalizes). One file = module (imports v0.2).
 
 ## 2. Lexical structure
-Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam`.
+Col 0 = item; one space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam`.
 
 ## 3. Top-level items and canonical order
-Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type names (P001).
+Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful), `let`/`do`*, one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).
 
 ## 4. Types
-`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
+`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
 
 ## 5. Expressions
-No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010, write `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder for map/filter, 2 fold/map2; no `try`): fn value, only as higher-order arg.
+No parens; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010; `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder map/filter/mapr/sortby, 2 fold/map2; no `try`): fn value, only higher-order arg.
 
 ### 5.1 Builtins (v0.1)
-`name signature`; effectful: `!` then capability, if any.
+`name signature`; effectful: `!` capability.
 abs T->T (T i64 or f64)
 args ()->list str
 at list T,i64->opt T
@@ -35,6 +35,7 @@ filter (A->bool),list A->list A
 float str->res f64 str
 fold (B,A->B),B,list A->B
 get dict A B,A->opt B
+index list A,A->opt i64 (A primitive)
 int str->res i64 str
 jbool json->opt bool
 jdict json->opt dict str json
@@ -50,6 +51,7 @@ len list T->i64
 lower str->str
 map (A->B),list A->list B
 map2 (A,B->T),list A,list B->list T
+mapr (A->res B T),list A->res list B T
 max T,T->T (T i64 or f64)
 min T,T->T (T i64 or f64)
 now ()->i64 ! time
@@ -59,11 +61,13 @@ push list T,T->list T
 put dict A B,A,B->dict A B
 range i64,i64->list i64
 read str->res str str ! fs.read
+repeat str,i64->str
 rev list T->list T
 show T->str (T primitive, list of primitive or json)
 size dict A B->i64
 slice list T,i64,i64->list T
 sort list T->list T (T primitive)
+sortby (A->T),list A->list A (T i64, f64 or str)
 split str,str->list str
 starts str,str->bool
 sum list i64->i64
@@ -77,7 +81,7 @@ write str,str->res unit str ! fs.write
 Deny by default. `use fs.read "PREFIX"`/`use fs.write "PREFIX"` (`read`/`write`), `use env` (`env`), `use time` (`now` ms), `use net.host "HOST"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). Prefixes normalized (empty/`.` dropped), `..` never covered; empty/`..` prefix or fs capability without a path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.
 
 ## Semantics
-T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples are hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add one LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str elements quoted, `[]` empty); top-level str raw; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s ""` -> Unicode chars (`split "" ""` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err "invalid int"`; `float` `-?[0-9]+\.[0-9]+` else `err "invalid float"`. `ok`/`err` need an expected `res` type else T010. recursion >10,000 calls or deep evaluation -> R004. `main` `err e` -> stderr, exit 1.
+T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s ""` -> Unicode chars (`split "" ""` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err "invalid int"`; `float` `-?[0-9]+\.[0-9]+` else `err "invalid float"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.
 
 ## 9. Diagnostics (ADR-0011)
 JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: L001-L002 P001-P003 F001 T001-T008 T010 E001-E002 C001-C003 R001-R005 X001-X011.

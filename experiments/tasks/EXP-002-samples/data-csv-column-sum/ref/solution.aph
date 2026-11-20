@@ -1,35 +1,10 @@
 use fs.read "data.csv"
-fn addrow acc:res i64 str row:str i:i64 -> res i64 str
- ex addrow ok 0 "a,2" 1 = ok 2
- ex addrow err "x" "a,2" 1 = err "x"
- let base try acc
- let n try int cell row i
- ok + base n
-fn cell row:str i:i64 -> str
- ex cell "a,2" 1 = "2"
- ex cell "a,2" 3 = ""
- else at split row "," i ""
-fn colat i:i64 target:str cols:list str -> i64
- ex colat 0 "b" ["a" "b"] = 1
- ex colat 0 "z" ["a"] = -1
- if >= i len cols -1 if == else at cols i "" target i colat + i 1 target cols
-fn indexof target:str cols:list str -> i64
- ex indexof "b" ["a" "b"] = 1
- ex indexof "z" ["a"] = -1
- colat 0 target cols
-fn nonempty s:str -> bool
- ex nonempty "" = false
- ex nonempty "x" = true
- > count s 0
-fn total rows:list str i:i64 -> res i64 str
- ex total ["a,2" "a,3"] 1 = ok 5
- ex total empty str 1 = ok 0
- fold lam acc row addrow acc row i ok 0 rows
 fn main -> res unit str
  let text try read "data.csv"
- let lines filter @nonempty split text "\n"
+ let lines filter lam s > count s 0 split text "\n"
  let header else at lines 0 ""
- let idx indexof else at args 0 "" split header ","
- let n try if < idx 0 err "column not found" total slice lines 1 len lines idx
- do print show n
+ let idx else index split header "," else at args 0 "" -1
+ let cells map lam row else at split row "," idx "" slice lines 1 len lines
+ let n try if < idx 0 err "column not found" mapr @int cells
+ do print show sum n
  ok nil

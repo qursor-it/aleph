@@ -1,0 +1,6 @@
+fn main -> unit
+ do print show sortby lam x x [3 1 2]
+ do print show sortby lam x x [2.5 -1.0 0.5]
+ do print show sortby lam s s ["b" "a" "c"]
+ do print show sortby lam s count s ["bbb" "a" "cc" "d"]
+ nil

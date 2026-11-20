@@ -861,6 +861,12 @@ impl<'a> Interp<'a> {
                     _ => Value::Opt(None),
                 }
             }
+            "index" => {
+                let values = as_list(&args[0]);
+                let target = &args[1];
+                let found = values.iter().position(|value| values_equal(value, target));
+                Value::Opt(found.map(|index| Rc::new(Value::I64(index as i64))))
+            }
             "push" => {
                 let mut values = as_list(&args[0]).as_ref().clone();
                 values.push(args[1].clone());
@@ -885,6 +891,38 @@ impl<'a> Interp<'a> {
                 let mut values = as_list(&args[0]).as_ref().clone();
                 values.sort_by(compare_values);
                 Value::List(Rc::new(values))
+            }
+            "sortby" => {
+                let target = as_fn(&args[0]);
+                let values = as_list(&args[1]);
+                let mut keyed = Vec::with_capacity(values.len());
+                for value in values.iter() {
+                    let key = self.call_target(target, vec![value.clone()], node, span)?;
+                    keyed.push((key, value.clone()));
+                }
+                // Stable: equal keys keep their input order.
+                keyed.sort_by(|left, right| compare_values(&left.0, &right.0));
+                Value::List(Rc::new(keyed.into_iter().map(|(_, value)| value).collect()))
+            }
+            "repeat" => {
+                let text = as_str(&args[0]);
+                let count = usize::try_from(as_i64(&args[1])).unwrap_or(0);
+                if count == 0 || text.is_empty() {
+                    Value::Str(Rc::from(""))
+                } else {
+                    let length = text
+                        .len()
+                        .checked_mul(count)
+                        .filter(|length| *length <= isize::MAX as usize)
+                        .ok_or_else(|| {
+                            Trap::new("R005", "allocation limit exceeded", node, span)
+                        })?;
+                    let mut repeated = String::with_capacity(length);
+                    for _ in 0..count {
+                        repeated.push_str(text);
+                    }
+                    Value::Str(Rc::from(repeated.as_str()))
+                }
             }
             "range" => {
                 let start = as_i64(&args[0]);
@@ -1147,6 +1185,22 @@ impl<'a> Interp<'a> {
                     )?);
                 }
                 Value::List(Rc::new(mapped))
+            }
+            "mapr" => {
+                let target = as_fn(&args[0]);
+                let values = as_list(&args[1]);
+                let mut mapped = Vec::with_capacity(values.len());
+                for value in values.iter() {
+                    let item = self.call_target(target, vec![value.clone()], node, span)?;
+                    if matches!(&item, Value::Res(Err(_))) {
+                        return Ok(item);
+                    }
+                    match &item {
+                        Value::Res(Ok(inner)) => mapped.push(inner.as_ref().clone()),
+                        _ => panic!("type checker guarantees `mapr` returns a result"),
+                    }
+                }
+                result_ok(Value::List(Rc::new(mapped)))
             }
             _ => panic!("builtin `{name}` has no interpreter implementation"),
         };

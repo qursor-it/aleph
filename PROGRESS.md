@@ -877,3 +877,16 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - new goldens run_empty_list, type_t010_empty_list, explain_empty_list (+json); unit tests parser/check; cli edit test
 - tests: 406 passed (ALEPH_REQUIRE_CC=1), clippy clean
 - replay (clean raw): A 85.7, B 87.5, fewshot 85.7, lite 77.8 (unchanged: the lite answers with `[]` now pass P001 but still fail on other errors, P002 x5, E002)
+
+## 2026-11-20T18:15 T-057/T-060/T-061 done (autonoma)
+- ADR-0042 builtins `mapr`, `sortby`, `repeat`, `index`: builtin table, checker (`mapr` res B E; `sortby` new SortKey bound i64/f64/str; `index` primitive, T004 otherwise; 1 binder for mapr/sortby), interpreter, Tlön runtime (stable bottom-up merge for sortby, first-error mapr), cgen through the existing builtin/callback path; names reserved; SPEC §5/§5.1 and lexicon
+- goldens run_mapr (ok/first err, @int and lam), run_sortby (i64/f64/str keys and stable ties), run_repeat (n <= 0), run_index (found/absent), type_t004_{sortby,sortby_list,index}; check.rs unit tests; parser binder/lam tests; test_tlon ADR-0042
+- corpus rewrites total, histogram, maxmin, data-csv-column-sum, text-top-words and the two EXP-002 refs; `corpus.py verify` OK and `suite.py validate --refs` OK
+- llms.txt 8432 chars (~2108 tokens, budget 2110): four builtin lines paid by trimming prose; SPEC digest updated
+- corpus report without examples: median 1.043 (before 1.235); rewritten a/p histogram 0.795 (2.77), maxmin 1.094 (2.56), total 0.724 (2.21), csv 1.455 (3.02), text-top-words 2.603 (4.10)
+- tests: 407 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok. Full run with an untracked concurrent `type_t010_empty_list_nested.aph` moved aside; that orphan and `adr/0041` edits are not from this task
+
+## 2026-11-20T18:21 T-056 review (7/10) fixed
+- IMPORTANT: `[]` inside a lambda could leave `list V` unresolved: check passed, build failed with X006. Inferred types are now rejected when they contain a variable anywhere (contains_var); golden type_t010_empty_list_nested. ADR-0041 amendment (checking-order dependence, shared T010 message)
+- MINOR left: pilot prompts in experiments/pilot/probe/prompts still say `[e..] n>=1` (frozen pilot material, not changed)
+- tests: 407 passed (with the builtins below), clippy clean

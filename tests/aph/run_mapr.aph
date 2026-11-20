@@ -1,0 +1,12 @@
+fn guarded s:str -> res i64 str
+ ex guarded "2" = ok 0
+ ex guarded "x" = err "invalid int"
+ let n try int s
+ ok / 1 n
+fn main -> unit
+ do print show isok mapr @int ["1" "2" "3"]
+ do print show else mapr @int ["1" "2" "3"] empty i64
+ do print show isok mapr @int ["1" "x" "3"]
+ do print show else mapr lam s guarded s ["2" "4"] empty i64
+ do print show isok mapr lam s guarded s ["2" "x" "0"]
+ nil

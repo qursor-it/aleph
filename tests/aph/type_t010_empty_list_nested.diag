@@ -1,0 +1,1 @@
+{"code":"T010","severity":"error","file":"tests/aph/type_t010_empty_list_nested.aph","line":2,"col":49,"node":"n15","msg":"cannot infer type of ok/err/none/[]","expected":"empty T","found":"[]"}

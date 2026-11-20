@@ -1815,6 +1815,140 @@ AlValue aleph_b_map2(AlValue function, AlValue left, AlValue right) {
     return result;
 }
 
+/* ADR-0042 ---------------------------------------------------------- */
+
+AlValue aleph_b_mapr(AlValue function, AlValue xs) {
+    const AlFn *fn = function.u.fn;
+    const AlList *list = xs.u.list;
+    AlValue result = aleph_list_new(list->len);
+    size_t kept = 0;
+    size_t index;
+    for (index = 0; index < list->len; index += 1) {
+        AlValue args[1];
+        AlValue item;
+        args[0] = list->items[index];
+        item = fn->code(fn, args, 1);
+        if (item.tag == AL_ERR) {
+            return item;
+        }
+        result.u.list->items[kept] = item.u.box->value;
+        kept += 1;
+    }
+    result.u.list->len = kept;
+    return aleph_ok(result);
+}
+
+typedef struct {
+    AlValue key;
+    AlValue value;
+} AlSortbyItem;
+
+/* Stable bottom-up merge; equal keys keep their input order. */
+static void sortby_merge(AlSortbyItem *items, AlSortbyItem *scratch,
+                         size_t len) {
+    size_t width;
+    for (width = 1; width < len; width = width > len / 2 ? len : width * 2) {
+        size_t start;
+        for (start = 0; start < len; start += 2 * width) {
+            size_t middle = start + width < len ? start + width : len;
+            size_t end = start + 2 * width < len ? start + 2 * width : len;
+            size_t left = start;
+            size_t right = middle;
+            size_t out = start;
+            while (left < middle && right < end) {
+                if (value_order(items[right].key, items[left].key) < 0) {
+                    scratch[out] = items[right];
+                    right += 1;
+                } else {
+                    scratch[out] = items[left];
+                    left += 1;
+                }
+                out += 1;
+            }
+            while (left < middle) {
+                scratch[out++] = items[left++];
+            }
+            while (right < end) {
+                scratch[out++] = items[right++];
+            }
+        }
+        memcpy(items, scratch, len * sizeof(*items));
+    }
+}
+
+AlValue aleph_b_sortby(AlValue function, AlValue xs) {
+    const AlFn *fn = function.u.fn;
+    const AlList *list = xs.u.list;
+    AlSortbyItem *items;
+    AlSortbyItem *scratch;
+    AlValue result;
+    size_t index;
+    if (list->len == 0) {
+        return aleph_list_new(0);
+    }
+    if (list->len > SIZE_MAX / sizeof(AlSortbyItem) ||
+        list->len > SIZE_MAX / (2 * sizeof(AlSortbyItem))) {
+        out_of_memory();
+    }
+    items = (AlSortbyItem *)malloc(list->len * sizeof(AlSortbyItem));
+    scratch = (AlSortbyItem *)malloc(list->len * sizeof(AlSortbyItem));
+    if (items == NULL || scratch == NULL) {
+        out_of_memory();
+    }
+    for (index = 0; index < list->len; index += 1) {
+        AlValue args[1];
+        args[0] = list->items[index];
+        items[index].key = fn->code(fn, args, 1);
+        items[index].value = list->items[index];
+    }
+    sortby_merge(items, scratch, list->len);
+    result = aleph_list_new(list->len);
+    for (index = 0; index < list->len; index += 1) {
+        result.u.list->items[index] = items[index].value;
+    }
+    free(items);
+    free(scratch);
+    return result;
+}
+
+AlValue aleph_b_repeat(AlValue text, AlValue count_value) {
+    int64_t count = count_value.u.i64;
+    size_t len = text.u.str->len;
+    size_t total;
+    char *data;
+    AlStr *string;
+    AlValue value;
+    size_t index;
+    if (count <= 0 || len == 0) {
+        return aleph_str_n("", 0);
+    }
+    if ((uint64_t)count > (uint64_t)(SIZE_MAX - 1) / len) {
+        out_of_memory();
+    }
+    total = (size_t)count * len;
+    data = (char *)aleph_alloc(total + 1);
+    for (index = 0; index < (size_t)count; index += 1) {
+        memcpy(data + index * len, text.u.str->data, len);
+    }
+    data[total] = '\0';
+    string = (AlStr *)aleph_alloc(sizeof(AlStr));
+    string->len = total;
+    string->data = data;
+    value.tag = AL_STR;
+    value.u.str = string;
+    return value;
+}
+
+AlValue aleph_b_index(AlValue xs, AlValue x) {
+    size_t index;
+    for (index = 0; index < xs.u.list->len; index += 1) {
+        if (aleph_values_equal(xs.u.list->items[index], x)) {
+            return aleph_some(aleph_i64((int64_t)index));
+        }
+    }
+    return aleph_none();
+}
+
 AlValue aleph_b_cat(AlValue left, AlValue right) {
     size_t left_len = left.u.str->len;
     size_t right_len = right.u.str->len;

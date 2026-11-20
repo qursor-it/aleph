@@ -462,7 +462,9 @@ impl<'a> TypeChecker<'a> {
         for item in deferred {
             let ty = self.resolve(&item.ty);
             if item.kind == DeferredKind::Inferred {
-                if matches!(ty, Type::Var(_)) {
+                // Deep: `[]` inside a lambda can leave `list V` with V never
+                // fixed, which would reach cgen unresolved (X006).
+                if contains_var(&ty) {
                     self.push_diag_expected_found(
                         item.id,
                         item.span,
@@ -1473,6 +1475,7 @@ fn satisfies(ty: &Type, bound: Bound) -> bool {
     match bound {
         Bound::Primitive => is_primitive(ty),
         Bound::Key => matches!(ty, Type::I64 | Type::Bool | Type::Str),
+        Bound::SortKey => matches!(ty, Type::I64 | Type::F64 | Type::Str),
         Bound::Numeric => is_numeric(ty),
         Bound::Showable => {
             is_primitive(ty)
@@ -1498,6 +1501,7 @@ fn deferred_text(kind: DeferredKind) -> String {
         }
         DeferredKind::Builtin(Bound::Showable) => "showable".to_string(),
         DeferredKind::Builtin(Bound::Key) => "key".to_string(),
+        DeferredKind::Builtin(Bound::SortKey) => "i64, f64 or str".to_string(),
         DeferredKind::Builtin(Bound::Jsonable) => "jsonable".to_string(),
         DeferredKind::Builtin(Bound::Numeric) | DeferredKind::Numeric => "numeric".to_string(),
         DeferredKind::I64 => "i64".to_string(),
@@ -1517,6 +1521,16 @@ fn value_shape(expr: &Expr) -> ValueShape {
         ExprKind::Some { .. } | ExprKind::None { .. } => ValueShape::Opt,
         ExprKind::Ok { .. } | ExprKind::Err { .. } => ValueShape::Res,
         _ => ValueShape::Unknown,
+    }
+}
+
+fn contains_var(ty: &Type) -> bool {
+    match ty {
+        Type::Var(_) => true,
+        Type::List(elem) | Type::Opt(elem) => contains_var(elem),
+        Type::Res(ok, err) | Type::Dict(ok, err) => contains_var(ok) || contains_var(err),
+        Type::Fn(params, ret) => params.iter().any(contains_var) || contains_var(ret),
+        _ => false,
     }
 }
 
@@ -1704,6 +1718,42 @@ mod tests {
 
         let output = check_source("fn f -> list i64\n sort [2 1]\n");
         assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+    }
+
+    #[test]
+    fn mapr_sortby_repeat_and_index_type_as_in_adr_0042() {
+        let output = check_source("fn f xs:list str -> res list i64 str\n mapr @int xs\n");
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let output = check_source("fn f xs:list str -> res list i64 str\n mapr lam s int s xs\n");
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let output = check_source(
+            "fn f xs:list i64 -> list i64\n sortby lam x neg x xs\nfn g xs:list i64 -> list i64\n sortby lam x show x xs\nfn h xs:list str -> list str\n sortby @show xs\n",
+        );
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let output = check_source("fn f xs:list i64 -> opt i64\n index xs 2\n");
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let output = check_source("fn f -> str\n repeat \"ab\" 3\n");
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        // `sortby` keys are i64/f64/str, never bool or a composite.
+        let output = check_source("fn f xs:list bool -> list bool\n sortby lam x x xs\n");
+        assert_eq!(codes(&output), ["T004"]);
+        assert_eq!(
+            output.diagnostics[0].expected.as_deref(),
+            Some("i64, f64 or str")
+        );
+
+        let output = check_source("fn f xs:list i64 -> list i64\n sortby lam x [x] xs\n");
+        assert_eq!(codes(&output), ["T004"]);
+
+        // `index` needs a primitive element type, not a list.
+        let output = check_source("fn f xs:list list i64 -> opt i64\n index xs [1]\n");
+        assert_eq!(codes(&output), ["T004"]);
+        assert_eq!(output.diagnostics[0].expected.as_deref(), Some("primitive"));
     }
 
     #[test]

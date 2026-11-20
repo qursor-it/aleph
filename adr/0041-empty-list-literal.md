@@ -26,8 +26,9 @@ Options (score 1-10):
   expression node `EmptyList`. `[e..]` with n >= 1 is unchanged.
 - Typing: `[]` checks against an expected type `list T` and has that type.
   With no expected type, or one where a list's element type is unresolved
-  after checking the expression it appears in, it is T010 "cannot infer type
-  of []" with `expected` naming `empty T`. As an argument of a generic
+  after checking the expression it appears in, it is T010 (message "cannot
+  infer type of ok/err/none/[]", shared with `ok`/`err`/`none`) with
+  `expected` naming `empty T`. As an argument of a generic
   builtin it is typed like `ok`/`err` arguments (after the call's expected
   type, ADR-0037 checking order). Against a non-list expected type it is
   T001.
@@ -37,6 +38,14 @@ Options (score 1-10):
   today for an empty list.
 - llms.txt: `[e..]` n>=1 becomes `[e..]` (`[]` empty, type from context;
   else `empty T`).
+
+## Amendments
+- 2026-11-20 (review): an inferred type is rejected when it contains an
+  unresolved variable anywhere (`list V` from `[]` inside a lambda), not
+  only at the top level; otherwise `check` passed and `build` failed with
+  X006. Typing follows the checking order, like `ok`/`err`: `[[1] []]` and
+  `if c xs []` check, `[[] [1]]` and `if c [] xs` in a `let` are T010, and a
+  later use of a `let` does not type an earlier `[]`.
 
 ## Consequences
 - The most common habit error in the pilot is no longer an error when the

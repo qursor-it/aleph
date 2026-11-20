@@ -1,0 +1,2 @@
+fn f xs:list bool -> list bool
+ sortby lam x x xs

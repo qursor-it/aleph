@@ -1,0 +1,8 @@
+fn main -> unit
+ do print show has index [10 20 30] 20
+ do print show else index [10 20 30] 20 -1
+ do print show has index [10 20 30] 40
+ do print show else index [10 20 30] 40 -1
+ do print show else index ["a" "b"] "b" -1
+ do print show else index [true false] true -1
+ nil

@@ -98,11 +98,12 @@ pub const CAPABILITIES: &[&str] = &["fs.read", "fs.write", "net.host", "env", "t
 
 /// Builtin function names.
 pub const BUILTINS: &[&str] = &[
-    "len", "at", "push", "slice", "rev", "sort", "range", "sum", "map", "filter", "fold", "cat",
-    "count", "split", "join", "trim", "upper", "lower", "contains", "show", "int", "float", "args",
-    "print", "env", "eprint", "fetch", "read", "write", "put", "get", "del", "keys", "vals",
-    "size", "json", "jparse", "jbool", "jint", "jnum", "jstr", "jlist", "jdict", "abs", "min",
-    "max", "now", "starts", "ends", "uniq", "map2", "ord", "chr",
+    "len", "at", "push", "slice", "rev", "repeat", "sort", "sortby", "range", "sum", "map",
+    "filter", "fold", "cat", "count", "split", "join", "trim", "upper", "lower", "contains",
+    "show", "int", "float", "args", "print", "env", "eprint", "fetch", "read", "write", "put",
+    "get", "index", "del", "keys", "vals", "size", "json", "jparse", "jbool", "jint", "jnum",
+    "jstr", "jlist", "jdict", "abs", "min", "max", "now", "starts", "ends", "uniq", "map2", "mapr",
+    "ord", "chr",
 ];
 
 /// Spelling of a keyword given its concept name, e.g. `keyword("function") == Some("fn")`.

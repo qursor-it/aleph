@@ -527,6 +527,11 @@ AlValue aleph_b_chr(AlValue code);
 AlValue aleph_b_ends(AlValue text, AlValue suffix);
 AlValue aleph_b_uniq(AlValue xs);
 AlValue aleph_b_map2(AlValue function, AlValue left, AlValue right);
+/* ADR-0042 */
+AlValue aleph_b_mapr(AlValue function, AlValue xs);
+AlValue aleph_b_sortby(AlValue function, AlValue xs);
+AlValue aleph_b_repeat(AlValue text, AlValue count);
+AlValue aleph_b_index(AlValue xs, AlValue x);
 AlValue aleph_b_cat(AlValue left, AlValue right);
 AlValue aleph_b_count(AlValue text);
 AlValue aleph_b_split(AlValue text, AlValue separator);

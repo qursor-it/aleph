@@ -2428,6 +2428,8 @@ fn main -> res unit str
             ("filter lam x > x k xs", vec!["x"]),
             ("len fold lam a x push a x empty i64 xs", vec!["a", "x"]),
             ("map2 lam a b + a b xs xs", vec!["a", "b"]),
+            ("mapr lam x int x xs", vec!["x"]),
+            ("sortby lam x x xs", vec!["x"]),
         ] {
             let source = format!("fn f xs:list i64 k:i64 -> list i64\n {call}\n");
             let file = parse_ok(&source);
@@ -2465,7 +2467,7 @@ fn main -> res unit str
             assert_eq!(diagnostic.code, "P001", "{source}");
             assert_eq!(
                 diagnostic.expected.as_deref(),
-                Some("lam only as function argument of filter fold map map2"),
+                Some("lam only as function argument of filter fold map map2 mapr sortby"),
                 "{source}"
             );
         }
