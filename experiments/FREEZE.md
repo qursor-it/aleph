@@ -4,9 +4,8 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 
 ## Decisions for a person before tagging
 
-- [ ] **T-030 (scoped regions)** is listed for the freeze in T-043 but is paused until the rule-reduction pilot is evaluated. Tag without it, or wait? (T-031 was resumed on 19 Nov and is in.)
-- [ ] **ADR status.** The v0.2 ADRs below are all `Proposed`. Agents never accept ADRs: decide which ones the tag freezes as they stand.
-- [ ] **`llms.txt` budget.** It is at its limit of 2110 tokens (ADR-0026). The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
+- [ ] **ADR status.** The v0.2 ADRs below (0032-0043) are all `Proposed`. Agents never accept ADRs: decide which ones the tag freezes as they stand.
+- [ ] **`llms.txt` budget.** It is at its limit of 2110 tokens (ADR-0026), 8440/8440 chars after ADR-0043. The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
 
 ## In (implemented on `agent/aleph-m3`)
 
@@ -19,14 +18,18 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 | Builtins `abs min max starts ends uniq map2` | 0036 | (PR #3) |
 | Inline lambdas `lam` (interpreter, native, tools) | 0037 | T-045..T-049 |
 | Builtins `env`, `now`, `fetch` (curl) for `use env`, `use time`, `use net.host` | 0038 | T-031 |
+| Scoped regions per call, lambda regions, compaction (runtime only) | 0039 | T-030, T-053, T-058 |
+| `aleph check` reports layout as an F001 warning (`--strict` rejects) | 0040 | T-055 |
+| `[]` empty list typed from context | 0041 | T-056 |
+| Builtins `mapr sortby repeat index` | 0042 | T-057, T-060, T-061 |
+| Builtin `sqrt` | 0043 | T-064 |
+| Static tables for literal lists in generated C | — | T-062 |
 | Generated C names no longer clash with Tlön | — | T-034 |
 | Tooling: `aleph edit`, `aleph mcp`, `aleph tokens`, `aleph llms`, fix objects in diagnostics | 0028–0031 | T-023..T-026 |
 
 ## Out (not in the tag)
 
-- T-030 scoped regions, unless the decision above says otherwise.
 - User generics, modules/imports, general loops, LLVM/WASM backends, content addressing (SPEC §13).
-- Experiment tools T-035..T-042: their protocols are still `draft`.
 
 ## Commands that must pass on the tagged commit
 
@@ -47,7 +50,7 @@ cd ../../..
 ALEPH=$PWD/target/debug/aleph python3 experiments/pilot/tokens/verify_whatif.py          # C 61/61 pass
 ```
 
-State on 19 Nov 2026 (after T-031 review round 3): all of the above pass. `cargo test` runs 376 tests; `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61. A/29 fails because the `starts` builtin is now a reserved name.
+State on 20 Nov 2026 (after T-064): all of the above pass. `cargo test` runs 410 tests (one machine-wide `cargo test` at a time, ~/.cargo/bin/cargo lock); `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61 (A/29 uses the reserved name `starts`). Experiment protocols EXP-001..004 are `approved` (owner delegation of 20 Nov) and their tools are built (T-035..T-042).
 
 ## After tagging
 
