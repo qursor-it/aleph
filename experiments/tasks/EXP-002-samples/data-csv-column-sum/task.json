@@ -1,0 +1,11 @@
+{
+  "id": "data-csv-column-sum",
+  "category": "data",
+  "statement": "The program receives one argument, a column name. It reads data.csv from the current directory: a header line followed by data rows, with fields separated by commas, no quoting and no empty lines. Every row has a value for the named column. The program prints the sum of the integer values in that column, excluding the header. Values fit in signed 64-bit integers.",
+  "bash_natural": false,
+  "files": {
+    "read": ["data.csv"],
+    "write": []
+  },
+  "time_limit_s": 10
+}

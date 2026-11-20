@@ -1,0 +1,11 @@
+{
+  "id": "files-copy-prefix",
+  "category": "files",
+  "statement": "The program receives one argument, a non-empty ASCII prefix. It reads in.txt from the current directory, one line per LF-terminated line, and writes out.txt with exactly the lines that start with that prefix, in their original order, each followed by LF. If no line matches, out.txt is empty. The program prints nothing.",
+  "bash_natural": true,
+  "files": {
+    "read": ["in.txt"],
+    "write": ["out.txt"]
+  },
+  "time_limit_s": 10
+}

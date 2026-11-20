@@ -758,3 +758,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: python3 -m unittest test_traces (10 passed); written by deepseek-coder, reviewed by the orchestrator
 - decisions: T-030 resumed (owner asked to complete open tasks in order); ADR-0039 in progress
 - next: T-036..T-038 after approving EXP-002
+
+## 2026-11-20T07:52 T-036 done
+- EXP-002 approved under the owner's delegation (360a07a): spending cap is a required per-run harness argument, sample tasks are outside the suite, sandbox logs only
+- experiments/tools/suite/: task format (task.json, inputs/, tests.json, ref/), validator, run_tests for python/bash/aleph; experiments/tasks/EXP-002-samples/: 5 tasks with Python and Aleph refs (bash for one)
+- tests: test_suite 12 passed (with ALEPH set); validate --refs exit 0
+- feedback for the autonomous phase (from writing the Aleph refs): no sort by key (top-3 words needed zero-padded complemented keys), no substring, `aleph --help` unknown, jdict gives opt not res, T005 on a local named like a function, `do if` needed for a statement before the result
+- next: T-037 harness

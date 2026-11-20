@@ -1,0 +1,11 @@
+{
+  "id": "algorithm-primes",
+  "category": "algorithm",
+  "statement": "The program receives one argument, a decimal integer N with N >= 0. It prints every prime number less than N in increasing order, one number per line, and nothing else. If there are no primes below N, it prints nothing.",
+  "bash_natural": false,
+  "files": {
+    "read": [],
+    "write": []
+  },
+  "time_limit_s": 10
+}

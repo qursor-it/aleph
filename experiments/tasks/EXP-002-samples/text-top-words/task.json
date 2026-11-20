@@ -1,0 +1,11 @@
+{
+  "id": "text-top-words",
+  "category": "text",
+  "statement": "The program reads text.txt from the current directory. The file contains words separated by spaces and newlines and uses only lowercase ASCII letters a-z. The program prints up to three lines, one per distinct word, for the three most frequent words. Each line is WORD, one space, COUNT. Lines are ordered by COUNT descending; words with the same count are ordered alphabetically ascending. If there are fewer than three distinct words, it prints fewer lines; if the file has no words, it prints nothing.",
+  "bash_natural": false,
+  "files": {
+    "read": ["text.txt"],
+    "write": []
+  },
+  "time_limit_s": 10
+}

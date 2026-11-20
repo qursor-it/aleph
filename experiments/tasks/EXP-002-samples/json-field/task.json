@@ -1,0 +1,11 @@
+{
+  "id": "json-field",
+  "category": "json",
+  "statement": "The program receives one argument, a key. It reads input.json from the current directory, a JSON object whose values are strings. It prints the string value of that key followed by LF. If the key is absent or its value is not a string, it prints 'missing' to stderr and exits with code 1.",
+  "bash_natural": false,
+  "files": {
+    "read": ["input.json"],
+    "write": []
+  },
+  "time_limit_s": 10
+}

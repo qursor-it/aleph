@@ -1,0 +1,31 @@
+[
+  {
+    "name": "matching-prefix",
+    "args": ["alpha"],
+    "stdout": "",
+    "exit_code": 0,
+    "expect_files": {"out.txt": "alpha one\nalpha three\n"}
+  },
+  {
+    "name": "no-match",
+    "args": ["gamma"],
+    "stdout": "",
+    "exit_code": 0,
+    "expect_files": {"out.txt": ""}
+  },
+  {
+    "name": "single-character-prefix",
+    "args": ["x"],
+    "files": {"in.txt": "x\nxx\nxyz\ny\n"},
+    "stdout": "",
+    "exit_code": 0,
+    "expect_files": {"out.txt": "x\nxx\nxyz\n"}
+  },
+  {
+    "name": "whole-line-prefix",
+    "args": ["beta two"],
+    "stdout": "",
+    "exit_code": 0,
+    "expect_files": {"out.txt": "beta two\n"}
+  }
+]
