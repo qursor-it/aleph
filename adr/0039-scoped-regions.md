@@ -34,10 +34,13 @@ Options (score 1-10):
 ## Decision
 - Scope: every user function call (slow and fast bodies, and the code of
   `@f` values) opens a region; `main`, lambdas and builtins do not.
-- Mark: the arena top (current chunk and its `used`). The root check and
-  the region size come from one walk over the region's chunks; compaction
-  builds a sorted array of the region's chunk ranges once and binary-searches
-  it.
+- Mark: the arena top (current chunk and its `used`) plus the live bytes
+  held by older chunks, so the region size is a subtraction. The root check
+  returns at once when the root lies in the newest chunk (the usual case);
+  otherwise it walks the region's chunks, so an older root under a region of
+  many chunks costs one walk per return (call depth x chunks at worst).
+  Compaction builds a sorted array of the region's chunk ranges once and
+  binary-searches it.
 - A body that cannot allocate (only unboxed literals, variables, operators,
   `if` and user calls, every node unboxed) gets no region: what it leaves is
   reclaimed by the caller's region. This keeps `fib`-like code as fast as
@@ -60,6 +63,13 @@ Options (score 1-10):
      the newest one. If an internal `malloc` fails, compaction gives up and
      falls back to rule 3: it never adds a trap.
   3. Otherwise leave the region as it is: the caller's region absorbs it.
+- Scan budget: a failed compaction attempt (rule 2 traversal past its
+  limit) adds the region's quarter to a global count of scanned bytes, and
+  rule 2 is skipped while that count exceeds a quarter of all bytes ever
+  allocated. Without it, data a deep recursion leaves to its callers is
+  rescanned by every outer level (quadratic in depth: a 4500-deep builder
+  took 14 s natively instead of 0.03 s); with it, scanning stays linear in
+  allocation.
 - Invariant used: an object allocated before a mark never points to one
   allocated after it (values are immutable; the only builtins that write
   into an older object, `map`/`filter`/`fold`/`map2`, store results of calls
@@ -73,10 +83,15 @@ Options (score 1-10):
 ## Consequences
 - Peak memory of recursive loops with scalar or small results becomes
   bounded by one iteration instead of growing with the iteration count.
-- A tail of costs: two loads and a compare per call on the common path;
-  compaction costs at most a quarter of the bytes the region allocated.
-- Tlön gains `aleph_region_mark`/`aleph_region_exit` (and an allocated-bytes
-  counter for its unit tests); the generated C calls them around user
-  function bodies.
+- Rule 2 only applies to regions of at least 256 KiB. A call that leaves
+  less garbage than that plus a small boxed result promotes its whole
+  region to the caller: bounded per call, but a loop in `main` (no region)
+  over such calls still grows with the iteration count.
+- A tail of costs: three loads at the mark and a compare per call on the
+  common path; compaction costs at most a quarter of the bytes the region
+  allocated, failed attempts at most a quarter of all bytes allocated.
+- Tlön gains `aleph_region_mark`/`aleph_region_exit` (and arena-bytes and
+  scanned-bytes counters for its unit tests); the generated C calls them
+  around user function bodies.
 - ADR-0007's "copied (or promoted)" becomes "reset, compacted or promoted to
   the caller" as above.

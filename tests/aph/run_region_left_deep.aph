@@ -1,0 +1,9 @@
+type lst | nl | cons h:list opt i64 t:lst
+fn build n:i64 -> lst
+ ex build 0 = nl
+ if == n 0 nl cons [some + n 0 some + n 1 some + n 2 some + n 3 some + n 4 some + n 5 some + n 6 some + n 7 some + n 8 some + n 9 some + n 10 some + n 11 some + n 12 some + n 13 some + n 14 some + n 15 some + n 16 some + n 17 some + n 18 some + n 19 some + n 20 some + n 21 some + n 22 some + n 23 some + n 24 some + n 25 some + n 26 some + n 27 some + n 28 some + n 29 some + n 30 some + n 31 some + n 32 some + n 33 some + n 34 some + n 35 some + n 36 some + n 37 some + n 38 some + n 39 some + n 40 some + n 41 some + n 42 some + n 43 some + n 44 some + n 45 some + n 46 some + n 47 some + n 48 some + n 49 some + n 50 some + n 51 some + n 52 some + n 53 some + n 54 some + n 55 some + n 56 some + n 57 some + n 58 some + n 59 some + n 60 some + n 61 some + n 62 some + n 63 some + n 64 some + n 65 some + n 66 some + n 67 some + n 68 some + n 69 some + n 70 some + n 71 some + n 72 some + n 73 some + n 74 some + n 75 some + n 76 some + n 77 some + n 78 some + n 79 some + n 80 some + n 81 some + n 82 some + n 83 some + n 84 some + n 85 some + n 86 some + n 87 some + n 88 some + n 89 some + n 90 some + n 91 some + n 92 some + n 93 some + n 94 some + n 95 some + n 96 some + n 97 some + n 98 some + n 99] build - n 1
+fn total l:lst acc:i64 -> i64
+ ex total nl 3 = 3
+ match l nl acc cons h t total t + acc len h
+fn main -> unit
+ print show total build 4500 0

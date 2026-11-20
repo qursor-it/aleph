@@ -1,0 +1,32 @@
+type pt x:i64 y:str
+fn big k:i64 -> res list str str
+ ex big 1 = ok ["1" "3000"]
+ let g map lam x cat show x "-garbage-string-padding" range 0 3000
+ if == % k 3 0 err cat "bad" show k ok [show k show len g]
+fn cnt s:str -> i64
+ ex cnt "a" = 3000
+ let g map lam x cat s show x range 0 3000
+ len g
+fn keep xs:list str -> list str
+ ex keep ["a"] = ["a"]
+ let g map lam x cat show x "-garbage" range 0 3000
+ if > len g 0 xs empty str
+fn two a:i64 b:i64 -> str
+ ex two 1 2 = "1-2"
+ let g map lam x cat show x "-garbage" range 0 3000
+ cat cat show a "-" show b
+fn via k:i64 -> res pt str
+ ex via 1 = ok pt 3001 "1,3000"
+ let g map lam x cat show x "-garbage-string-padding-more" range 0 3000
+ let xs try big k
+ ok pt + k len g join xs ","
+fn main -> unit
+ let rs map @via range 0 12
+ do print show map lam r isok r rs
+ do print join map lam r .y else r pt 0 "E" rs ";"
+ let base ["a" "b" "c"]
+ let kept map lam i keep base range 0 5
+ do print join map lam k join k "," kept ";"
+ do print show map2 @two [1 2 3] [4 5 6]
+ do print show map @cnt ["a" "bb" "ccc"]
+ print fold lam acc s cat acc two count acc 1 "" ["x" "y" "z"]

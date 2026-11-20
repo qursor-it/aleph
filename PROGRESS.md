@@ -783,3 +783,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - orchestrator fix: a timeout kills the whole process group (strace tracees included)
 - tests: test_sandbox 10 passed, test_suite 12 passed
 - next: T-039 (EXP-003 approved in f91f9b5)
+
+## 2026-11-20T08:38 T-030 review round 1 (7/10) fixed
+- IMPORTANT quadratic rescans of failed compactions: amortized scan budget (skip rule 2 while scanned > allocated/4); repro run_region_left_deep 14.0 s -> 0.03 s native
+- mark carries the live base (region size by subtraction, fast root check in the newest chunk); goldens run_region_compact_values/calls cover records, sums, json, dicts, lambdas, map/map2, try exits; ADR-0039 wording (256 KiB threshold, remaining costs)
+- follow-up added: T-053 regions for lambda bodies (reviewer MINOR 4)
+- tests: 377 passed, test_tlon ok, ASan/UBSan clean on test_tlon and region goldens

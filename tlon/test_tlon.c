@@ -1158,6 +1158,38 @@ static char *region_show(AlValue value) {
     return text;
 }
 
+/* A user call shaped like `build n = cons [100 boxes] build (n - 1)`:
+   every level leaves its region to the caller. */
+static AlValue region_left_deep(size_t n) {
+    static const AlRecordInfo cons = {"cons", 2};
+    AlMark mark = aleph_region_mark();
+    AlValue result = aleph_none();
+    if (n > 0) {
+        AlValue items[100];
+        AlValue fields[2];
+        size_t index;
+        for (index = 0; index < 100; index += 1) {
+            items[index] = aleph_some(aleph_i64((int64_t)index));
+        }
+        fields[0] = aleph_list(items, 100);
+        fields[1] = region_left_deep(n - 1);
+        result = aleph_record(&cons, fields, 2);
+    }
+    return aleph_region_exit(mark, result);
+}
+
+static void test_region_scan_budget(void) {
+    AlValue list = region_left_deep(3000);
+    size_t allocated = aleph_g_live_base + aleph_g_chunks->used + aleph_g_freed;
+    size_t levels = 0;
+    for (; list.tag == AL_RECORD; list = list.u.rec->fields[1]) {
+        levels += list.u.rec->fields[0].u.list->len == 100 ? 1 : 0;
+    }
+    check(levels == 3000, "region: left-deep result intact");
+    check(aleph_region_scanned() <= allocated / 2,
+          "region: failed compaction scans stay linear");
+}
+
 static void test_regions(void) {
     static const AlRecordInfo info = {"point", 2};
     size_t before;
@@ -1328,6 +1360,7 @@ int main(int argc, char **argv) {
     test_effects();
     test_main_results();
     test_traps();
+    test_region_scan_budget();
     test_regions();
 
     if (failures != 0) {

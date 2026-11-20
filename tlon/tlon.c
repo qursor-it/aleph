@@ -143,6 +143,8 @@ static void out_of_memory(void) {
 #define AL_ROUND(n) (((n) + (AL_ALIGN - 1)) & ~(size_t)(AL_ALIGN - 1))
 
 AlChunk *aleph_g_chunks;
+size_t aleph_g_live_base;
+size_t aleph_g_freed;
 /* One freed AL_CHUNK_MIN chunk kept for reuse, so a call that crosses a
    chunk boundary does not malloc/free on every iteration. */
 static AlChunk *g_spare;
@@ -185,6 +187,18 @@ static void chunk_release(AlChunk *chunk) {
     }
 }
 
+static size_t live_bytes(void) {
+    return aleph_g_live_base + (aleph_g_chunks != NULL ? aleph_g_chunks->used : 0);
+}
+
+static void push_head(AlChunk *chunk) {
+    if (aleph_g_chunks != NULL) {
+        aleph_g_live_base += aleph_g_chunks->used;
+    }
+    chunk->next = aleph_g_chunks;
+    aleph_g_chunks = chunk;
+}
+
 void *aleph_alloc(size_t size) {
     AlChunk *chunk;
     void *result;
@@ -201,8 +215,7 @@ void *aleph_alloc(size_t size) {
         if (chunk == NULL) {
             out_of_memory();
         }
-        chunk->next = aleph_g_chunks;
-        aleph_g_chunks = chunk;
+        push_head(chunk);
     }
     result = chunk->data + chunk->used;
     chunk->used += size;
@@ -225,6 +238,7 @@ size_t aleph_arena_bytes(void) {
 #define AL_REGION_MIN (256u * 1024u)
 
 void aleph_region_free_to(AlMark mark) {
+    size_t before = live_bytes();
     while (aleph_g_chunks != mark.chunk && aleph_g_chunks != NULL) {
         AlChunk *chunk = aleph_g_chunks;
         aleph_g_chunks = chunk->next;
@@ -233,6 +247,8 @@ void aleph_region_free_to(AlMark mark) {
     if (mark.chunk != NULL) {
         mark.chunk->used = mark.used;
     }
+    aleph_g_live_base = mark.base;
+    aleph_g_freed += before - live_bytes();
 }
 
 /* The object a value points to, or NULL for scalars. */
@@ -603,8 +619,7 @@ static bool region_compact(AlMark mark, size_t total, AlValue *result) {
     }
     fresh->used = (size_t)(c.bump - fresh->data);
     aleph_region_free_to(mark);
-    fresh->next = aleph_g_chunks;
-    aleph_g_chunks = fresh;
+    push_head(fresh);
     *result = root;
     done = true;
 out:
@@ -614,26 +629,42 @@ out:
     return done;
 }
 
-AlValue aleph_region_leave(AlMark mark, AlValue result) {
-    const void *root = value_root(result);
-    uintptr_t p = (uintptr_t)root;
-    bool inside = false;
-    size_t total = 0;
-    AlChunk *chunk;
-    for (chunk = aleph_g_chunks; chunk != mark.chunk; chunk = chunk->next) {
+/* Whether `p` lies in the region opened by `mark`.  The usual case, a root
+   in the newest chunk, needs no walk. */
+static bool region_holds(AlMark mark, uintptr_t p) {
+    const AlChunk *chunk = aleph_g_chunks;
+    while (chunk != NULL) {
         uintptr_t lo = (uintptr_t)chunk->data;
-        inside = inside || (p >= lo && p < lo + chunk->used);
-        total += chunk->used;
+        uintptr_t start = chunk == mark.chunk ? lo + mark.used : lo;
+        if (p >= lo && p < lo + chunk->used) {
+            return p >= start;
+        }
+        if (chunk == mark.chunk) {
+            return false;
+        }
+        chunk = chunk->next;
     }
-    if (mark.chunk != NULL) {
-        uintptr_t lo = (uintptr_t)mark.chunk->data;
-        inside = inside || (p >= lo + mark.used && p < lo + mark.chunk->used);
-        total += mark.chunk->used - mark.used;
-    }
-    if (!inside) {
+    return false;
+}
+
+/* Bytes scanned by compaction attempts that failed; rule 2 is skipped while
+   they exceed a quarter of all bytes allocated, so the scanning of data a
+   region leaves to its callers stays linear in allocation. */
+static size_t g_scanned;
+
+size_t aleph_region_scanned(void) { return g_scanned; }
+
+AlValue aleph_region_leave(AlMark mark, AlValue result) {
+    size_t total;
+    if (!region_holds(mark, (uintptr_t)value_root(result))) {
         aleph_region_reset(mark);
-    } else if (total >= AL_REGION_MIN) {
-        region_compact(mark, total, &result);
+        return result;
+    }
+    total = live_bytes() - (mark.base + mark.used);
+    if (total >= AL_REGION_MIN &&
+        g_scanned <= (live_bytes() + aleph_g_freed) / 4 &&
+        !region_compact(mark, total, &result)) {
+        g_scanned += total / 4;
     }
     return result;
 }

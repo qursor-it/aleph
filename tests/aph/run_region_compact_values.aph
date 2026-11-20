@@ -1,0 +1,41 @@
+type pt x:i64 y:list str
+type shape | circle r:i64 | sq m:pt | dot
+fn adder k:i64 -> list i64
+ ex adder 1 = [4 5 6]
+ let g len map lam x cat show x "-garbage-string-padding" range 0 3000
+ let s [show k "z"]
+ map lam x + + x len s k [1 2 3]
+fn garbage n:i64 -> i64
+ ex garbage 1 = 1
+ len map lam x cat show x "-garbage-string-padding" range 0 n
+fn mk k:i64 -> list shape
+ ex mk 0 = [dot circle 0 sq pt 0 ["3000" "3000" "3000!"] sq pt 0 ["3000" "3000" "3000!"]]
+ let g len map lam x cat show x "-garbage-string-padding" range 0 3000
+ let s show + k g
+ let p pt k [s s cat s "!"]
+ [dot circle k sq p sq p]
+fn mkd k:i64 -> dict str list str
+ ex mkd 0 = put put dict str list str "j" ["0" "3000"] "k" ["0" "3000"]
+ let g len map lam x cat show x "-garbage-string-padding" range 0 3000
+ let v [show k show g]
+ put put dict str list str "k" v "j" v
+fn mkj k:i64 -> json
+ ex mkj 0 = json [json put put dict str json "a" json "0" "b" json [json 0 json "x" json 1.5] json put put dict str json "a" json "0" "b" json [json 0 json "x" json 1.5] json 3000]
+ let g len map lam x cat show x "-garbage-string-padding" range 0 3000
+ let d put put dict str json "a" json show k "b" json [json k json "x" json 1.5]
+ json [json d json d json g]
+fn step acc:list str i:i64 -> list str
+ ex step ["a"] 1 = ["a" "11"]
+ let g len map lam x cat show x "-garbage-string-padding" range 0 3000
+ push acc cat show i show len acc
+fn main -> unit
+ do print show len mk 3
+ do print show map lam s match s circle r r sq m + .x m len .y m dot 0 mk 5
+ do print join map lam s match s circle r "c" sq m join .y m "," dot "d" mk 7 ";"
+ do print show mkj 4
+ do print show keys mkd 9
+ do print join map lam v join v "," vals mkd 9 ";"
+ do print show adder 4
+ let xs fold @step empty str range 0 100
+ do print show len xs
+ print show slice xs 90 100
