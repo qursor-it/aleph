@@ -56,7 +56,7 @@ Work top to bottom. Add new tasks with the next free id where they belong.
 - [x] T-044 Builtins `ord` (str -> opt i64, code of the first Unicode scalar; `none` on empty) and `chr` (i64 -> opt str, `none` outside valid scalars), in interpreter, Tlön and llms.txt, with goldens and differential tests. Found by the 18 Nov pilot: without them a model rebuilt character codes from an alphabet string and failed (HumanEval 66). Proposed ADR first (ADR-0035)
 - [x] T-030 Scoped regions in Tlön — ADR-0007, ADR-0039 (resumed by the project owner on 20 Nov 2026: "complete the open tasks in order")
 - [x] T-031 `net.host` + `fetch`, `time`, `env` capabilities — ADR-0038 (resumed by the project owner on 19 Nov 2026 after reviewing the pilot)
-- [ ] T-053 Regions for lambda bodies: mark/reset in the lambda code as for user functions (safe: map/filter/fold/map2 store a result after the lambda returns), so `fold lam ...` in `main` reclaims temporaries — ADR-0039, found by the T-030 review
+- [x] T-053 Regions for lambda bodies: mark/reset in the lambda code as for user functions (safe: map/filter/fold/map2 store a result after the lambda returns), so `fold lam ...` in `main` reclaims temporaries — ADR-0039, found by the T-030 review
 - [x] T-034 Generated C: user fn names share the `aleph_fn_*` prefix with Tlön (`fn kind` clashes with `aleph_fn_kind` in tlon.h, X004); use a distinct prefix or rename the runtime symbol
 
 ## Experiment-ready (freeze for experiments)

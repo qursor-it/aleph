@@ -33,7 +33,13 @@ Options (score 1-10):
 
 ## Decision
 - Scope: every user function call (slow and fast bodies, and the code of
-  `@f` values) opens a region; `main`, lambdas and builtins do not.
+  `@f` values) and every lambda call (one region in `aleph_lam_n<id>`
+  around both bodies, T-053) opens a region; `main` and builtins do not.
+  Lambdas are safe for the same reason as `@f` callbacks: binders and
+  captured values (copied when the `lam` node is evaluated) are older than
+  the mark, and `map`/`filter`/`fold`/`map2` store a result, or pass a
+  `fold` accumulator on, only after the call has returned. So a
+  `fold lam ...` in `main` reclaims each step's temporaries.
 - Mark: the arena top (current chunk and its `used`) plus the live bytes
   held by older chunks, so the region size is a subtraction. The root check
   returns at once when the root lies in the newest chunk (the usual case);
@@ -41,10 +47,10 @@ Options (score 1-10):
   many chunks costs one walk per return (call depth x chunks at worst).
   Compaction builds a sorted array of the region's chunk ranges once and
   binary-searches it.
-- A body that cannot allocate (only unboxed literals, variables, operators,
-  `if` and user calls, every node unboxed) gets no region: what it leaves is
-  reclaimed by the caller's region. This keeps `fib`-like code as fast as
-  before.
+- A function or lambda body that cannot allocate (only unboxed literals,
+  variables, operators, `if` and user calls, every node unboxed) gets no
+  region: what it leaves is reclaimed by the caller's region. This keeps
+  `fib`-like code as fast as before.
 - At return:
   1. If the result holds no pointer (`unit i64 f64 bool none`, unboxed fast
      results) or its root object was allocated before the mark (or is

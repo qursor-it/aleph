@@ -1,0 +1,5 @@
+fn main -> unit
+ let n fold lam acc x + acc count join [show x "tmp" show acc] "-" 0 range 0 100000
+ let ws map lam x count cat show x "-padding-text" range 0 20000
+ do print show n
+ print show sum ws

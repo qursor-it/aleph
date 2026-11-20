@@ -799,3 +799,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - IMPORTANT: the pre-attempt budget check skipped succeeding compactions (run_region_grow_list 3.2 MB -> 49.5 MB); reverted to "scanned <= allocated/4" (failed scans under about half of allocation, ADR-0039 says so); new test_region_grow_stays_small fails on the round-3 rule
 - tests: 377 passed (ALEPH_REQUIRE_CC=1), test_tlon ok
 - T-030 closed after 3 review rounds (7, 8, 8); this last fix was verified by the reviewer's measurement, not re-reviewed
+
+## 2026-11-20T09:31 T-053 done
+- cgen: lambda entries (aleph_lam_n<id>) open one region around the fast and slow bodies, skipped when the body cannot allocate (same rule as functions, shared as may_allocate); ADR-0039 Scope updated
+- golden run_region_lambda_fold (fold lam + map lam in main, temporary strings, scalar results); cgen unit test lambda_region_only_where_the_body_can_allocate
+- native max RSS for that golden: 29.1 MB -> 3.5 MB (100k steps); 2M steps: 505 MB -> 33 MB (the rest is the range list)
+- tests: 378 passed (ALEPH_REQUIRE_CC=1), test_tlon ok, ASan/UBSan clean on test_tlon, region and lambda goldens
