@@ -38,6 +38,7 @@ expr        = literal
             | binop " " expr " " expr
             | "if" " " expr " " expr " " expr
             | "[" expr { " " expr } "]"
+            | "[" "]"                              (* empty list, type from context, ADR-0041 *)
             | "empty" " " type
             | "none" " " type
             | "dict" " " type " " type             (* empty dict, ADR-0032 *)

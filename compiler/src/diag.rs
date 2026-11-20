@@ -149,7 +149,7 @@ pub const CODES: &[(&str, &str)] = &[
     ("T006", "function reference not allowed here"),
     ("T007", "try outside result function"),
     ("T008", "invalid main signature"),
-    ("T010", "cannot infer type of ok/err/none"),
+    ("T010", "cannot infer type of ok/err/none/[]"),
     ("E001", "missing examples"),
     ("E002", "example failed (expected/found)"),
     ("C001", "missing capability"),

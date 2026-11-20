@@ -108,12 +108,14 @@ pub fn check(file: &str, ast: &ast::File) -> CheckOutput {
 
 /// A constraint on a type variable, checked when the enclosing function is
 /// fully checked.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DeferredKind {
     Builtin(Bound),
     Numeric,
     Primitive,
     I64,
+    /// The element type of a `[]` that must be known by the end (ADR-0041).
+    Inferred,
 }
 
 /// A bound check postponed until the end of the enclosing function.
@@ -459,6 +461,19 @@ impl<'a> TypeChecker<'a> {
         let deferred = std::mem::take(&mut self.deferred);
         for item in deferred {
             let ty = self.resolve(&item.ty);
+            if item.kind == DeferredKind::Inferred {
+                if matches!(ty, Type::Var(_)) {
+                    self.push_diag_expected_found(
+                        item.id,
+                        item.span,
+                        "T010",
+                        "cannot infer type of ok/err/none/[]",
+                        "empty T",
+                        "[]",
+                    );
+                }
+                continue;
+            }
             if matches!(ty, Type::Var(_)) || contains_error(&ty) {
                 continue;
             }
@@ -467,6 +482,7 @@ impl<'a> TypeChecker<'a> {
                 DeferredKind::Numeric => is_numeric(&ty),
                 DeferredKind::Primitive => is_primitive(&ty),
                 DeferredKind::I64 => ty == Type::I64,
+                DeferredKind::Inferred => true,
             };
             if !satisfied {
                 let expected = deferred_text(item.kind);
@@ -538,6 +554,7 @@ impl<'a> TypeChecker<'a> {
                 then_ty
             }
             ExprKind::List { elems } => self.check_list(elems, expected),
+            ExprKind::EmptyList => self.check_empty_list(expr, expected),
             ExprKind::Empty { ty } => Type::List(Box::new(self.lower_type(ty))),
             ExprKind::Dict { ty } => self.lower_type(ty),
             ExprKind::Field { name, value } => self.check_field(expr, name, value),
@@ -711,7 +728,10 @@ impl<'a> TypeChecker<'a> {
                         crate::ast::walk_expr(arg, &mut |inner| {
                             found |= matches!(
                                 inner.kind,
-                                ExprKind::Ok { .. } | ExprKind::Err { .. } | ExprKind::None { .. }
+                                ExprKind::Ok { .. }
+                                    | ExprKind::Err { .. }
+                                    | ExprKind::None { .. }
+                                    | ExprKind::EmptyList
                             );
                         });
                     }
@@ -973,6 +993,40 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
+    /// `[]` takes its type from the expected type like `ok`/`err` (ADR-0041).
+    fn check_empty_list(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
+        let expected = expected.map(|ty| self.resolve(ty));
+        match expected {
+            Some(ty) if contains_error(&ty) => Type::Error,
+            Some(Type::List(elem)) => {
+                self.defer_bound(expr, &elem, DeferredKind::Inferred);
+                Type::List(elem)
+            }
+            Some(Type::Var(_)) | None => {
+                self.push_diag_expected_found(
+                    expr.id,
+                    expr.span,
+                    "T010",
+                    "cannot infer type of ok/err/none/[]",
+                    "empty T",
+                    "[]",
+                );
+                Type::Error
+            }
+            Some(other) => {
+                self.push_diag_expected_found(
+                    expr.id,
+                    expr.span,
+                    "T001",
+                    "type mismatch",
+                    other.to_string(),
+                    "list _",
+                );
+                Type::Error
+            }
+        }
+    }
+
     fn check_list(&mut self, elems: &[Expr], expected: Option<&Type>) -> Type {
         let expected_elem = expected.and_then(|ty| match self.resolve(ty) {
             Type::List(elem) => Some(*elem),
@@ -1077,7 +1131,7 @@ impl<'a> TypeChecker<'a> {
                     expr.id,
                     expr.span,
                     "T010",
-                    "cannot infer type of ok/err/none",
+                    "cannot infer type of ok/err/none/[]",
                 );
                 self.check_expr(value, None);
                 Type::Error
@@ -1120,7 +1174,7 @@ impl<'a> TypeChecker<'a> {
                     expr.id,
                     expr.span,
                     "T010",
-                    "cannot infer type of ok/err/none",
+                    "cannot infer type of ok/err/none/[]",
                 );
                 self.check_expr(value, None);
                 Type::Error
@@ -1447,6 +1501,7 @@ fn deferred_text(kind: DeferredKind) -> String {
         DeferredKind::Builtin(Bound::Jsonable) => "jsonable".to_string(),
         DeferredKind::Builtin(Bound::Numeric) | DeferredKind::Numeric => "numeric".to_string(),
         DeferredKind::I64 => "i64".to_string(),
+        DeferredKind::Inferred => "empty T".to_string(),
     }
 }
 
@@ -1974,5 +2029,37 @@ mod tests {
             output.signatures.get("f"),
             Some(&(vec![Type::Record("p".to_string())], Type::I64))
         );
+    }
+
+    fn empty_list_codes(body: &str) -> Vec<String> {
+        let source = format!(
+            "fn f d:dict str list i64 xs:list i64 c:bool -> list i64\n{body}\nfn g xs:list i64 -> i64\n 0\nfn h xs:list i64 -> list list i64\n map lam x [] xs\n"
+        );
+        let output = check_source(&source);
+        output.diagnostics.iter().map(|d| d.code.clone()).collect()
+    }
+
+    #[test]
+    fn empty_list_takes_the_expected_type() {
+        for body in [
+            " []",
+            " if c [] xs",
+            " else get d \"k\" []",
+            " if == g [] 0 xs xs",
+            " push [] 1",
+        ] {
+            assert_eq!(empty_list_codes(body), Vec::<String>::new(), "{body}");
+        }
+    }
+
+    #[test]
+    fn empty_list_errors() {
+        let out = check_source("fn f -> i64\n let xs []\n 0\n");
+        assert_eq!(codes(&out), ["T010"]);
+        assert_eq!(out.diagnostics[0].expected.as_deref(), Some("empty T"));
+        let out = check_source("fn f -> i64\n []\n");
+        assert_eq!(codes(&out), ["T001"]);
+        let out = check_source("fn f -> i64\n len []\n");
+        assert_eq!(codes(&out), ["T010"]);
     }
 }

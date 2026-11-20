@@ -1,0 +1,3 @@
+fn wrap xs:list i64 -> list list i64
+ ex wrap [] = []
+ map lam x [] xs

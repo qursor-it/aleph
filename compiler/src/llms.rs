@@ -39,17 +39,17 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x5849a349f37d44cd,
+        hash: 0x65676dd91bf345c3,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
         contents: GRAMMAR,
-        hash: 0x044c0afe8e1bab99,
+        hash: 0x3d11f70256a267d5,
     },
     SourceDigest {
         path: "spec/diagnostics.md",
         contents: DIAGNOSTICS,
-        hash: 0x2c9a7e6bd310863c,
+        hash: 0x48d3e3b239ae5435,
     },
     SourceDigest {
         path: "adr/0018-shadowing-callables.md",
@@ -148,7 +148,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("5."),
-        "No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder for map/filter, 2 fold/map2; no `try`): fn value, only as higher-order arg.",
+        "No parentheses; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010, write `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant of e's sum, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder for map/filter, 2 fold/map2; no `try`): fn value, only as higher-order arg.",
     );
     section(&mut out, spec_heading("5.1"), &builtins_table());
     section(

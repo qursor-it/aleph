@@ -467,6 +467,8 @@ pub enum ExprKind {
     Empty {
         ty: Type,
     },
+    /// `[]`: an empty list whose element type comes from the context (ADR-0041).
+    EmptyList,
     /// The empty dict `dict K V`; `ty` is the dict type (ADR-0032).
     Dict {
         ty: Type,
@@ -728,6 +730,7 @@ fn assign_expr(expr: &mut Expr, next: &mut u32) {
         | ExprKind::Str { .. }
         | ExprKind::Bool { .. }
         | ExprKind::Nil
+        | ExprKind::EmptyList
         | ExprKind::Var { .. }
         | ExprKind::FnRef { .. } => {}
     }
@@ -861,6 +864,7 @@ fn collect_expr(expr: &Expr, ids: &mut Vec<NodeId>) {
         | ExprKind::Str { .. }
         | ExprKind::Bool { .. }
         | ExprKind::Nil
+        | ExprKind::EmptyList
         | ExprKind::Var { .. }
         | ExprKind::FnRef { .. } => {}
     }
@@ -917,6 +921,7 @@ pub fn walk_expr<'a>(expr: &'a Expr, visit: &mut impl FnMut(&'a Expr)) {
         | ExprKind::Str { .. }
         | ExprKind::Bool { .. }
         | ExprKind::Nil
+        | ExprKind::EmptyList
         | ExprKind::Var { .. }
         | ExprKind::FnRef { .. }
         | ExprKind::Empty { .. }
@@ -974,6 +979,7 @@ pub fn walk_expr_mut(expr: &mut Expr, visit: &mut impl FnMut(&mut Expr)) {
         | ExprKind::Str { .. }
         | ExprKind::Bool { .. }
         | ExprKind::Nil
+        | ExprKind::EmptyList
         | ExprKind::Var { .. }
         | ExprKind::FnRef { .. }
         | ExprKind::Empty { .. }

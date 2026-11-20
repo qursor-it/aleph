@@ -1,0 +1,18 @@
+fn look d:dict str list i64 -> list i64
+ ex look dict str list i64 = []
+ else get d "k" []
+fn mk n:i64 -> list i64
+ ex mk 0 = []
+ if == n 0 [] push [] n
+fn nest xs:list i64 -> list list i64
+ ex nest [1] = [[]]
+ map lam x [] xs
+fn total xs:list i64 -> i64
+ ex total [] = 0
+ fold lam a x + a x 0 xs
+fn main -> unit
+ do print show mk 0
+ do print show mk 4
+ do print show len nest [1 2]
+ do print show total []
+ print show len look dict str list i64

@@ -673,7 +673,9 @@ impl<'a> Generator<'a> {
                     );
                 }
             }
-            ExprKind::Empty { .. } => self.assign(indent, id, "aleph_list_new(0)"),
+            ExprKind::Empty { .. } | ExprKind::EmptyList => {
+                self.assign(indent, id, "aleph_list_new(0)")
+            }
             ExprKind::Dict { .. } => self.assign(indent, id, "aleph_dict_empty()"),
             ExprKind::Field { name, value } => {
                 self.emit_expr(value, depth + 1, indent);
@@ -1090,6 +1092,7 @@ fn children(expr: &Expr) -> Vec<&Expr> {
         | ExprKind::Var { .. }
         | ExprKind::FnRef { .. }
         | ExprKind::Empty { .. }
+        | ExprKind::EmptyList
         | ExprKind::Dict { .. }
         | ExprKind::None { .. } => Vec::new(),
     }
@@ -1206,6 +1209,7 @@ impl Generator<'_> {
             | ExprKind::Nil
             | ExprKind::FnRef { .. }
             | ExprKind::Empty { .. }
+            | ExprKind::EmptyList
             | ExprKind::Dict { .. }
             | ExprKind::None { .. } => {
                 // Leaves without children or traps: reuse the boxed emitter's
@@ -1449,7 +1453,7 @@ impl Generator<'_> {
                 let label = self.ref_info(name).kind.label();
                 format!("aleph_fnval_static(&aleph_fnref_{label}_{name})")
             }
-            ExprKind::Empty { .. } => "aleph_list_new(0)".to_string(),
+            ExprKind::Empty { .. } | ExprKind::EmptyList => "aleph_list_new(0)".to_string(),
             ExprKind::Dict { .. } => "aleph_dict_empty()".to_string(),
             ExprKind::None { .. } => "aleph_none()".to_string(),
             _ => unreachable!("leaf_boxed only handles childless boxed leaves"),

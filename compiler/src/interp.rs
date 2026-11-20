@@ -505,7 +505,9 @@ impl<'a> Interp<'a> {
                 }
                 Ok(Flow::Value(Value::List(Rc::new(values))))
             }
-            ExprKind::Empty { .. } => Ok(Flow::Value(Value::List(Rc::new(Vec::new())))),
+            ExprKind::Empty { .. } | ExprKind::EmptyList => {
+                Ok(Flow::Value(Value::List(Rc::new(Vec::new()))))
+            }
             ExprKind::Dict { .. } => Ok(Flow::Value(Value::Dict(Rc::new(Vec::new())))),
             ExprKind::Field { name, value } => {
                 let record = eval_value!(self, value, env);

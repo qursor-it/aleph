@@ -880,6 +880,19 @@ fn edit_prints_the_edited_text_and_leaves_the_file() {
 }
 
 #[test]
+fn edit_can_replace_an_expression_with_an_empty_list() {
+    let source = "fn f xs:list i64 -> list i64\n ex f [1] = []\n push xs 1\n";
+    let file = temp_source("edit_empty_list.aph", source);
+    let edits = r#"[{"op":"replace","node":"n12","text":"[]"}]"#;
+    let out = run(&["edit", file.as_str(), "--json", edits]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "fn f xs:list i64 -> list i64\n ex f [1] = []\n []\n"
+    );
+}
+
+#[test]
 fn edit_write_applies_and_reports_check_diagnostics() {
     let file = temp_source(
         "edit_write.aph",

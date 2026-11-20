@@ -194,6 +194,7 @@ pub fn print_expr(expr: &ast::Expr) -> String {
             let printed: Vec<String> = elems.iter().map(print_expr).collect();
             format!("[{}]", printed.join(" "))
         }
+        ExprKind::EmptyList => "[]".to_string(),
         ExprKind::Empty { ty } => format!("{} {}", keyword("emptylist"), print_type(ty)),
         ExprKind::Dict { ty } => print_type(ty),
         ExprKind::Field { name, value } => {

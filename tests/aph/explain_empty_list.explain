@@ -1,0 +1,9 @@
+capabilities: none
+fn wrap xs:list i64 -> list list i64
+  doc: -
+  effectful: no
+  examples: wrap [] = []
+  calls: -
+  builtins: map
+  lambdas: a function of x returning []
+entry: -

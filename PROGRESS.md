@@ -864,3 +864,16 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tlon.h: inline rule-3 fast path in aleph_region_exit (root in the head chunk past the mark, region < 256 KiB: return without aleph_region_leave); same decision as the slow path; test_region_fast_path; ADR-0039 sentence
 - measured on map lam x cat show x "a" over 2M items: 0.97 -> 0.92 s best of 3 (2-5%, noisy VPS; the review had measured 13% overhead)
 - tests: test_tlon ok (also ASan/UBSan); cargo tests run with the next compiler commit (runtime embedded at build)
+
+## 2026-11-20T17:45 decision: T-060, T-061 (autonoma)
+- corpus report per program (chars4, logic only): Aleph shorter on upper 0.51, fizzbuzz 0.58, fib 0.62, palindrome 0.63, collatz 0.69, reverse 0.76; longer on text-top-words 4.10, csv-sum 3.02, histogram 2.77, maxmin 2.56, total 2.21, files-copy-prefix 1.63, gcd 1.54, points 1.49
+- the long ones share one shape: parse a list of strings with error propagation (fold over res + 2 helpers) -> T-060 mapr; plus string repeat and list index helpers -> T-061; ranking by key -> T-057
+
+## 2026-11-20T17:52 T-056 done (autonoma)
+- ADR-0041 (Proposed) implemented: `[]` parses to new node ExprKind::EmptyList (serde `empty_list`), prints `[]`, typed from the expected type like ok/err (also in the ADR-0037 lambda-call ordering); T010 when no expected type or the element type is still unresolved at the end of the function (deferred check, expected `empty T`); T001 against a non-list; both engines return the empty list; `empty T` unchanged
+- decision beyond the ADR: the T010 message is now shared, "cannot infer type of ok/err/none/[]" (diag.rs, SPEC, diagnostics.md, type_t010.diag updated)
+- ADR gap: it lists "comparison with a typed list" but `==` is primitive-only (T004 for lists) and `cat` is str-only, so those cases are not tests; `len []` is T010
+- SPEC §5, grammar.ebnf, llms.rs text, SPEC digests; llms.txt 8348 -> 8410 chars (budget 8440)
+- new goldens run_empty_list, type_t010_empty_list, explain_empty_list (+json); unit tests parser/check; cli edit test
+- tests: 406 passed (ALEPH_REQUIRE_CC=1), clippy clean
+- replay (clean raw): A 85.7, B 87.5, fewshot 85.7, lite 77.8 (unchanged: the lite answers with `[]` now pass P001 but still fail on other errors, P002 x5, E002)

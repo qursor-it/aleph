@@ -1124,14 +1124,16 @@ impl<'a> ExprCtx<'a> {
         if !closed {
             return Err(p001_eol(self.file, self.line, "expected ]"));
         }
-        if elems.is_empty() {
-            return Err(p001(self.file, &self.tokens[pos], "empty list"));
-        }
+        let kind = if elems.is_empty() {
+            ast::ExprKind::EmptyList
+        } else {
+            ast::ExprKind::List { elems }
+        };
         Ok((
             ast::Expr {
                 id: NodeId::UNASSIGNED,
                 span,
-                kind: ast::ExprKind::List { elems },
+                kind,
             },
             index,
         ))
@@ -2338,11 +2340,16 @@ fn main -> res unit str
     }
 
     #[test]
-    fn list_errors() {
-        let diagnostic = one_error("fn f -> i64\n []\n");
-        assert_eq!(diagnostic.code, "P001");
-        assert_eq!(diagnostic.msg, "empty list");
+    fn empty_brackets_are_an_empty_list() {
+        assert_eq!(expr_kind("[]"), ast::ExprKind::EmptyList);
+        let ast::ExprKind::List { elems } = expr_kind("[[] [1]]") else {
+            panic!("expected list");
+        };
+        assert_eq!(elems[0].kind, ast::ExprKind::EmptyList);
+    }
 
+    #[test]
+    fn list_errors() {
         let diagnostic = one_error("fn f -> i64\n [1 2\n");
         assert_eq!(diagnostic.code, "P001");
         assert_eq!(diagnostic.msg, "expected ]");

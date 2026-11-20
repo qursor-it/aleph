@@ -1,0 +1,31 @@
+{
+  "file": "tests/aph/explain_empty_list.aph",
+  "capabilities": [],
+  "types": [],
+  "functions": [
+    {
+      "name": "wrap",
+      "signature": "fn wrap xs:list i64 -> list list i64",
+      "params": [
+        {
+          "name": "xs",
+          "type": "list i64"
+        }
+      ],
+      "ret": "list list i64",
+      "doc": null,
+      "effectful": false,
+      "examples": [
+        "wrap [] = []"
+      ],
+      "calls": [],
+      "builtins": [
+        "map"
+      ],
+      "lambdas": [
+        "a function of x returning []"
+      ]
+    }
+  ],
+  "entry": null
+}

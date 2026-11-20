@@ -146,7 +146,8 @@ All expressions are prefix with fixed arity. There are no parentheses. The parse
 | `neg` | 1 | i64 or f64 |
 | `if c a b` | 3 | c: bool; a, b same type |
 | `[e1 .. en]` | n≥1 | all same type T; `list T` |
-| `empty T` | 1 (type) | `list T` |
+| `[]` | 0 | the empty list; `list T` with T from the expected type, as for `ok`/`err`; no expected type or T unresolved at the end of the function: error T010 (`expected` is `empty T`); expected type not a list: T001 (ADR-0041) |
+| `empty T` | 1 (type) | `list T`; canonical, always valid |
 | `.f e` | 1 | e: record with field f |
 | `some e` | 1 | `opt T` |
 | `none T` | 1 (type) | `opt T` |
@@ -279,7 +280,7 @@ Initial codes (extend as needed, keep a table in `spec/diagnostics.md`):
 | F001 | not in canonical form (include `canonical`) |
 | T001 | type mismatch |
 | T005 | shadowed binding |
-| T010 | cannot infer type of ok/err/none |
+| T010 | cannot infer type of ok/err/none/[] |
 | E001 | missing examples |
 | E002 | example failed (include expected and actual) |
 | C001 | missing capability |
