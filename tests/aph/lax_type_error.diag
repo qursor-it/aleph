@@ -1,2 +1,2 @@
-{"code":"F001","severity":"warning","file":"tests/aph/lax_type_error.aph","line":1,"col":4,"msg":"not in canonical form","fix":{"op":"replace","node":"n0","with":"fn f x:i64 -> i64\n ex f 1 = 1\n cat \"a\" \"b\"\nfn main -> unit\n print \"hi\"\n"},"canonical":"fn f x:i64 -> i64\n ex f 1 = 1\n cat \"a\" \"b\"\nfn main -> unit\n print \"hi\"\n"}
+{"code":"F001","severity":"warning","file":"tests/aph/lax_type_error.aph","line":1,"col":4,"msg":"not in canonical form","canonical":"fn f x:i64 -> i64\n ex f 1 = 1\n cat \"a\" \"b\"\nfn main -> unit\n print \"hi\"\n"}
 {"code":"T001","severity":"error","file":"tests/aph/lax_type_error.aph","line":3,"col":2,"node":"n9","msg":"type mismatch","expected":"i64","found":"str"}

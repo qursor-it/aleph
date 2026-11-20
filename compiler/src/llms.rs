@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xc6fb20d842733481,
+        hash: 0x5849a349f37d44cd,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -49,7 +49,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/diagnostics.md",
         contents: DIAGNOSTICS,
-        hash: 0x65ea0aaf5af44d02,
+        hash: 0x2c9a7e6bd310863c,
     },
     SourceDigest {
         path: "adr/0018-shadowing-callables.md",

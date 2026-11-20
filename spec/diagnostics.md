@@ -42,3 +42,5 @@ must match this table exactly.
 | X009 | edit not allowed for node kind |
 | X010 | edit does not parse |
 | X011 | conflicting edits |
+
+F001 has severity `warning` and no `fix` in default `aleph check` (checking goes on); under `--strict` it is an error with a whole-file `fix` and stops checking (ADR-0040).

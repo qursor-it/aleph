@@ -1,0 +1,5 @@
+fn main -> unit
+ print show f 1
+fn f x:i64 -> i64
+ ex f 1 = 2
+ + x "a"

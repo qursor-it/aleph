@@ -69,6 +69,12 @@ impl Diagnostic {
         self
     }
 
+    /// Drop the `fix` object (F001 as a warning, ADR-0040).
+    pub fn without_fix(mut self) -> Self {
+        self.fix = None;
+        self
+    }
+
     /// Whether `severity` is `error` (warnings do not fail a command).
     pub fn is_error(&self) -> bool {
         self.severity == "error"

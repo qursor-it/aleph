@@ -1,0 +1,2 @@
+{"code":"F001","severity":"warning","file":"tests/aph/lax_position.aph","line":1,"col":4,"msg":"not in canonical form","canonical":"fn f x:i64 -> i64\n ex f 1 = 2\n + x \"a\"\nfn main -> unit\n print show f 1\n"}
+{"code":"T001","severity":"error","file":"tests/aph/lax_position.aph","line":5,"col":6,"node":"n11","msg":"type mismatch","expected":"i64 or f64","found":"str"}

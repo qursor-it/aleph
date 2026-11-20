@@ -14,12 +14,12 @@ Component names (see ADR-0014): **Aleph** = language + compiler. **Tlön** = run
 
 - Extension: `.aph`.
 - Encoding: UTF-8. Outside string literals only printable ASCII (0x20–0x7E) and LF are allowed.
-- Line endings: LF only. No tabs. No trailing spaces. No empty lines. File ends with exactly one LF.
+- Line endings: LF only. No tabs. The canonical form (§10) also has no trailing spaces, no empty lines and exactly one final LF; other layouts parse and `aleph check` warns (F001).
 - One file = one module (modules/imports: v0.2).
 
 ## 2. Lexical structure
 
-Tokens are separated by exactly one space. Line structure is significant:
+In the canonical form tokens are separated by exactly one space. Line structure is significant:
 
 - A line starting at column 0 starts a top-level item.
 - A line starting with exactly one space is a body line of the preceding `fn` item.
@@ -44,7 +44,7 @@ Keywords (reserved, see `lexicon.toml`; the spellings are provisional and will b
 
 ## 3. Top-level items and canonical order
 
-A file is a sequence of items in this canonical order (ADR-0003):
+A file is a sequence of items; the canonical form (ADR-0003) orders them as follows (any order parses, `aleph check` warns with F001):
 
 1. `use` items, sorted lexicographically by full line text.
 2. `type` items, sorted by type name.

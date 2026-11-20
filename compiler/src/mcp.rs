@@ -207,9 +207,10 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
     }
 
     let extra: Vec<String> = match name {
-        "check" => match args.get("strict").and_then(Value::as_bool) {
-            Some(true) => vec!["--strict".to_string()],
-            _ => Vec::new(),
+        "check" => match args.get("strict") {
+            None | Some(Value::Bool(false)) => Vec::new(),
+            Some(Value::Bool(true)) => vec!["--strict".to_string()],
+            Some(_) => return Err(invalid_params("strict must be a boolean")),
         },
         "test" | "fmt" | "ast" => Vec::new(),
         "explain" => match args.get("json").and_then(Value::as_bool) {

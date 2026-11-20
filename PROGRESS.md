@@ -841,3 +841,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - metric (replay of pilot answers, clean raw): fewshot 28.6% -> 85.7%, lite 55.6% -> 77.8%, A/B unchanged (85.7/87.5%)
 - tests: 380 passed (ALEPH_REQUIRE_CC=1), clippy clean. Implemented by a Sonnet subagent (stopped during the VPS stall), finished and verified by the orchestrator (fixes.rs strict, llms budget, digest)
 - T-059 opened (build_deep_list hang, operator report)
+
+## 2026-11-20T17:22 T-055 review (7/10) fixed
+- IMPORTANT: the F001 warning carried a whole-file fix that conflicted with every other fix in aleph edit (X011): the warning now has no fix (canonical stays); --strict keeps the fix
+- IMPORTANT: new golden lax_position (error after functions out of order: T001 at source line 5, canonical line 3)
+- MINOR: SPEC §1-§3 describe the layout rules as rules of the canonical form; spec/diagnostics.md note on F001 severity; MCP strict must be boolean; EXP-002 agent amendment (harness feedback uses the default mode since ADR-0040)
+- NOT done (outside the agent's scope): loop/prompt-orbis.md:11 says "if there are diagnostics, fix and retry"; with F001 a warning the Orbis loop should run `aleph check --strict` or `aleph fmt -w` first. AGENTS.md forbids agents to edit loop/: left for a person (noted in AGENT_STATUS.md)
+- tests: 381 passed, clippy clean

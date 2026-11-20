@@ -93,7 +93,9 @@ fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
         if cli.strict {
             return vec![diagnostic];
         }
-        diagnostics.push(diagnostic.into_warning());
+        // As a warning F001 carries no `fix`: a whole-file replace would
+        // conflict with every other fix (`fmt`/`edit` canonicalize anyway).
+        diagnostics.push(diagnostic.into_warning().without_fix());
     }
 
     let checked = type_check::check(&cli.file, &file);
