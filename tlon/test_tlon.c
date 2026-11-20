@@ -546,6 +546,9 @@ static void test_adr36(void) {
     check_show(aleph_b_abs(i64v(-5)), "5", "abs i64");
     check_show(aleph_b_abs(aleph_f64(-2.5)), "2.5", "abs f64");
     check_show(aleph_b_abs(aleph_f64(-0.0)), "0.0", "abs negative zero");
+    check_show(aleph_b_sqrt(aleph_f64(2.0)), "1.4142135623730951", "sqrt 2");
+    check_show(aleph_b_sqrt(aleph_f64(-0.0)), "-0.0", "sqrt negative zero");
+    check_show(aleph_b_sqrt(aleph_f64(-1.0)), "NaN", "sqrt negative");
     check_show(aleph_b_min(i64v(3), i64v(1)), "1", "min i64");
     check_show(aleph_b_max(i64v(3), i64v(1)), "3", "max i64");
     check_show(aleph_b_min(aleph_f64(1.5), aleph_f64(0.5)), "0.5", "min f64");

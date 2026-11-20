@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/type_t001_sqrt.aph","line":2,"col":7,"node":"n4","msg":"type mismatch","expected":"f64","found":"i64"}

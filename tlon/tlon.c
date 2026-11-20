@@ -1755,6 +1755,11 @@ AlValue aleph_b_abs(AlValue x) {
     return aleph_i64(x.u.i64 < 0 ? -x.u.i64 : x.u.i64);
 }
 
+/* ADR-0043: IEEE 754 square root, correctly rounded in C99 and in Rust. */
+AlValue aleph_b_sqrt(AlValue x) {
+    return aleph_f64(sqrt(x.u.f64));
+}
+
 /* `min a b` is b when b < a, else a; `max a b` is b when b > a, else a.
    With NaN the comparison is false, so the first argument is kept. */
 AlValue aleph_b_min(AlValue left, AlValue right) {

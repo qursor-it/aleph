@@ -573,6 +573,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "sqrt",
+        params: &[&F64],
+        ret: &F64,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "starts",
         params: &[&STR, &STR],
         ret: &BOOL,
@@ -724,6 +733,8 @@ mod tests {
             ("map2", 3),
             ("ord", 1),
             ("chr", 1),
+            // ADR-0043
+            ("sqrt", 1),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {

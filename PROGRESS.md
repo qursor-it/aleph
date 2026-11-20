@@ -914,3 +914,11 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - corpus median Aleph/Python without examples (chars4): 1.043 -> 0.829; changed: algorithm-primes 1.23->0.95, primes 1.03->0.72, evens 1.24->0.69, files-copy-prefix 1.63->1.07, gcd 1.54->1.36, linecount 1.06->0.90, text-top-words 2.60->2.15, wordcount 0.96->0.86
 - caveat: chars4 is an estimate; the H3.1 threshold (0.8) must be judged with real tokenizers (vocabularies needed)
 - maxmin keeps an `emit` helper: `do` is not allowed inside `if` (a possible language task)
+
+## 2026-11-20T20:47 T-064 done (autonoma)
+- builtin `sqrt x : f64 -> f64` (ADR-0043, still Proposed): builtins.rs, lexicon.rs/lexicon.toml (reserved), interp.rs (`f64::sqrt`), tlon.c/h (`aleph_b_sqrt`), SPEC §5.1 row, llms.txt regenerated (8440 chars, budget unchanged; paid by shortening the Examples intro), SPEC digest hash updated
+- the ADR said `-lm` was already linked: it was not; added `-lm` to `aleph build` (main.rs) and to the tlon.rs driver build
+- tests: goldens run_sqrt (0.0, -0.0, 2.0, 1e300, inf, NaN, map @sqrt; interp == native), type_t001_sqrt.diag, builtins arity test, test_tlon.c; tests/aph/bench_points.aph lost its Newton `sqrt` (name now reserved, T005). lib 321 passed; all integration tests pass except cli build_deep_recursion (300 s limit hit under load in one run, passed 523 s-class in the other); clippy/fmt clean
+- corpus points (chars4, without examples) Aleph/Python: 1.49 (Newton, both) -> 1.667 (140 / 84): Python lost its loop too, so the ratio rose; corpus.py verify OK for all 20
+- next: ADR-0043 can be Accepted by the user; bench/ref/{py,c}/points.* still carry Newton loops (not touched)
+- verification by the orchestrator: full suite 410 passed (ALEPH_REQUIRE_CC=1), clippy clean; the subagent's one timeout (build_deep_list 427 s) came from machine load (load 5-7 from other users), the test passes alone in 7 s

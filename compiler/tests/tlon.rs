@@ -80,6 +80,7 @@ fn build_driver(directory: &Path) -> PathBuf {
         .arg(&driver_source)
         .arg("-o")
         .arg(&driver)
+        .arg("-lm")
         .output()
         .expect("failed to run cc");
     assert!(

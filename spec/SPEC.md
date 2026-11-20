@@ -190,6 +190,7 @@ Pure:
 | `float s` | str -> res f64 str |
 | `args` | -> list str (command line arguments; always allowed) |
 | `abs x` | T -> T (T `i64` or `f64`; `i64` minimum traps R001) (ADR-0036) |
+| `sqrt x` | f64 -> f64 (IEEE 754 square root; NaN for negative or NaN input, `-0.0` for `-0.0`; ADR-0043) |
 | `min a b` / `max a b` | T, T -> T (T `i64` or `f64`; b if b < a (b > a), else a) (ADR-0036) |
 | `starts s p` / `ends s p` | str, str -> bool (ADR-0036) |
 | `ord s` | str -> opt i64 (scalar value of the first character; `none` if empty; ADR-0035) |

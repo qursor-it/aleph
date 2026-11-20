@@ -528,6 +528,8 @@ AlValue aleph_b_ord(AlValue text);
 AlValue aleph_b_chr(AlValue code);
 AlValue aleph_b_ends(AlValue text, AlValue suffix);
 AlValue aleph_b_uniq(AlValue xs);
+/* ADR-0043 */
+AlValue aleph_b_sqrt(AlValue x);
 AlValue aleph_b_map2(AlValue function, AlValue left, AlValue right);
 /* ADR-0042 */
 AlValue aleph_b_mapr(AlValue function, AlValue xs);

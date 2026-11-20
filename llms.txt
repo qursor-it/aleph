@@ -69,6 +69,7 @@ slice list T,i64,i64->list T
 sort list T->list T (T primitive)
 sortby (A->T),list A->list A (T i64/f64/str; stable)
 split str,str->list str
+sqrt f64->f64
 starts str,str->bool
 sum list i64->i64
 trim str->str
@@ -93,7 +94,7 @@ AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph chec
 `llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.
 
 ## Examples
-Check-clean programs (verbatim from `tests/aph/`):
+Check-clean, verbatim from `tests/aph/`:
 
 ```
 fn demo -> unit

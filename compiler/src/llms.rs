@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x8aa805e0316c31ae,
+        hash: 0x9c1d9a223c0d72d0,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -176,7 +176,7 @@ pub fn render() -> String {
     section(
         &mut out,
         "## Examples",
-        "Check-clean programs (verbatim from `tests/aph/`):",
+        "Check-clean, verbatim from `tests/aph/`:",
     );
     for example in EXAMPLES {
         out.push_str("\n```\n");

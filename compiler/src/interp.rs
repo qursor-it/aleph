@@ -1129,6 +1129,10 @@ impl<'a> Interp<'a> {
                 Value::F64(number) => Value::F64(number.abs()),
                 _ => panic!("type checker guarantees a numeric argument"),
             },
+            "sqrt" => match &args[0] {
+                Value::F64(number) => Value::F64(number.sqrt()),
+                _ => panic!("type checker guarantees an f64 argument"),
+            },
             "min" | "max" => {
                 let take_right = match (&args[0], &args[1]) {
                     (Value::I64(left), Value::I64(right)) => {

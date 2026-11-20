@@ -277,6 +277,7 @@ fn build_command(cli: &cli::Cli) -> ExitCode {
         .arg(out)
         .arg(&gen_c)
         .arg(&tlon_c)
+        .arg("-lm")
         .output();
 
     match result {
