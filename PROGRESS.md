@@ -904,3 +904,7 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - goldens run_literal_list (50 ints) and run_literal_bools; cgen unit tests `literal_list_emits_one_static_table_without_per_item_frames` and `literal_bool_list_emits_one_static_table`
 - measurement on the build_deep_list program (3000-item list in 5000-deep recursion), gen.c copied via a CC wrapper, `cc -std=c99 -O2 -pthread -c` alone: before (HEAD) 916,677 bytes, 49.62 s user, 631,400 KB max RSS; after 119,491 bytes, 0.08 s user, 26,624 KB max RSS
 - tests: 410 passed (ALEPH_REQUIRE_CC=1), clippy clean; verified by the orchestrator after the bridge timed out. RUN_TIMEOUT in compiler/tests/cli.rs raised 30 -> 300 s: the debug interpreter run of build_deep_list hit 30 s in the full parallel suite (35 s alone, passes); it is a hang guard, not a speed check
+
+## 2026-11-20T20:06 decision: T-063, T-064 (autonoma)
+- after T-060..T-062 the corpus median is 1.043; the remaining long programs (gcd 1.54, files-copy-prefix 1.63, points 1.49, json-field 1.40) are mostly long because they were written before lambdas (one-line helpers), not because a feature is missing; points lacks sqrt
+- EXP-003 asks for idiomatic, not golfed, versions in every language, so rewriting the Aleph side with current features is in protocol; Python stays as written
