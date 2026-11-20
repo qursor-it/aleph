@@ -1,10 +1,10 @@
 ---
 id: EXP-002
 title: Aleph against Python and bash
-status: draft
+status: approved
 question: How much does an agent's success rate, number of attempts and total cost change when it writes Aleph instead of Python or bash?
 owner: Bernardo Manfriani
-updated: 2026-11-18
+updated: 2026-11-20
 ---
 
 # EXP-002 · Aleph against Python and bash
@@ -62,7 +62,7 @@ Paired by task. McNemar's test for pass@1 between conditions; bootstrap interval
 
 ## Cost and limits
 
-API calls cost money: the runner stops at a spending cap set at approval ([BUDGET TO SET]). It runs only when a person starts it, never inside the agent loop.
+API calls cost money: the runner stops at a spending cap set by the person who starts the run (see Amendments). It runs only when a person starts it, never inside the agent loop.
 
 ## Tools to build
 
@@ -79,4 +79,7 @@ API calls cost money: the runner stops at a spending cap set at approval ([BUDGE
 
 ## Amendments
 
-None.
+- **2026-11-20, proposed by agent; approved under the owner's delegation of 20 Nov 2026** (the owner asked the agent to bring experiment protocols to `approved` before building their tools). Hypotheses, Metrics and Success criterion are unchanged. Clarifications needed to build T-036..T-038:
+  - **Spending cap.** `[BUDGET TO SET]` is resolved as: the cap is a required argument of the harness, set in euro by the person who starts each run and recorded in the run notes; the harness refuses to start without it and stops before the call that would exceed it. The agent builds and tests the harness only with a fake model and never runs it against a real one.
+  - **Sample tasks.** The 5 sample tasks of T-036 show the format and test the validator; they are not part of the 50-task suite, which people write before any run.
+  - **Sandbox (T-038).** Python programs are logged with an audit hook (`sys.addaudithook`, `open` and `os.*` file events) loaded through a wrapper; bash programs with `strace -f -e trace=file` when `strace` is installed, otherwise the run is marked "file access not observed" rather than counted as clean. Logging only: the sandbox records accesses, it does not block them, so behaviour is not changed by the measurement.
