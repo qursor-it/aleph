@@ -1362,6 +1362,44 @@ static void test_regions(void) {
     }
 }
 
+/* A small region whose boxed result sits in the newest chunk past the mark
+   takes the inline rule-3 path in aleph_region_exit: nothing is freed and
+   the value is unchanged.  A large region still compacts a small result. */
+static void test_region_fast_path(void) {
+    size_t before;
+    size_t used;
+    AlMark mark;
+    AlValue built;
+    AlValue result;
+
+    /* Fill the head chunk so the next small allocation starts a fresh 64 KiB
+       chunk and the region stays in one chunk (the fast path). */
+    if (aleph_g_chunks != NULL && aleph_g_chunks->cap > aleph_g_chunks->used) {
+        (void)aleph_alloc(aleph_g_chunks->cap - aleph_g_chunks->used);
+    }
+    (void)aleph_str("fresh chunk");
+
+    before = aleph_arena_bytes();
+    mark = aleph_region_mark();
+    (void)aleph_str("temporary");
+    built = aleph_str("fast");
+    used = aleph_g_chunks->used;
+    check(mark.chunk == aleph_g_chunks, "region: fast path single chunk");
+    result = aleph_region_exit(mark, built);
+    check(result.u.str == built.u.str, "region: fast path shares the root");
+    check(aleph_g_chunks->used == used, "region: fast path frees nothing");
+    check(aleph_arena_bytes() == before, "region: fast path keeps the arena");
+    check_str(result, "fast", "region: fast path value intact");
+
+    /* The same small result out of a 512 KiB region is compacted. */
+    mark = aleph_region_mark();
+    region_garbage(512 * 1024);
+    built = aleph_str("small");
+    result = aleph_region_exit(mark, built);
+    check(result.u.str != built.u.str, "region: fast path skips large region");
+    check_str(result, "small", "region: compacted fast value intact");
+}
+
 /* ------------------------------------------------------------------ */
 /* f64 formatting mode                                                 */
 /* ------------------------------------------------------------------ */
@@ -1408,6 +1446,7 @@ int main(int argc, char **argv) {
     test_region_scan_budget();
     test_region_grow_stays_small();
     test_regions();
+    test_region_fast_path();
 
     if (failures != 0) {
         fprintf(stderr, "%d failure(s)\n", failures);

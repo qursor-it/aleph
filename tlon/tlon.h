@@ -375,6 +375,31 @@ extern AlChunk *aleph_g_chunks; /* newest chunk first */
 extern uint64_t aleph_g_live_base;
 extern uint64_t aleph_g_freed;
 
+/* Regions smaller than this are never compacted (rule 2, ADR-0039). */
+#define AL_REGION_MIN (256u * 1024u)
+
+/* The object a value points to, or NULL for scalars. */
+static inline const void *aleph_value_root(AlValue value) {
+    switch (value.tag) {
+    case AL_STR:
+        return value.u.str;
+    case AL_LIST:
+    case AL_DICT:
+        return value.u.list;
+    case AL_SOME:
+    case AL_OK:
+    case AL_ERR:
+    case AL_JSON:
+        return value.u.box;
+    case AL_RECORD:
+        return value.u.rec;
+    case AL_FN:
+        return value.u.fn;
+    default:
+        return NULL;
+    }
+}
+
 void aleph_region_free_to(AlMark mark);
 AlValue aleph_region_leave(AlMark mark, AlValue result);
 /* Bytes of chunk capacity currently held by the arena (for the tests). */
@@ -406,8 +431,20 @@ static inline AlValue aleph_region_exit(AlMark mark, AlValue result) {
     case AL_NONE:
         aleph_region_reset(mark);
         return result;
-    default:
+    default: {
+        /* Rule 3 fast path: a root in the newest chunk past the mark and a
+           region below the compaction threshold is left to the caller, as
+           aleph_region_leave would decide. */
+        const AlChunk *head = aleph_g_chunks;
+        uintptr_t root = (uintptr_t)aleph_value_root(result);
+        if (head != NULL && mark.chunk == head &&
+            root >= (uintptr_t)(head->data + mark.used) &&
+            root < (uintptr_t)(head->data + head->used) &&
+            head->used - mark.used < AL_REGION_MIN) {
+            return result;
+        }
         return aleph_region_leave(mark, result);
+    }
     }
 }
 

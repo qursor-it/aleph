@@ -72,6 +72,9 @@ Options (score 1-10):
      fails, compaction gives up and falls back to rule 3: it never adds a
      trap.
   3. Otherwise leave the region as it is: the caller's region absorbs it.
+     The common case (root in the newest chunk past the mark and a region
+     below 256 KiB) is decided inline in `aleph_region_exit`, without
+     calling `aleph_region_leave`.
 - Scan budget: a failed compaction attempt (rule 2 traversal past its
   limit) adds the region's quarter to a global count of scanned bytes, and
   rule 2 is attempted only while that count is within a quarter of all

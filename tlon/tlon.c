@@ -236,8 +236,6 @@ size_t aleph_arena_bytes(void) {
 /* Scoped regions (ADR-0039)                                           */
 /* ------------------------------------------------------------------ */
 
-#define AL_REGION_MIN (256u * 1024u)
-
 void aleph_region_free_to(AlMark mark) {
     uint64_t before = live_bytes();
     while (aleph_g_chunks != mark.chunk && aleph_g_chunks != NULL) {
@@ -250,28 +248,6 @@ void aleph_region_free_to(AlMark mark) {
     }
     aleph_g_live_base = mark.base;
     aleph_g_freed += before - live_bytes();
-}
-
-/* The object a value points to, or NULL for scalars. */
-static const void *value_root(AlValue value) {
-    switch (value.tag) {
-    case AL_STR:
-        return value.u.str;
-    case AL_LIST:
-    case AL_DICT:
-        return value.u.list;
-    case AL_SOME:
-    case AL_OK:
-    case AL_ERR:
-    case AL_JSON:
-        return value.u.box;
-    case AL_RECORD:
-        return value.u.rec;
-    case AL_FN:
-        return value.u.fn;
-    default:
-        return NULL;
-    }
 }
 
 typedef struct {
@@ -379,7 +355,7 @@ static bool push(AlCompact *c, void *item) {
 static bool push_values(AlCompact *c, AlValue *items, size_t n) {
     size_t i;
     for (i = 0; i < n; i += 1) {
-        if (value_root(items[i]) != NULL && !push(c, &items[i])) {
+        if (aleph_value_root(items[i]) != NULL && !push(c, &items[i])) {
             return false;
         }
     }
@@ -454,7 +430,7 @@ static size_t region_reach(AlCompact *c, AlValue *root, size_t limit) {
     }
     while (c->slen > 0) {
         AlValue value = *(AlValue *)c->stack[--c->slen];
-        const void *object = value_root(value);
+        const void *object = aleph_value_root(value);
         size_t n;
         AlValue *items;
         int fresh;
@@ -534,7 +510,7 @@ static bool region_copy(AlCompact *c, AlValue *root) {
     }
     while (c->slen > 0) {
         AlValue *slot = (AlValue *)c->stack[--c->slen];
-        const void *object = value_root(*slot);
+        const void *object = aleph_value_root(*slot);
         AlFwd *entry;
         size_t n;
         AlValue *items;
@@ -659,7 +635,7 @@ uint64_t aleph_region_scanned(void) { return g_scanned; }
 
 AlValue aleph_region_leave(AlMark mark, AlValue result) {
     size_t total;
-    if (!region_holds(mark, (uintptr_t)value_root(result))) {
+    if (!region_holds(mark, (uintptr_t)aleph_value_root(result))) {
         aleph_region_reset(mark);
         return result;
     }

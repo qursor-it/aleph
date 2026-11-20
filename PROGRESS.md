@@ -859,3 +859,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - experiments/tools/orbis/: generate verified Aleph programs and repair triples from task statements through the harness backends (fake in tests), only severity error fails, kept programs canonical, optional hidden tests through the suite runner, word 5-gram Jaccard dedup against the EXP-002 suite and HumanEval-Aleph prompts (prompt field only), cap required for real backends
 - tests: test_orbis 4 passed
 - all open TASKS.md tasks up to T-042 are now done; the autonomous phase continues with T-056..T-059
+
+## 2026-11-20T17:45 T-058 done (autonoma)
+- tlon.h: inline rule-3 fast path in aleph_region_exit (root in the head chunk past the mark, region < 256 KiB: return without aleph_region_leave); same decision as the slow path; test_region_fast_path; ADR-0039 sentence
+- measured on map lam x cat show x "a" over 2M items: 0.97 -> 0.92 s best of 3 (2-5%, noisy VPS; the review had measured 13% overhead)
+- tests: test_tlon ok (also ASan/UBSan); cargo tests run with the next compiler commit (runtime embedded at build)
