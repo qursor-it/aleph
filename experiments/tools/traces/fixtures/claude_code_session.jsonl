@@ -1,0 +1,5 @@
+{"type":"system","sessionId":"cc_1","message":{"role":"system","content":"You are an agent."}}
+{"type":"user","sessionId":"cc_1","message":{"role":"user","content":"Write x.py, read it and run it."}}
+{"type":"assistant","sessionId":"cc_1","message":{"role":"assistant","content":[{"type":"thinking","thinking":"I need to write a small file first."},{"type":"text","text":"Writing now."},{"type":"tool_use","id":"t_write","name":"Write","input":{"file_path":"x.py","content":"print('hi')\n"}},{"type":"tool_use","id":"t_read","name":"Read","input":{"file_path":"x.py"}},{"type":"tool_use","id":"t_bash","name":"Bash","input":{"command":"python3 x.py"}}]}}
+{"type":"user","sessionId":"cc_1","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t_write","content":"ok"},{"type":"tool_result","tool_use_id":"t_read","content":[{"type":"text","text":"print('hi')\n"}]},{"type":"tool_result","tool_use_id":"t_bash","content":"hi\n"}]}}
+{"type":"assistant","sessionId":"cc_1","message":{"role":"assistant","content":[{"type":"text","text":"Done."}]}}

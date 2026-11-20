@@ -4,7 +4,7 @@ Aleph makes claims that can be wrong: that agents write correct programs in it, 
 
 | ID | Question | Status |
 |---|---|---|
-| [EXP-001](EXP-001-traces.md) | What share of an agent's tokens is code at all? | draft |
+| [EXP-001](EXP-001-traces.md) | What share of an agent's tokens is code at all? | approved |
 | [EXP-002](EXP-002-ab-python.md) | How much performance does an agent lose writing Aleph instead of Python or bash? | draft |
 | [EXP-003](EXP-003-token-corpus.md) | How many tokens does the same verified program take in Aleph, Python, bash and C? | draft |
 | [EXP-004](EXP-004-finetune-rl.md) | Does fine-tuning plus RL on Aleph beat the same training on Python? | draft |

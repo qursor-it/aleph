@@ -1,0 +1,5 @@
+{"sessionID":"ses_1","type":"reasoning","part":{"text":"I should write a small script and then read it back."}}
+{"sessionID":"ses_1","type":"text","part":{"text":"I will write the file.\n```python\nprint('hi')\n```\nDone.\n"}}
+{"sessionID":"ses_1","type":"tool_use","part":{"tool":"bash","state":{"input":{"command":"python3 x.py","description":"run the script"},"output":"hi\n"}}}
+{"sessionID":"ses_1","type":"tool_use","part":{"tool":"read","state":{"input":{"filePath":"x.py"},"output":"print('hi')\n"}}}
+{"sessionID":"ses_1","type":"step_finish","part":{"tokens":{"input":12,"cache":{"read":5},"output":3}}}

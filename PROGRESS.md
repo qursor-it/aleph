@@ -751,3 +751,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - experiments/FREEZE.md: ADR-0037 item removed
 - tests: docs only, no code change
 - next: remaining freeze decisions are for the owner (T-030, ADR status, llms budget); no takeable task (EXP protocols draft, T-030 paused)
+
+## 2026-11-20T07:38 T-035 done
+- EXP-001 approved under the owner's delegation of 20 Nov (b492a5f): amendments fix the two trace formats, local tokenizer files, people collect traces
+- experiments/tools/traces/: importer (opencode events, Claude Code JSONL, own schema), 7-class classifier, tiktoken BPE from a local file or labelled chars/4 estimate, report with bootstrap CIs, task-type and length groups, hidden-reasoning sessions apart, S_max
+- tests: python3 -m unittest test_traces (10 passed); written by deepseek-coder, reviewed by the orchestrator
+- decisions: T-030 resumed (owner asked to complete open tasks in order); ADR-0039 in progress
+- next: T-036..T-038 after approving EXP-002
