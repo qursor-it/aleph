@@ -102,6 +102,31 @@ fn check_fmt_edit_and_explain_tools() {
 }
 
 #[test]
+fn tokens_tool_accepts_vocabulary_paths() {
+    let dir = std::env::temp_dir().join(format!("aleph-mcp-tokens-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let vocab = dir.join("o200k_base.tiktoken");
+    std::fs::write(&vocab, "YWI= 1\n").unwrap();
+
+    let replies = session(&[tool_call(
+        1,
+        "tokens",
+        json!({
+            "source": "ab",
+            "tokenizer": "bpe:o200k_base",
+            "vocab": [vocab.to_string_lossy().into_owned()],
+        }),
+    )]);
+    assert_eq!(outcome(&replies[0])["exit_code"], 0);
+    let counted: Value =
+        serde_json::from_str(outcome(&replies[0])["stdout"].as_str().unwrap()).unwrap();
+    assert_eq!(counted["tokens"][0]["tokenizer"], "bpe:o200k_base");
+    assert_eq!(counted["tokens"][0]["count"], 1);
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn run_is_sandboxed() {
     let hello = "fn main -> unit\n print \"hi\"\n";
     let reads_etc = "use fs.read \"/etc\"\nfn main -> res unit str\n let t try read \"/etc/hostname\"\n ok nil\n";

@@ -26,6 +26,8 @@ pub struct Cli {
     pub edits: Option<String>,
     /// `aleph tokens FILE --tokenizer NAME|all` (ADR-0031).
     pub tokenizer: Option<String>,
+    /// `aleph tokens FILE --vocab PATH` (repeatable) (ADR-0031).
+    pub vocab: Vec<String>,
 }
 
 /// Parse arguments after the program name.
@@ -54,6 +56,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
             args: Vec::new(),
             edits: None,
             tokenizer: None,
+            vocab: Vec::new(),
         });
     }
 
@@ -65,6 +68,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
     let mut program_args = Vec::new();
     let mut edits = None;
     let mut tokenizer = None;
+    let mut vocab = Vec::new();
     let mut i = 0;
 
     while i < tokens.len() {
@@ -80,6 +84,12 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
                 .get(i + 1)
                 .ok_or_else(|| "--tokenizer requires a value".to_string())?;
             tokenizer = Some(value.clone());
+            i += 2;
+        } else if arg == "--vocab" && command == "tokens" {
+            let value = tokens
+                .get(i + 1)
+                .ok_or_else(|| "--vocab requires a path".to_string())?;
+            vocab.push(value.clone());
             i += 2;
         } else if arg == "--json" {
             json = true;
@@ -125,6 +135,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
         args: program_args,
         edits,
         tokenizer,
+        vocab,
     })
 }
 
@@ -193,6 +204,22 @@ mod tests {
         );
         assert!(!parse_args(&["check", "foo.aph"]).unwrap().strict);
         assert!(parse_args(&["fmt", "--strict", "foo.aph"]).is_err());
+    }
+
+    #[test]
+    fn tokens_takes_repeated_vocabularies() {
+        let cli = parse_args(&[
+            "tokens",
+            "--vocab",
+            "a.tiktoken",
+            "foo.aph",
+            "--vocab",
+            "b.json",
+        ])
+        .unwrap();
+        assert_eq!(cli.vocab, ["a.tiktoken", "b.json"]);
+        assert!(parse_args(&["tokens", "foo.aph", "--vocab"]).is_err());
+        assert!(parse_args(&["check", "foo.aph", "--vocab", "a"]).is_err());
     }
 
     #[test]

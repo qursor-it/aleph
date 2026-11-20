@@ -14,7 +14,7 @@ use std::os::unix::fs::DirBuilderExt;
 ))]
 use std::os::unix::process::CommandExt;
 use std::os::unix::process::ExitStatusExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
@@ -167,10 +167,13 @@ fn tools() -> Vec<Value> {
         ),
         tool(
             "tokens",
-            "aleph tokens: token counts (chars4, bytes, chars, words, aleph lexer)",
-            source_schema(
-                json!({"tokenizer": {"type": "string", "description": "name or all (default all)"}}),
-            ),
+            "aleph tokens: token counts (chars4, bytes, chars, words, aleph lexer); \
+             optional local BPE vocabularies via `vocab`",
+            source_schema(json!({
+                "tokenizer": {"type": "string", "description": "name or all (default all)"},
+                "vocab": {"type": "array", "items": {"type": "string"},
+                          "description": "local tiktoken or Hugging Face tokenizer.json paths"}
+            })),
         ),
         tool(
             "run",
@@ -230,9 +233,23 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
                 .get("tokenizer")
                 .and_then(Value::as_str)
                 .unwrap_or("all");
-            ["--json", "--tokenizer", tokenizer]
+            let mut extra: Vec<String> = ["--json", "--tokenizer", tokenizer]
                 .map(str::to_string)
-                .to_vec()
+                .to_vec();
+            for path in string_array(args.get("vocab"), "vocab")? {
+                // The tool runs in an empty temp directory; resolve relative
+                // paths against the server's directory, as the CLI would.
+                let path = if Path::new(&path).is_absolute() {
+                    PathBuf::from(path)
+                } else {
+                    std::env::current_dir()
+                        .map_err(|err| (-32603, format!("internal error: {err}")))?
+                        .join(path)
+                };
+                extra.push("--vocab".to_string());
+                extra.push(path.to_string_lossy().into_owned());
+            }
+            extra
         }
         "run" => string_list(args.get("args"))?,
         other => return Err(invalid_params(format!("unknown tool: {other}"))),
@@ -291,6 +308,21 @@ fn string_list(value: Option<&Value>) -> Result<Vec<String>, RpcError> {
                 .collect::<Option<Vec<_>>>()
         })
         .ok_or_else(|| invalid_params("args must be an array of strings"))
+}
+
+fn string_array(value: Option<&Value>, name: &str) -> Result<Vec<String>, RpcError> {
+    let Some(value) = value else {
+        return Ok(Vec::new());
+    };
+    value
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .map(|item| item.as_str().map(str::to_string))
+                .collect::<Option<Vec<_>>>()
+        })
+        .ok_or_else(|| invalid_params(format!("{name} must be an array of strings")))
 }
 
 /// A plain `.aph` file name: it becomes a path inside the temp directory.

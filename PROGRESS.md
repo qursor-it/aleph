@@ -848,3 +848,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - MINOR: SPEC §1-§3 describe the layout rules as rules of the canonical form; spec/diagnostics.md note on F001 severity; MCP strict must be boolean; EXP-002 agent amendment (harness feedback uses the default mode since ADR-0040)
 - NOT done (outside the agent's scope): loop/prompt-orbis.md:11 says "if there are diagnostics, fix and retry"; with F001 a warning the Orbis loop should run `aleph check --strict` or `aleph fmt -w` first. AGENTS.md forbids agents to edit loop/: left for a person (noted in AGENT_STATUS.md)
 - tests: 381 passed, clippy clean
+
+## 2026-11-20T17:22 T-039 done (merged from agent/t039-bpe)
+- aleph tokens --vocab PATH (repeatable): tiktoken (o200k/cl100k/GPT-2 pre-tokenizers written by hand, vocabulary identified by size) and HF tokenizer.json byte-level BPE (Sequence/Split/ByteLevel with accepted exact patterns: cl100k, o200k, GPT-2, Qwen2; ignore_merges; add_prefix_space); offset/heap merge loops (72 KB file 0.2-0.3 s; 20000-space piece fast); MCP tokens vocab; ADR-0031 amendment; EXP-003 agent amendment: DeepSeek (chained Splits) unsupported
+- reviews: 4/10 (case-blind o200k words, HF pre-tokenizer ignored, quadratic loop) -> 8/10 -> round-3 fixes (merge loop, DeepSeek message, add_prefix_space) not re-reviewed (cap)
+- counts are unvalidated until a person cross-checks one real vocabulary against tiktoken/tokenizers (none on disk, no network)
+- correction to the previous entry: the T-055 fix run passed 380 tests, not 381
