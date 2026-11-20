@@ -552,13 +552,21 @@ fn edit_command(cli: &cli::Cli) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// `aleph tokens FILE [--tokenizer NAME|all] [--json]` (ADR-0031).
+/// `aleph tokens FILE [--tokenizer NAME|all] [--json] [--vocab PATH]...` (ADR-0031).
 fn tokens_command(cli: &cli::Cli) -> ExitCode {
-    let Some(selected) = tokens::select(cli.tokenizer.as_deref()) else {
+    let mut counters = tokens::builtins();
+    match tokens::load(&cli.vocab) {
+        Ok(loaded) => counters.extend(loaded),
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    }
+    let Some(selected) = tokens::select(cli.tokenizer.as_deref(), &counters) else {
         eprintln!(
             "unknown tokenizer: {} (known: {}, all)",
             cli.tokenizer.as_deref().unwrap_or_default(),
-            tokens::names()
+            tokens::names(&counters)
         );
         return ExitCode::from(2);
     };
@@ -569,7 +577,7 @@ fn tokens_command(cli: &cli::Cli) -> ExitCode {
 
     let counts: Vec<_> = selected
         .iter()
-        .map(|tokenizer| (tokenizer, (tokenizer.count)(&source)))
+        .map(|tokenizer| (tokenizer, tokenizer.count(&source)))
         .collect();
     // Only the lexer-based counter can fail. Asked for alone, report why;
     // among several, its count is null and the others still count.

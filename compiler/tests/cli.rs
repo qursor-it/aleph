@@ -949,3 +949,135 @@ fn tokens_rejects_unknown_tokenizers_and_lex_errors() {
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["tokens"][4]["count"], serde_json::Value::Null);
 }
+
+fn bpe_name(path: &str) -> String {
+    let stem = Path::new(path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .expect("a file stem");
+    format!("bpe:{stem}")
+}
+
+#[test]
+fn tokens_loads_vocabularies_by_path_and_name() {
+    // A Python source: BPE counters do not use the Aleph lexer. The tiny
+    // tiktoken vocabulary merges "ab" into one token.
+    let file = temp_source("tokens_bpe.py", "ab");
+    let vocab = temp_source("o200k_base.tiktoken", "YWI= 1\n");
+    let name = bpe_name(&vocab);
+
+    let out = run(&[
+        "tokens",
+        file.as_str(),
+        "--vocab",
+        vocab.as_str(),
+        "--tokenizer",
+        name.as_str(),
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout), format!("{name} 1\n"));
+
+    let out = run(&[
+        "tokens",
+        file.as_str(),
+        "--vocab",
+        vocab.as_str(),
+        "--tokenizer",
+        name.as_str(),
+        "--json",
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(report["tokens"][0]["tokenizer"], name);
+    assert_eq!(report["tokens"][0]["count"], 1);
+
+    // The loaded counter joins `all`; repeated --vocab values are kept.
+    let other = temp_source("p50k_base.tiktoken", "YWI= 1\n");
+    let other_name = bpe_name(&other);
+    let out = run(&[
+        "tokens",
+        file.as_str(),
+        "--vocab",
+        vocab.as_str(),
+        "--vocab",
+        other.as_str(),
+        "--tokenizer",
+        "all",
+        "--json",
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let names: Vec<&str> = report["tokens"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["tokenizer"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "chars4",
+            "bytes",
+            "chars",
+            "words",
+            "aleph",
+            name.as_str(),
+            other_name.as_str()
+        ]
+    );
+}
+
+#[test]
+fn tokens_rejects_bad_vocabularies_with_exit_two() {
+    let file = temp_source("tokens_bpe_bad.py", "ab");
+    let vocab = temp_source("bad.tiktoken", "not a vocabulary\n");
+    let out = run(&["tokens", file.as_str(), "--vocab", vocab.as_str()]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(out.stdout.is_empty());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("bad.tiktoken"), "{stderr}");
+
+    let out = run(&[
+        "tokens",
+        file.as_str(),
+        "--vocab",
+        "/no/such/vocab.tiktoken",
+    ]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("/no/such/vocab.tiktoken"));
+}
+
+#[test]
+fn tokens_rejects_an_unsupported_pre_tokenizer_pattern_with_exit_two() {
+    let file = temp_source("tokens_split.py", "ab");
+    let document = serde_json::json!({
+        "model": {
+            "type": "BPE",
+            "vocab": {"a": 0},
+            "merges": []
+        },
+        "pre_tokenizer": {
+            "type": "Sequence",
+            "pretokenizers": [
+                {
+                    "type": "Split",
+                    "pattern": {"Regex": "[\\r\\n]"},
+                    "behavior": "Isolated",
+                    "invert": false
+                },
+                {"type": "ByteLevel", "use_regex": false}
+            ]
+        }
+    });
+    let vocab = temp_source("unknown_pattern.json", &document.to_string());
+    let out = run(&["tokens", file.as_str(), "--vocab", vocab.as_str()]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(out.stdout.is_empty());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("unsupported pre-tokenizer pattern in"),
+        "{stderr}"
+    );
+    assert!(stderr.contains(&vocab), "{stderr}");
+    assert!(stderr.contains(r"[\r\n]"), "{stderr}");
+}
