@@ -1,0 +1,10 @@
+{
+  "program": "evens",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_evens.aph",
+    "python": "bench/ref/py/evens.py",
+    "c": "bench/ref/c/evens.c"
+  }
+}

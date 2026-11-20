@@ -1,0 +1,10 @@
+{
+  "program": "primes",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_primes.aph",
+    "python": "bench/ref/py/primes.py",
+    "c": "bench/ref/c/primes.c"
+  }
+}

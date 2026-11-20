@@ -1,0 +1,11 @@
+fn collatz n:i64 -> i64
+ ex collatz 1 = 1
+ ex collatz 2 = 2
+ ex collatz 3 = 8
+ if == n 1 1 + 1 collatz step n
+fn step n:i64 -> i64
+ ex step 1 = 4
+ ex step 2 = 1
+ if == 0 % n 2 / n 2 + * 3 n 1
+fn main -> unit
+ print join map @show map @collatz range 1 21 "\n"

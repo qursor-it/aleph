@@ -1,0 +1,22 @@
+[
+  {
+    "name": "sum-score",
+    "args": ["score"],
+    "stdout": "60\n",
+    "exit_code": 0
+  },
+  {
+    "name": "sum-middle-column",
+    "args": ["qty"],
+    "files": {"data.csv": "item,qty,price\nx,2,5\ny,3,7\n"},
+    "stdout": "5\n",
+    "exit_code": 0
+  },
+  {
+    "name": "negative-values",
+    "args": ["v"],
+    "files": {"data.csv": "k,v\na,-4\nb,10\n"},
+    "stdout": "6\n",
+    "exit_code": 0
+  }
+]

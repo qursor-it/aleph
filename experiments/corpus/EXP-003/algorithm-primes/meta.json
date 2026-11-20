@@ -1,0 +1,9 @@
+{
+  "program": "algorithm-primes",
+  "group": "exp002-samples",
+  "category": "algorithm",
+  "source": {
+    "aleph": "experiments/tasks/EXP-002-samples/algorithm-primes/ref/solution.aph",
+    "python": "experiments/tasks/EXP-002-samples/algorithm-primes/ref/solution.py"
+  }
+}

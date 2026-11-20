@@ -1,0 +1,10 @@
+{
+  "program": "total",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_total.aph",
+    "python": "bench/ref/py/total.py",
+    "c": "bench/ref/c/total.c"
+  }
+}

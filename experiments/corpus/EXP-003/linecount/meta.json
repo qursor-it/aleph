@@ -1,0 +1,10 @@
+{
+  "program": "linecount",
+  "group": "bench",
+  "category": "files",
+  "source": {
+    "aleph": "tests/aph/bench_linecount.aph",
+    "python": "bench/ref/py/linecount.py",
+    "c": "bench/ref/c/linecount.c"
+  }
+}

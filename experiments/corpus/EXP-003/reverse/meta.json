@@ -1,0 +1,10 @@
+{
+  "program": "reverse",
+  "group": "bench",
+  "category": "text",
+  "source": {
+    "aleph": "tests/aph/bench_reverse.aph",
+    "python": "bench/ref/py/reverse.py",
+    "c": "bench/ref/c/reverse.c"
+  }
+}

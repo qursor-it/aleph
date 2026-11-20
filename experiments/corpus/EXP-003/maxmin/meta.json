@@ -1,0 +1,10 @@
+{
+  "program": "maxmin",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_maxmin_none.aph",
+    "python": "bench/ref/py/maxmin.py",
+    "c": "bench/ref/c/maxmin.c"
+  }
+}

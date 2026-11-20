@@ -1,0 +1,10 @@
+{
+  "program": "gcd",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_gcd.aph",
+    "python": "bench/ref/py/gcd.py",
+    "c": "bench/ref/c/gcd.c"
+  }
+}

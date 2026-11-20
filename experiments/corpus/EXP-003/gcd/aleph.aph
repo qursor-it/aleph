@@ -1,0 +1,20 @@
+fn gcd a:i64 b:i64 -> i64
+ ex gcd 12 18 = 6
+ ex gcd 5 0 = 5
+ if == b 0 a gcd b % a b
+fn lcm a:i64 b:i64 -> i64
+ ex lcm 4 6 = 12
+ ex lcm 5 0 = 0
+ if == a 0 0 if == b 0 0 / * a b gcd a b
+fn number s:str -> res i64 str
+ ex number "42" = ok 42
+ ex number "x" = err "invalid int"
+ int s
+fn report a:i64 b:i64 -> str
+ ex report 4 6 = "gcd 2 lcm 12"
+ cat cat "gcd " show gcd a b cat " lcm " show lcm a b
+fn main -> res unit str
+ let a try number else at args 0 ""
+ let b try number else at args 1 ""
+ do print report a b
+ ok nil

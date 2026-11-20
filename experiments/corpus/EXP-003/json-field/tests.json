@@ -1,0 +1,27 @@
+[
+  {
+    "name": "string-field",
+    "args": ["name"],
+    "stdout": "Ada\n",
+    "exit_code": 0
+  },
+  {
+    "name": "second-field",
+    "args": ["lang"],
+    "stdout": "Aleph\n",
+    "exit_code": 0
+  },
+  {
+    "name": "missing-key",
+    "args": ["missing"],
+    "stdout": "",
+    "exit_code": 1
+  },
+  {
+    "name": "non-string-value",
+    "args": ["count"],
+    "files": {"input.json": "{\"count\": 3}\n"},
+    "stdout": "",
+    "exit_code": 1
+  }
+]

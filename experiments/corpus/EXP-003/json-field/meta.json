@@ -1,0 +1,9 @@
+{
+  "program": "json-field",
+  "group": "exp002-samples",
+  "category": "json",
+  "source": {
+    "aleph": "experiments/tasks/EXP-002-samples/json-field/ref/solution.aph",
+    "python": "experiments/tasks/EXP-002-samples/json-field/ref/solution.py"
+  }
+}

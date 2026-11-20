@@ -1,0 +1,11 @@
+[
+  {
+    "name": "golden",
+    "args": [
+      "one two three",
+      "a b"
+    ],
+    "stdout": "three two one\nb a\n",
+    "exit_code": 0
+  }
+]

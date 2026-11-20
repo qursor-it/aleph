@@ -1,0 +1,8 @@
+fn fizz n:i64 -> str
+ ex fizz 3 = "fizz"
+ ex fizz 5 = "buzz"
+ ex fizz 15 = "fizzbuzz"
+ ex fizz 7 = "7"
+ if == 0 % n 15 "fizzbuzz" if == 0 % n 3 "fizz" if == 0 % n 5 "buzz" show n
+fn main -> unit
+ print join map @fizz range 1 31 "\n"

@@ -1,0 +1,10 @@
+{
+  "program": "palindrome",
+  "group": "bench",
+  "category": "text",
+  "source": {
+    "aleph": "tests/aph/bench_palindrome.aph",
+    "python": "bench/ref/py/palindrome.py",
+    "c": "bench/ref/c/palindrome.c"
+  }
+}

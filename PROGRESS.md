@@ -805,3 +805,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - golden run_region_lambda_fold (fold lam + map lam in main, temporary strings, scalar results); cgen unit test lambda_region_only_where_the_body_can_allocate
 - native max RSS for that golden: 29.1 MB -> 3.5 MB (100k steps); 2M steps: 505 MB -> 33 MB (the rest is the range list)
 - tests: 378 passed (ALEPH_REQUIRE_CC=1), test_tlon ok, ASan/UBSan clean on test_tlon, region and lambda goldens
+
+## 2026-11-20T09:34 T-040 done
+- experiments/corpus/EXP-003/: 20 programs (15 bench: aleph/python/c; 5 EXP-002 samples: aleph/python, bash for one), shared tests.json; experiments/tools/corpus/: verify (all versions pass) and report (normalisation, aleph tokens counts, median ratio with bootstrap CI, Wilcoxon, break-even)
+- baseline (chars4 estimate, no real vocabulary yet): median Aleph/Python 1.235 without examples (95% CI 0.86-1.59), 1.764 with examples; break-even never. This is the starting point for the token metric of the autonomous phase
+- tests: test_corpus 17 passed
+- next: T-039 fixes (review 4/10), then EXP-004 approval and T-041/T-042

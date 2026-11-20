@@ -1,0 +1,10 @@
+{
+  "program": "points",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_points.aph",
+    "python": "bench/ref/py/points.py",
+    "c": "bench/ref/c/points.c"
+  }
+}

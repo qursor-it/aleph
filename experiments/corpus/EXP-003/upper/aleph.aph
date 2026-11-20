@@ -1,0 +1,9 @@
+use fs.read "data"
+use fs.write "out"
+fn up text:str -> str
+ ex up "aB c" = "AB C"
+ upper text
+fn main -> res unit str
+ let text try read "data/in.txt"
+ let saved try write "out/up.txt" up text
+ ok nil

@@ -1,0 +1,9 @@
+{
+  "program": "data-csv-column-sum",
+  "group": "exp002-samples",
+  "category": "data",
+  "source": {
+    "aleph": "experiments/tasks/EXP-002-samples/data-csv-column-sum/ref/solution.aph",
+    "python": "experiments/tasks/EXP-002-samples/data-csv-column-sum/ref/solution.py"
+  }
+}

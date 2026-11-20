@@ -1,0 +1,10 @@
+{
+  "program": "collatz",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_collatz.aph",
+    "python": "bench/ref/py/collatz.py",
+    "c": "bench/ref/c/collatz.c"
+  }
+}

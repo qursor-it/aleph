@@ -1,0 +1,51 @@
+use fs.read "text.txt"
+fn addword acc:list str w:str -> list str
+ ex addword empty str "a" = ["a"]
+ push acc w
+fn addwords acc:list str line:str -> list str
+ ex addwords empty str "a b" = ["a" "b"]
+ fold @addword acc filter @nonempty split line " "
+fn bump d:dict str i64 w:str -> dict str i64
+ ex bump dict str i64 "a" = put dict str i64 "a" 1
+ put d w + 1 else get d w 0
+fn comp s:str -> str
+ ex comp "12" = "87"
+ join map @compdigit split s "" ""
+fn compdigit c:str -> str
+ ex compdigit "0" = "9"
+ show - 9 digitval c
+fn digitval c:str -> i64
+ ex digitval "0" = 0
+ else int c 0
+fn keyof d:dict str i64 w:str -> str
+ ex keyof put dict str i64 "a" 2 "a" = "99999997a"
+ cat comp pad show else get d w 0 w
+fn nonempty s:str -> bool
+ ex nonempty "" = false
+ ex nonempty "x" = true
+ > count s 0
+fn pad s:str -> str
+ ex pad "7" = "00000007"
+ if < count s 8 pad cat "0" s s
+fn rankmap d:dict str i64 ws:list str -> dict str str
+ ex rankmap put dict str i64 "a" 1 ["a"] = put dict str str "99999998a" "a 1"
+ fold lam m w put m keyof d w row d w dict str str ws
+fn row d:dict str i64 w:str -> str
+ ex row put dict str i64 "a" 2 "a" = "a 2"
+ cat cat w " " show else get d w 0
+fn tally ws:list str -> dict str i64
+ ex tally ["a" "b" "a"] = put put dict str i64 "a" 2 "b" 1
+ fold @bump dict str i64 ws
+fn top d:dict str i64 -> list str
+ ex top put dict str i64 "a" 2 = ["a 2"]
+ let m rankmap d keys d
+ map lam k else get m k "" slice sort keys m 0 3
+fn words text:str -> list str
+ ex words "a b\nc" = ["a" "b" "c"]
+ fold @addwords empty str split text "\n"
+fn main -> res unit str
+ let text try read "text.txt"
+ let d tally words text
+ let ls top d
+ do if > len ls 0 print join ls "\n" nil
+ ok nil

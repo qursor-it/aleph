@@ -1,0 +1,10 @@
+{
+  "program": "fizzbuzz",
+  "group": "bench",
+  "category": "text",
+  "source": {
+    "aleph": "tests/aph/bench_fizzbuzz.aph",
+    "python": "bench/ref/py/fizzbuzz.py",
+    "c": "bench/ref/c/fizzbuzz.c"
+  }
+}

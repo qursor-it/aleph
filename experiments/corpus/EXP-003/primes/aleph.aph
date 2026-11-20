@@ -1,0 +1,17 @@
+fn divides d:i64 n:i64 -> bool
+ ex divides 2 4 = true
+ ex divides 3 4 = false
+ == 0 % n d
+fn hasdiv d:i64 n:i64 -> bool
+ ex hasdiv 2 7 = false
+ ex hasdiv 2 9 = true
+ if > * d d n false if divides d n true hasdiv + d 1 n
+fn prime n:i64 -> bool
+ ex prime 2 = true
+ ex prime 9 = false
+ if < n 2 false not hasdiv 2 n
+fn primes xs:list i64 -> list i64
+ ex primes [1 2 3 4] = [2 3]
+ filter @prime xs
+fn main -> unit
+ print join map @show primes range 2 100 "\n"

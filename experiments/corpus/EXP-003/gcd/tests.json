@@ -1,0 +1,11 @@
+[
+  {
+    "name": "golden",
+    "args": [
+      "48",
+      "18"
+    ],
+    "stdout": "gcd 6 lcm 144\n",
+    "exit_code": 0
+  }
+]

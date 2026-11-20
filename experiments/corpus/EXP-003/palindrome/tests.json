@@ -1,0 +1,11 @@
+[
+  {
+    "name": "golden",
+    "args": [
+      "Level",
+      "abc"
+    ],
+    "stdout": "yes\nno\n",
+    "exit_code": 0
+  }
+]

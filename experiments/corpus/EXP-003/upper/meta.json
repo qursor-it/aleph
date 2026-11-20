@@ -1,0 +1,10 @@
+{
+  "program": "upper",
+  "group": "bench",
+  "category": "files",
+  "source": {
+    "aleph": "tests/aph/bench_upper.aph",
+    "python": "bench/ref/py/upper.py",
+    "c": "bench/ref/c/upper.c"
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "golden",
+    "args": [],
+    "stdout": "",
+    "exit_code": 0,
+    "files": {
+      "out/up.txt": ""
+    },
+    "expect_files": {
+      "out/up.txt": "THE QUICK BROWN\nFOX JUMPS\n"
+    }
+  }
+]

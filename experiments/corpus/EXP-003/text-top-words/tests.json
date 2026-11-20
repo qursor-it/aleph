@@ -1,0 +1,29 @@
+[
+  {
+    "name": "top-three",
+    "args": [],
+    "stdout": "the 3\ncat 1\ndog 1\n",
+    "exit_code": 0
+  },
+  {
+    "name": "ties-alphabetical",
+    "args": [],
+    "files": {"text.txt": "b a b a c\n"},
+    "stdout": "a 2\nb 2\nc 1\n",
+    "exit_code": 0
+  },
+  {
+    "name": "fewer-than-three",
+    "args": [],
+    "files": {"text.txt": "solo solo solo\n"},
+    "stdout": "solo 3\n",
+    "exit_code": 0
+  },
+  {
+    "name": "empty-file",
+    "args": [],
+    "files": {"text.txt": ""},
+    "stdout": "",
+    "exit_code": 0
+  }
+]

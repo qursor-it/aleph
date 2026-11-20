@@ -1,0 +1,10 @@
+{
+  "program": "histogram",
+  "group": "bench",
+  "category": "text",
+  "source": {
+    "aleph": "tests/aph/bench_histogram.aph",
+    "python": "bench/ref/py/histogram.py",
+    "c": "bench/ref/c/histogram.c"
+  }
+}

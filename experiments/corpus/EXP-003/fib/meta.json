@@ -1,0 +1,10 @@
+{
+  "program": "fib",
+  "group": "bench",
+  "category": "algorithm",
+  "source": {
+    "aleph": "tests/aph/bench_fib.aph",
+    "python": "bench/ref/py/fib.py",
+    "c": "bench/ref/c/fib.c"
+  }
+}

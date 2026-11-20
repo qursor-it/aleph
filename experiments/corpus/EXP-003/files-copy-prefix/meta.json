@@ -1,0 +1,10 @@
+{
+  "program": "files-copy-prefix",
+  "group": "exp002-samples",
+  "category": "files",
+  "source": {
+    "aleph": "experiments/tasks/EXP-002-samples/files-copy-prefix/ref/solution.aph",
+    "python": "experiments/tasks/EXP-002-samples/files-copy-prefix/ref/solution.py",
+    "bash": "experiments/tasks/EXP-002-samples/files-copy-prefix/ref/solution.sh"
+  }
+}

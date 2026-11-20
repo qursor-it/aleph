@@ -1,0 +1,14 @@
+fn mirror s:str -> str
+ ex mirror "abc" = "cba"
+ join rev split s "" ""
+fn palindrome s:str -> bool
+ ex palindrome "Level" = true
+ ex palindrome "abc" = false
+ == lower s mirror lower s
+fn reply s:str -> str
+ ex reply "Level" = "yes"
+ ex reply "abc" = "no"
+ if palindrome s "yes" "no"
+fn main -> unit
+ do print join map @reply args "\n"
+ nil

@@ -1,0 +1,8 @@
+[
+  {
+    "name": "golden",
+    "args": [],
+    "stdout": "1\n2\n8\n3\n6\n9\n17\n4\n20\n7\n15\n10\n10\n18\n18\n5\n13\n21\n21\n8\n",
+    "exit_code": 0
+  }
+]

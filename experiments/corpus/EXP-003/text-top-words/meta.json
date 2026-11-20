@@ -1,0 +1,9 @@
+{
+  "program": "text-top-words",
+  "group": "exp002-samples",
+  "category": "text",
+  "source": {
+    "aleph": "experiments/tasks/EXP-002-samples/text-top-words/ref/solution.aph",
+    "python": "experiments/tasks/EXP-002-samples/text-top-words/ref/solution.py"
+  }
+}

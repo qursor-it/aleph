@@ -1,0 +1,10 @@
+{
+  "program": "wordcount",
+  "group": "bench",
+  "category": "text",
+  "source": {
+    "aleph": "tests/aph/bench_wordcount.aph",
+    "python": "bench/ref/py/wordcount.py",
+    "c": "bench/ref/c/wordcount.c"
+  }
+}
