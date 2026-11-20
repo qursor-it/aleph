@@ -827,3 +827,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - chose T-054..T-058 from data: pilot run C (lite spec) failures were all compiler-named errors ([] instead of empty T = P001, arity P002); the corpus baseline is Aleph/Python 1.235 (chars4, no examples); writing EXP-002 refs needed sort-by-key workarounds; agents hit F001 (layout, function order) that fmt fixes mechanically
 - metric for "problems solved by a model": the harness is ready but runs only when a person starts it with a cap (AGENTS.md: the agent runs no model); the agent tracks tokens (corpus report) and compile errors (replay of recorded answers)
 - added experiments/tools/.gitignore for __pycache__
+
+## 2026-11-20T09:52 T-054 done (autonoma)
+- experiments/tools/replay/: re-checks recorded Aleph answers raw and after fmt, per-condition clean rate and codes
+- baseline on the 4 pilot probe runs (35 answers, 31 with code): clean raw 85.7/87.5/28.6/55.6% (A, B, fewshot, lite), after fmt 85.7/87.5/85.7/77.8%; raw failures: F001 6, P002 7, P001 3, T001 4 (as counted per run)
+- decision: F001 is the largest raw cause and is fixed mechanically by fmt -> T-055 next; P001 ([] for empty) -> T-056; P002 (arity) stays, its diagnostics already name expected/found
+- tests: test_replay 1 passed; built by a Claude subagent (Sonnet)
