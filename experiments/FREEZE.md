@@ -7,7 +7,6 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 - [ ] **T-030 (scoped regions)** is listed for the freeze in T-043 but is paused until the rule-reduction pilot is evaluated. Tag without it, or wait? (T-031 was resumed on 19 Nov and is in.)
 - [ ] **ADR status.** The v0.2 ADRs below are all `Proposed`. Agents never accept ADRs: decide which ones the tag freezes as they stand.
 - [ ] **`llms.txt` budget.** It is at its limit of 2110 tokens (ADR-0026). The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
-- [ ] **ADR-0037 amendments** record three review rounds; condense them into one rule for the order in which builtin arguments are checked before the ADR is frozen.
 
 ## In (implemented on `agent/aleph-m3`)
 

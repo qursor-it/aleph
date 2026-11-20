@@ -745,3 +745,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - not changed: curl stderr is not capped (only a hostile curl on PATH); no test yet for curl killed mid-run or simultaneous heavy stdout/stderr (the reviewer ran both by hand).
 - The review cap (3 rounds) is reached; the round-3 fix was not re-reviewed.
 - tests: 376 passed (ALEPH_REQUIRE_CC=1), clippy clean
+
+## 2026-11-20T00:52 ADR-0037 condensed
+- adr/0037: the implementation and review-round amendments folded into the Decision (checking order as one numbered rule; obsolete X001 note dropped); History section points to git
+- experiments/FREEZE.md: ADR-0037 item removed
+- tests: docs only, no code change
+- next: remaining freeze decisions are for the owner (T-030, ADR status, llms budget); no takeable task (EXP protocols draft, T-030 paused)
