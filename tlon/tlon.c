@@ -665,7 +665,7 @@ AlValue aleph_region_leave(AlMark mark, AlValue result) {
     }
     total = (size_t)(live_bytes() - (mark.base + mark.used));
     if (total >= AL_REGION_MIN &&
-        g_scanned + total / 4 <= (live_bytes() + aleph_g_freed) / 4 &&
+        g_scanned <= (live_bytes() + aleph_g_freed) / 4 &&
         !region_compact(mark, total, &result)) {
         g_scanned += total / 4;
     }

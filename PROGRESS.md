@@ -794,3 +794,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - IMPORTANT: compaction chunk is now exact-size (a 64 KiB chunk leaked per compaction: fold @step repro 154.7 MB -> 2.2 MB); test_region_compact_loop
 - scan budget checked before the attempt (scanned <= allocated/4); counters uint64_t; ADR-0039 updated
 - tests: 377 passed, test_tlon ok, ASan/UBSan clean
+
+## 2026-11-20T09:16 T-030 review round 3 (8/10) fixed, review cap reached
+- IMPORTANT: the pre-attempt budget check skipped succeeding compactions (run_region_grow_list 3.2 MB -> 49.5 MB); reverted to "scanned <= allocated/4" (failed scans under about half of allocation, ADR-0039 says so); new test_region_grow_stays_small fails on the round-3 rule
+- tests: 377 passed (ALEPH_REQUIRE_CC=1), test_tlon ok
+- T-030 closed after 3 review rounds (7, 8, 8); this last fix was verified by the reviewer's measurement, not re-reviewed

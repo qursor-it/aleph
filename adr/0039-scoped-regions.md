@@ -62,19 +62,22 @@ Options (score 1-10):
      the object that owns them. The new chunk has exactly the copied size
      (a 64 KiB one would stay alive, mostly empty, under the caller's next
      marks: 64 KiB per call in a loop) and becomes the newest one; the next
-     allocation takes a new or the spare chunk. If an internal `malloc` fails, compaction gives up and
-     falls back to rule 3: it never adds a trap.
+     allocation takes a new or the spare chunk. If an internal `malloc`
+     fails, compaction gives up and falls back to rule 3: it never adds a
+     trap.
   3. Otherwise leave the region as it is: the caller's region absorbs it.
 - Scan budget: a failed compaction attempt (rule 2 traversal past its
   limit) adds the region's quarter to a global count of scanned bytes, and
-  rule 2 is attempted only if that count plus the new attempt's quarter
-  stays within a quarter of all bytes ever allocated (64-bit counters), so
-  failed scans never exceed that quarter. One large failed attempt can
-  pause compaction until about as much again has been allocated (a
-  constant factor of the bytes scanned). Without it, data a deep recursion leaves to its callers is
-  rescanned by every outer level (quadratic in depth: a 4500-deep builder
-  took 14 s natively instead of 0.03 s); with it, scanning stays linear in
-  allocation.
+  rule 2 is attempted only while that count is within a quarter of all
+  bytes ever allocated (64-bit counters). One attempt can overshoot by its
+  own quarter, so failed scans stay under about half of the bytes
+  allocated. Checking the attempt's quarter before trying instead skipped
+  compactions that would succeed in deep builders (`run_region_grow_list`
+  kept 45 MB instead of 0.6 MB). One large failed attempt can pause
+  compaction until about as much again has been allocated. Without the
+  budget, data a deep recursion leaves to its callers is rescanned by every
+  outer level (quadratic in depth: a 4500-deep builder took 14 s natively
+  instead of 0.03 s); with it, scanning stays linear in allocation.
 - Invariant used: an object allocated before a mark never points to one
   allocated after it (values are immutable; the only builtins that write
   into an older object, `map`/`filter`/`fold`/`map2`, store results of calls
@@ -94,7 +97,7 @@ Options (score 1-10):
   over such calls still grows with the iteration count.
 - A tail of costs: three loads at the mark and a compare per call on the
   common path; compaction costs at most a quarter of the bytes the region
-  allocated, failed attempts at most a quarter of all bytes allocated.
+  allocated, failed attempts about half of all bytes allocated.
 - Tlön gains `aleph_region_mark`/`aleph_region_exit` (and arena-bytes and
   scanned-bytes counters for its unit tests); the generated C calls them
   around user function bodies.

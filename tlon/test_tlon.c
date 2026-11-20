@@ -1186,8 +1186,32 @@ static void test_region_scan_budget(void) {
         levels += list.u.rec->fields[0].u.list->len == 100 ? 1 : 0;
     }
     check(levels == 3000, "region: left-deep result intact");
-    check(aleph_region_scanned() <= allocated / 4,
+    /* one attempt may overshoot the quarter by its own quarter */
+    check(aleph_region_scanned() <= allocated / 2,
           "region: failed compaction scans stay linear");
+}
+
+/* `build n = push build (n - 1) "n.."`: every level's push copies the list,
+   so a level's region is mostly the previous list; compaction must keep the
+   arena near the size of the final list (a budget that skipped succeeding
+   compactions kept ~45 MB here). */
+static AlValue region_grow(size_t n) {
+    AlMark mark = aleph_region_mark();
+    AlValue result;
+    if (n == 0) {
+        result = aleph_list(NULL, 0);
+    } else {
+        result = aleph_b_push(region_grow(n - 1), aleph_str("item"));
+    }
+    return aleph_region_exit(mark, result);
+}
+
+static void test_region_grow_stays_small(void) {
+    size_t before = aleph_arena_bytes();
+    AlValue xs = region_grow(3000);
+    check(xs.u.list->len == 3000, "region: grown list intact");
+    check(aleph_arena_bytes() - before < 8u * 1024u * 1024u,
+          "region: deep builder keeps the arena small");
 }
 
 /* A loop without a region over calls that compact a short result out of
@@ -1382,6 +1406,7 @@ int main(int argc, char **argv) {
     test_traps();
     test_region_compact_loop();
     test_region_scan_budget();
+    test_region_grow_stays_small();
     test_regions();
 
     if (failures != 0) {
