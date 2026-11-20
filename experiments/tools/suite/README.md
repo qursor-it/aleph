@@ -107,6 +107,8 @@ cd experiments/tools/suite && python3 -m unittest -v test_suite
 
 ## Python API
 
-`run_tests(task_dir, lang, program_path, aleph=None)` returns a list of
-`{"name", "passed", "detail"}`. `lang` is `python`, `bash` or `aleph`; the
-harness T-037 reuses this function. Pass `aleph` explicitly or set `ALEPH`.
+`run_tests(task_dir, lang, program_path, aleph=None, log_access=False)`
+returns a list of `{"name", "passed", "detail"}`. `lang` is `python`, `bash` or
+`aleph`; the harness T-037 reuses this function. Pass `aleph` explicitly or set
+`ALEPH`. With `log_access=True`, python and bash results also carry `accesses`,
+`outside` and `observed` from the [sandbox](../sandbox/README.md).

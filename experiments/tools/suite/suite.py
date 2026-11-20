@@ -3,7 +3,7 @@
 
 Usage:
   suite.py validate SUITE_DIR [--refs]
-  suite.py run TASK_DIR {python|bash|aleph} PROGRAM_FILE [--json]
+  suite.py run TASK_DIR {python|bash|aleph} PROGRAM_FILE [--json] [--log-access]
 
 Python 3 standard library only, offline. See README.md for the task format.
 """
@@ -20,6 +20,15 @@ CATEGORIES = {"text", "files", "data", "json", "algorithm"}
 LANGS = {"python": "python3", "bash": "bash", "aleph": None}
 REF_LANG = {".py": "python", ".sh": "bash", ".aph": "aleph"}
 DEFAULT_TIME_LIMIT = 10
+SANDBOX_DIR = pathlib.Path(__file__).resolve().parent.parent / "sandbox"
+
+
+def _sandbox_module():
+    """Import the sibling sandbox tool lazily, only when access logging is on."""
+    if str(SANDBOX_DIR) not in sys.path:
+        sys.path.insert(0, str(SANDBOX_DIR))
+    import sandbox  # noqa: E402  (path set above)
+    return sandbox
 
 
 def load_json(path):
@@ -215,7 +224,7 @@ def _write_file(base, rel, content):
     path.write_text(content, encoding="utf-8")
 
 
-def _run_one(task_dir, lang, program, aleph, test, limit):
+def _run_one(task_dir, lang, program, aleph, test, limit, log_access=False):
     name = test.get("name", "?")
     with tempfile.TemporaryDirectory() as directory:
         work = pathlib.Path(directory)
@@ -225,50 +234,83 @@ def _run_one(task_dir, lang, program, aleph, test, limit):
         for rel, content in test.get("files", {}).items():
             _write_file(work, rel, content)
 
-        command = _command(lang, program, test.get("args", []), aleph)
-        kwargs = {"cwd": work, "capture_output": True}
-        if "stdin" in test:
-            kwargs["input"] = test["stdin"].encode("utf-8")
+        log_fields = {}
+        logged = log_access and lang in ("python", "bash")
+        if logged:
+            sandbox = _sandbox_module()
+            try:
+                proc = sandbox.run_logged(lang, program, test.get("args", []), work,
+                                          test.get("stdin"), limit)
+            except subprocess.TimeoutExpired:
+                return {"name": name, "passed": False, "detail": f"timeout after {limit}s"}
+            except OSError as error:
+                return {"name": name, "passed": False, "detail": f"cannot run: {error}"}
+            task = load_json(task_dir / "task.json")
+            files = task.get("files", {})
+            log_fields = {
+                "accesses": proc["accesses"],
+                "outside": sandbox.outside(proc["accesses"], files.get("read", []),
+                                           files.get("write", []), work),
+                "observed": proc["observed"],
+            }
+            stdout_bytes = proc["stdout"].encode("utf-8")
+            stderr = proc["stderr"]
+            returncode = proc["returncode"]
         else:
-            kwargs["stdin"] = subprocess.DEVNULL
-        try:
-            proc = subprocess.run(command, timeout=limit, **kwargs)
-        except subprocess.TimeoutExpired:
-            return {"name": name, "passed": False, "detail": f"timeout after {limit}s"}
-        except OSError as error:
-            return {"name": name, "passed": False, "detail": f"cannot run: {error}"}
+            command = _command(lang, program, test.get("args", []), aleph)
+            kwargs = {"cwd": work, "capture_output": True}
+            if "stdin" in test:
+                kwargs["input"] = test["stdin"].encode("utf-8")
+            else:
+                kwargs["stdin"] = subprocess.DEVNULL
+            try:
+                proc = subprocess.run(command, timeout=limit, **kwargs)
+            except subprocess.TimeoutExpired:
+                return {"name": name, "passed": False, "detail": f"timeout after {limit}s"}
+            except OSError as error:
+                return {"name": name, "passed": False, "detail": f"cannot run: {error}"}
+            stdout_bytes = proc.stdout
+            stderr = proc.stderr.decode("utf-8", errors="replace")
+            returncode = proc.returncode
 
         expected_stdout = test.get("stdout", "")
-        actual_stdout = proc.stdout.decode("utf-8", errors="replace")
-        if proc.stdout != expected_stdout.encode("utf-8"):
-            return {"name": name, "passed": False,
-                    "detail": f"stdout: expected {expected_stdout!r}, got {actual_stdout!r}"}
+        actual_stdout = stdout_bytes.decode("utf-8", errors="replace")
+        if stdout_bytes != expected_stdout.encode("utf-8"):
+            return dict({"name": name, "passed": False,
+                         "detail": f"stdout: expected {expected_stdout!r}, "
+                                   f"got {actual_stdout!r}"}, **log_fields)
         expected_code = test.get("exit_code", 0)
-        if proc.returncode != expected_code:
-            stderr = proc.stderr.decode("utf-8", errors="replace")
-            return {"name": name, "passed": False,
-                    "detail": f"exit code: expected {expected_code}, got {proc.returncode}"
-                              + (f"; stderr {stderr!r}" if stderr else "")}
+        if returncode != expected_code:
+            return dict({"name": name, "passed": False,
+                         "detail": f"exit code: expected {expected_code}, got {returncode}"
+                                   + (f"; stderr {stderr!r}" if stderr else "")}, **log_fields)
         for rel, expected in test.get("expect_files", {}).items():
             path = work / rel
             if not path.is_file():
-                return {"name": name, "passed": False, "detail": f"missing output file {rel!r}"}
+                return dict({"name": name, "passed": False,
+                             "detail": f"missing output file {rel!r}"}, **log_fields)
             actual = path.read_bytes()
             if actual != expected.encode("utf-8"):
-                return {"name": name, "passed": False,
-                        "detail": f"file {rel!r}: expected {expected!r}, "
-                                  f"got {actual.decode('utf-8', errors='replace')!r}"}
-        return {"name": name, "passed": True, "detail": "ok"}
+                return dict({"name": name, "passed": False,
+                             "detail": f"file {rel!r}: expected {expected!r}, "
+                                       f"got {actual.decode('utf-8', errors='replace')!r}"},
+                            **log_fields)
+        return dict({"name": name, "passed": True, "detail": "ok"}, **log_fields)
 
 
-def run_tests(task_dir, lang, program_path, aleph=None):
-    """Run every hidden test; return [{name, passed, detail}]."""
+def run_tests(task_dir, lang, program_path, aleph=None, log_access=False):
+    """Run every hidden test; return [{name, passed, detail, ...}].
+
+    With log_access=True, python and bash results also carry accesses, outside
+    and observed from the sandbox.
+    """
     task_dir = pathlib.Path(task_dir)
     task = load_json(task_dir / "task.json")
     tests = load_json(task_dir / "tests.json")
     limit = task.get("time_limit_s", DEFAULT_TIME_LIMIT)
     program = pathlib.Path(program_path).resolve()
-    return [_run_one(task_dir, lang, program, aleph, test, limit) for test in tests]
+    return [_run_one(task_dir, lang, program, aleph, test, limit, log_access=log_access)
+            for test in tests]
 
 
 def _cmd_validate(args):
@@ -279,7 +321,8 @@ def _cmd_validate(args):
 
 
 def _cmd_run(args):
-    results = run_tests(args.task_dir, args.lang, args.program_file)
+    results = run_tests(args.task_dir, args.lang, args.program_file,
+                        log_access=args.log_access)
     if args.json:
         print(json.dumps(results, indent=2))
     else:
@@ -300,6 +343,8 @@ def main(argv=None):
     run.add_argument("lang", choices=sorted(LANGS))
     run.add_argument("program_file")
     run.add_argument("--json", action="store_true")
+    run.add_argument("--log-access", action="store_true",
+                     help="log file accesses for python and bash programs")
     run.set_defaults(func=_cmd_run)
     args = parser.parse_args(argv)
     return args.func(args)

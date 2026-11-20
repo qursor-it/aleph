@@ -777,3 +777,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tlon: region mark/exit, iterative count and copy with forwarding table, spare chunk; cgen: region in slow/fast bodies; goldens run_region_scalar_loop, run_region_grow_list
 - tests: 377 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok, ASan+UBSan clean on test_tlon and 38 native goldens; grow-list RSS 72 MB -> 2.8 MB; fib35 unchanged (0.31 vs 0.29-0.32 s)
 - implemented by a Claude subagent; independent review next
+
+## 2026-11-20T08:11 T-038 done
+- experiments/tools/sandbox/: logging-only file access for Python (audit hook via pyaudit.py) and bash (strace -f, observed=false without strace), outside() against declared files; suite.run_tests(log_access=True) adds accesses/outside/observed
+- orchestrator fix: a timeout kills the whole process group (strace tracees included)
+- tests: test_sandbox 10 passed, test_suite 12 passed
+- next: T-039 (EXP-003 approved in f91f9b5)
