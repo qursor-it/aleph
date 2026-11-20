@@ -1,10 +1,10 @@
 ---
 id: EXP-003
 title: The same program in four languages
-status: draft
+status: approved
 question: How many tokens does the same verified program take in Aleph, Python, bash and C, counted with real tokenizers?
 owner: Bernardo Manfriani
-updated: 2026-11-18
+updated: 2026-11-20
 ---
 
 # EXP-003 · The same program in four languages
@@ -62,4 +62,7 @@ No model calls. Real tokenizers need their vocabulary files, downloaded once by 
 
 ## Amendments
 
-None.
+- **2026-11-20, proposed by agent; approved under the owner's delegation of 20 Nov 2026** (the owner asked the agent to bring experiment protocols to `approved` before building their tools). Hypotheses, Metrics and Success criterion are unchanged. Clarifications needed to build T-039 and T-040:
+  - **Stage A corpus.** Until the 50-task EXP-002 suite exists, Stage A uses the `bench/` programs and the references of `experiments/tasks/EXP-002-samples/`. The HumanEval-Aleph programs of the token pilot (`pilot/tokens/`) enter the corpus as a separate group, reported apart: they were written by agents, not by independent authors per language.
+  - **Normalisation without network.** Python: `ast.unparse` with docstrings removed (as in the pilot). bash and C: comments stripped; `shfmt` and `clang-format` are applied when installed, and the report names the formatter actually used for each language.
+  - **Tokenizers.** Read from local files given by path: tiktoken format (`o200k_base.tiktoken`) and Hugging Face `tokenizer.json` with a byte-level BPE model (DeepSeek, Qwen). Nothing is downloaded; without a vocabulary the report says so and gives only the `chars4` estimate.

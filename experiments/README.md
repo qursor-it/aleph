@@ -6,7 +6,7 @@ Aleph makes claims that can be wrong: that agents write correct programs in it, 
 |---|---|---|
 | [EXP-001](EXP-001-traces.md) | What share of an agent's tokens is code at all? | approved |
 | [EXP-002](EXP-002-ab-python.md) | How much performance does an agent lose writing Aleph instead of Python or bash? | approved |
-| [EXP-003](EXP-003-token-corpus.md) | How many tokens does the same verified program take in Aleph, Python, bash and C? | draft |
+| [EXP-003](EXP-003-token-corpus.md) | How many tokens does the same verified program take in Aleph, Python, bash and C? | approved |
 | [EXP-004](EXP-004-finetune-rl.md) | Does fine-tuning plus RL on Aleph beat the same training on Python? | draft |
 
 Before the protocols are approved, sessions run by hand go in [`pilot/`](pilot/README.md), in a fixed format. They help to design the experiments and never count as evidence.
