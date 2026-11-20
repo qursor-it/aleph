@@ -261,7 +261,7 @@ Every tool emits diagnostics as JSON when called with `--json`, one object per l
 {"code":"T012","severity":"error","file":"a.aph","line":3,"col":14,"node":"n42","msg":"type mismatch","expected":"i64","found":"str","fix":{"op":"replace","node":"n42","with":"int n42"}}
 ```
 
-- Required: `code`, `severity`, `file`, `line`, `col`, `msg`.
+- Required: `code`, `severity` (`error`, or `warning` for F001 in default `aleph check`; warnings do not fail a command), `file`, `line`, `col`, `msg`.
 - Optional: `node`, `expected`, `found`, `fix`, `canonical` (for F codes: the canonical text of the line or file).
 - `msg` is short, lowercase, no trailing period.
 - Code prefixes: `L` lexical, `P` parse, `F` format/canonical, `T` type, `C` capability, `E` example failed, `R` runtime trap.
@@ -292,14 +292,14 @@ Initial codes (extend as needed, keep a table in `spec/diagnostics.md`):
 
 - The AST is the source of truth; the text is its canonical printing.
 - `aleph fmt` prints the canonical form of any parseable file.
-- `aleph check` (default strict) rejects any file whose text differs from its canonical printing (F001) and includes the canonical text.
+- Layout is left to the toolchain (ADR-0040): `aleph check` reports a file whose text differs from its canonical printing as F001 with severity `warning` and the canonical text, then goes on (types, capabilities, examples; positions refer to the file as written). `aleph check --strict` makes F001 an error and stops.
 - Invariant (MUST be tested): `print(parse(t)) == t` for every canonical `t`, and `parse(print(ast)) == ast` for every AST.
 
 ## 11. Command line (`aleph`)
 
 | Command | Behavior |
 |---|---|
-| `aleph check FILE [--json]` | lex, parse, canonical check, types, capabilities, run examples |
+| `aleph check FILE [--json] [--strict]` | lex, parse, canonical check, types, capabilities, run examples |
 | `aleph fmt FILE` | print canonical form to stdout (`-w` to write in place) |
 | `aleph test FILE [--json]` | run examples only |
 | `aleph run FILE [ARGS..]` | run with the interpreter |

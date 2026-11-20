@@ -9,8 +9,10 @@
 //!   and the program arguments, so runtime diagnostics carry the basename.
 //!   The temporary directory contains a copy of the source and of
 //!   `tests/aph/data/` when that directory exists.
-//! - `NAME.diag` is `aleph check` stdout byte for byte: empty means a clean
-//!   file (exit 0), non-empty means diagnostics (exit 1).
+//! - `NAME.diag` is `aleph check --strict` stdout byte for byte: empty means a
+//!   clean file (exit 0), non-empty means diagnostics (exit 1). Goldens named
+//!   `lax_*.aph` run plain `aleph check` instead (ADR-0040: F001 is a warning
+//!   and checking goes on); exit is 1 only if some diagnostic is an error.
 //! - `NAME.ast` and `NAME.fmt` are the stdout of `aleph ast` and `aleph fmt`.
 //! - `NAME.explain` and `NAME.explain.json` are the stdout of
 //!   `aleph explain` and `aleph explain --json`.
@@ -174,7 +176,13 @@ fn diag_golden_files_match() {
     let mut failures = Vec::new();
     for aph in cases_with("diag") {
         let relative = relative(&repo, &aph);
-        let output = match aleph(&["check", relative]) {
+        let lax = file_name(&aph).starts_with("lax_");
+        let args: &[&str] = if lax {
+            &["check", relative]
+        } else {
+            &["check", "--strict", relative]
+        };
+        let output = match aleph(args) {
             Ok(output) => output,
             Err(error) => {
                 failures.push(format!("{relative}: {error}"));
@@ -182,7 +190,12 @@ fn diag_golden_files_match() {
             }
         };
         let expected = fs::read(aph.with_extension("diag")).expect("read .diag");
-        let expected_code = if expected.is_empty() { 0 } else { 1 };
+        let expected_code = if String::from_utf8_lossy(&expected).contains("\"severity\":\"error\"")
+        {
+            1
+        } else {
+            0
+        };
 
         if output.status.code() != Some(expected_code) {
             failures.push(format!(

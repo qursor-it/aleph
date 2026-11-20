@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xf64327e4e8c25c7a,
+        hash: 0xc6fb20d842733481,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -117,20 +117,20 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("1."),
-        "`.aph`; UTF-8; outside strings only printable ASCII and LF. LF only; no tabs, trailing spaces or empty lines; exactly one final LF. One file = one module (imports v0.2).",
+        "`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout and item order are free (`aleph fmt` canonicalizes). One file = one module (imports v0.2).",
     );
     section(
         &mut out,
         spec_heading("2."),
         &format!(
-            "One space between tokens. Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\\.[0-9]+`; string `\"...\"` escapes `\\n \\t \\\" \\\\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `{}`.",
+            "Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\\.[0-9]+`; string `\"...\"` escapes `\\n \\t \\\" \\\\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `{}`.",
             keyword_list()
         ),
     );
     section(
         &mut out,
         spec_heading("3."),
-        "Order: `use` by full line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type names (P001).",
+        "Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type names (P001).",
     );
     let primitives = lexicon::TYPES
         .iter()
@@ -165,12 +165,12 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("10."),
-        "AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` rejects different text (F001) with `canonical`.",
+        "AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` warns on other text (F001, `canonical`); `--strict` rejects.",
     );
     section(
         &mut out,
         spec_heading("11."),
-        "`llms` prints this text; `check FILE [--json]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
+        "`llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
     );
 
     section(

@@ -833,3 +833,11 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - baseline on the 4 pilot probe runs (35 answers, 31 with code): clean raw 85.7/87.5/28.6/55.6% (A, B, fewshot, lite), after fmt 85.7/87.5/85.7/77.8%; raw failures: F001 6, P002 7, P001 3, T001 4 (as counted per run)
 - decision: F001 is the largest raw cause and is fixed mechanically by fmt -> T-055 next; P001 ([] for empty) -> T-056; P002 (arity) stays, its diagnostics already name expected/found
 - tests: test_replay 1 passed; built by a Claude subagent (Sonnet)
+
+## 2026-11-20T16:58 T-055 done (autonoma)
+- ADR-0040 (Proposed): aleph check reports non-canonical layout as F001 severity warning with the canonical text and goes on; --strict keeps the error (goldens and fix goldens run strict, .diag files unchanged); MCP check gets strict; exit 0 with only warnings
+- llms.txt: layout and item-order rules replaced by one sentence (8438 -> 8348 chars, 22 tokens freed); SPEC §9-§11 updated; SPEC digest updated
+- new goldens lax_order, lax_type_error
+- metric (replay of pilot answers, clean raw): fewshot 28.6% -> 85.7%, lite 55.6% -> 77.8%, A/B unchanged (85.7/87.5%)
+- tests: 380 passed (ALEPH_REQUIRE_CC=1), clippy clean. Implemented by a Sonnet subagent (stopped during the VPS stall), finished and verified by the orchestrator (fixes.rs strict, llms budget, digest)
+- T-059 opened (build_deep_list hang, operator report)

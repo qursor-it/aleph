@@ -3,13 +3,13 @@
 Aleph is a programming language whose primary authors and readers are AI agents. Goals: few tokens, native speed, correctness on the first attempt, safe by default. Human readability is NOT a goal of the source text; humans read the generated explanation (`aleph explain`).
 
 ## 1. Source files
-`.aph`; UTF-8; outside strings only printable ASCII and LF. LF only; no tabs, trailing spaces or empty lines; exactly one final LF. One file = one module (imports v0.2).
+`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout and item order are free (`aleph fmt` canonicalizes). One file = one module (imports v0.2).
 
 ## 2. Lexical structure
-One space between tokens. Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam`.
+Column 0 = item; one leading space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam`.
 
 ## 3. Top-level items and canonical order
-Order: `use` by full line text, `type` by name, `fn` by name (`main` last). Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type names (P001).
+Body: <=1 `doc`, then `ex E = E`+ (E001; unless `main`/effectful), then `let`/`do`*, then one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; access `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type names (P001).
 
 ## 4. Types
 `i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; expr `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
@@ -83,10 +83,10 @@ T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex`
 JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: L001-L002 P001-P003 F001 T001-T008 T010 E001-E002 C001-C003 R001-R005 X001-X011.
 
 ## 10. Canonical form (ADR-0003)
-AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` rejects different text (F001) with `canonical`.
+AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` warns on other text (F001, `canonical`); `--strict` rejects.
 
 ## 11. Command line (`aleph`)
-`llms` prints this text; `check FILE [--json]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.
+`llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.
 
 ## Examples
 Check-clean programs (verbatim from `tests/aph/`):

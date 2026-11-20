@@ -18,6 +18,8 @@ pub struct Cli {
     pub file: String,
     pub json: bool,
     pub write: bool,
+    /// `aleph check --strict`: F001 is an error and stops checking (ADR-0040).
+    pub strict: bool,
     pub out: Option<String>,
     pub args: Vec<String>,
     /// `aleph edit FILE --json EDITS`: the edits JSON array (ADR-0029).
@@ -47,6 +49,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
             file: String::new(),
             json: false,
             write: false,
+            strict: false,
             out: None,
             args: Vec::new(),
             edits: None,
@@ -57,6 +60,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
     let mut file = None;
     let mut json = false;
     let mut write = false;
+    let mut strict = false;
     let mut out = None;
     let mut program_args = Vec::new();
     let mut edits = None;
@@ -79,6 +83,9 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
             i += 2;
         } else if arg == "--json" {
             json = true;
+            i += 1;
+        } else if arg == "--strict" && command == "check" {
+            strict = true;
             i += 1;
         } else if arg == "-w" {
             write = true;
@@ -113,6 +120,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, String> {
         file,
         json,
         write,
+        strict,
         out,
         args: program_args,
         edits,
@@ -174,6 +182,17 @@ mod tests {
         assert_eq!(cli.tokenizer.as_deref(), Some("all"));
         assert!(cli.json);
         assert!(parse_args(&["check", "--tokenizer", "all", "foo.aph"]).is_err());
+    }
+
+    #[test]
+    fn strict_is_a_check_option() {
+        assert!(
+            parse_args(&["check", "--strict", "foo.aph"])
+                .unwrap()
+                .strict
+        );
+        assert!(!parse_args(&["check", "foo.aph"]).unwrap().strict);
+        assert!(parse_args(&["fmt", "--strict", "foo.aph"]).is_err());
     }
 
     #[test]

@@ -63,6 +63,17 @@ impl Diagnostic {
         }
     }
 
+    /// Turn this diagnostic into a warning (F001 in default `aleph check`).
+    pub fn into_warning(mut self) -> Self {
+        self.severity = "warning".to_string();
+        self
+    }
+
+    /// Whether `severity` is `error` (warnings do not fail a command).
+    pub fn is_error(&self) -> bool {
+        self.severity == "error"
+    }
+
     /// X001: the requested command is not implemented yet (ADR-0015).
     pub fn not_implemented(file: &str) -> Self {
         Self::error("X001", file, 0, 0, "not implemented")

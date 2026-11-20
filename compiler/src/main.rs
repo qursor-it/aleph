@@ -53,7 +53,7 @@ fn emit_diagnostics(diagnostics: &[Diagnostic]) -> ExitCode {
         eprintln!("aleph: failed to write diagnostic: {err}");
         return ExitCode::from(2);
     }
-    ExitCode::from(if diagnostics.is_empty() { 0 } else { 1 })
+    ExitCode::from(u8::from(diagnostics.iter().any(Diagnostic::is_error)))
 }
 
 fn read_source(cli: &cli::Cli) -> Result<String, Box<Diagnostic>> {
@@ -68,7 +68,8 @@ fn read_source(cli: &cli::Cli) -> Result<String, Box<Diagnostic>> {
     })
 }
 
-/// `aleph check`: lex and parse, reject non-canonical text (F001), type check,
+/// `aleph check`: lex and parse, flag non-canonical text (F001: a warning that
+/// goes on, an error that stops with `--strict`, ADR-0040), type check,
 /// capability check, then run inline examples (E001/E002).
 fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
     let source = match read_source(cli) {
@@ -86,21 +87,29 @@ fn check(cli: &cli::Cli) -> Vec<Diagnostic> {
     };
 
     let canonical = printer::print_file(&file);
+    let mut diagnostics = Vec::new();
     if source != canonical {
-        return vec![canonical_diagnostic(&cli.file, &source, &canonical)];
+        let diagnostic = canonical_diagnostic(&cli.file, &source, &canonical);
+        if cli.strict {
+            return vec![diagnostic];
+        }
+        diagnostics.push(diagnostic.into_warning());
     }
 
     let checked = type_check::check(&cli.file, &file);
     if !checked.diagnostics.is_empty() {
-        return checked.diagnostics;
+        diagnostics.extend(checked.diagnostics);
+        return diagnostics;
     }
 
     let capabilities = caps::check_caps(&cli.file, &file);
     if !capabilities.is_empty() {
-        return capabilities;
+        diagnostics.extend(capabilities);
+        return diagnostics;
     }
 
-    examples::check(&cli.file, &file)
+    diagnostics.extend(examples::check(&cli.file, &file));
+    diagnostics
 }
 
 /// `aleph test`: lex, parse, type check and capability check (no F001), then

@@ -469,9 +469,20 @@ fn fmt_reports_parse_diagnostics() {
 }
 
 #[test]
+fn check_warns_f001_and_exits_zero_by_default() {
+    let file = temp_source("check_f001_warn.aph", "fn  main -> unit\n\n nil   \n");
+    let out = run(&["check", file.as_str()]);
+    assert_eq!(out.status.code(), Some(0));
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout must be valid JSON");
+    assert_eq!(value["code"], "F001");
+    assert_eq!(value["severity"], "warning");
+}
+
+#[test]
 fn check_reports_f001_for_non_canonical_source() {
     let file = temp_source("check_f001.aph", "fn  main -> unit\n\n nil   \n");
-    let out = run(&["check", file.as_str()]);
+    let out = run(&["check", "--strict", file.as_str()]);
     assert_eq!(out.status.code(), Some(1));
 
     let value: serde_json::Value =

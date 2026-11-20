@@ -139,8 +139,8 @@ fn tools() -> Vec<Value> {
         ),
         tool(
             "check",
-            "aleph check: parse, canonical form, types, capabilities, examples; JSON diagnostics",
-            source_schema(json!({})),
+            "aleph check: parse, canonical form (F001 warning; strict: error), types, capabilities, examples; JSON diagnostics",
+            source_schema(json!({"strict": {"type": "boolean", "description": "F001 is an error and stops checking (default false)"}})),
         ),
         tool(
             "test",
@@ -207,7 +207,11 @@ fn call_tool(params: &Value) -> Result<Value, RpcError> {
     }
 
     let extra: Vec<String> = match name {
-        "check" | "test" | "fmt" | "ast" => Vec::new(),
+        "check" => match args.get("strict").and_then(Value::as_bool) {
+            Some(true) => vec!["--strict".to_string()],
+            _ => Vec::new(),
+        },
+        "test" | "fmt" | "ast" => Vec::new(),
         "explain" => match args.get("json").and_then(Value::as_bool) {
             Some(true) => vec!["--json".to_string()],
             _ => Vec::new(),

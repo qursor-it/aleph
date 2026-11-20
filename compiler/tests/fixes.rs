@@ -27,6 +27,7 @@ fn fix_cases() -> Vec<PathBuf> {
 fn check(path: &Path) -> (i32, Vec<serde_json::Value>) {
     let output = Command::new(env!("CARGO_BIN_EXE_aleph"))
         .arg("check")
+        .arg("--strict") // the fix goldens' .diag files are strict output (ADR-0040)
         .arg(path)
         .output()
         .expect("failed to run aleph");

@@ -1,0 +1,5 @@
+fn  f x:i64 -> i64
+ ex f 1 = 1
+ cat "a" "b"
+fn main -> unit
+ print "hi"
