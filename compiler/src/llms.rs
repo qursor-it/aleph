@@ -39,12 +39,12 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x9c1d9a223c0d72d0,
+        hash: 0x2077f0d7655fac2e,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
         contents: GRAMMAR,
-        hash: 0x3d11f70256a267d5,
+        hash: 0xb571e9e2090ac57d,
     },
     SourceDigest {
         path: "spec/diagnostics.md",
@@ -130,7 +130,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("3."),
-        "Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful), `let`/`do`*, one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).",
+        "Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful), `let`/`do`/`if c E` (return E if c)*, one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).",
     );
     let primitives = lexicon::TYPES
         .iter()
@@ -142,7 +142,7 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Static bidirectional checking; signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
         ),
     );
     section(

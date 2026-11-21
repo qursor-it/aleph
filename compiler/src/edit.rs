@@ -223,6 +223,10 @@ fn fn_exprs(function: &ast::Fn) -> Vec<&ast::Expr> {
     for stmt in &function.stmts {
         match &stmt.kind {
             ast::StmtKind::Let { value, .. } | ast::StmtKind::Do { value } => exprs.push(value),
+            ast::StmtKind::Guard { cond, value } => {
+                exprs.push(cond);
+                exprs.push(value);
+            }
         }
     }
     exprs.push(&function.result);
@@ -544,6 +548,10 @@ fn render(file: &File, nodes: &HashMap<u32, Node>, edits: &[Edit]) -> String {
             match &mut stmt.kind {
                 ast::StmtKind::Let { value, .. } | ast::StmtKind::Do { value } => {
                     ast::walk_expr_mut(value, &mut visit)
+                }
+                ast::StmtKind::Guard { cond, value } => {
+                    ast::walk_expr_mut(cond, &mut visit);
+                    ast::walk_expr_mut(value, &mut visit);
                 }
             }
         }

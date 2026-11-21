@@ -184,6 +184,10 @@ fn walk_body(function: &Fn, visit: &mut impl FnMut(&Expr)) {
     for stmt in &function.stmts {
         match &stmt.kind {
             StmtKind::Let { value, .. } | StmtKind::Do { value } => ast::walk_expr(value, visit),
+            StmtKind::Guard { cond, value } => {
+                ast::walk_expr(cond, visit);
+                ast::walk_expr(value, visit);
+            }
         }
     }
     ast::walk_expr(&function.result, visit);

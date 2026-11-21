@@ -1,0 +1,43 @@
+fn clamp n:i64 -> i64
+ ex clamp 5 = 5
+ ex clamp 12 = 10
+ let lo 0
+ if < n lo lo
+ let hi 10
+ if > n hi hi
+ n
+fn describe n:i64 -> str
+ ex describe 2 = "prime"
+ ex describe 9 = "composite"
+ let p isprime n
+ if p "prime"
+ "composite"
+fn fact n:i64 -> i64
+ ex fact 0 = 1
+ ex fact 5 = 120
+ if <= n 1 1
+ * n fact - n 1
+fn hasdiv d:i64 n:i64 -> bool
+ ex hasdiv 2 9 = true
+ ex hasdiv 3 9 = true
+ if > * d d n false
+ if == 0 % n d true
+ hasdiv + d 1 n
+fn isprime n:i64 -> bool
+ ex isprime 2 = true
+ ex isprime 7 = true
+ ex isprime 9 = false
+ ex isprime 4 = false
+ if <= n 1 false
+ if == n 2 true
+ if hasdiv 2 n false true
+fn main -> unit
+ do print "start"
+ if == 1 2 nil
+ do print show isprime 7
+ do print show isprime 9
+ do print show isprime 4
+ do print describe 13
+ do print show clamp 12
+ do print show fact 5
+ nil

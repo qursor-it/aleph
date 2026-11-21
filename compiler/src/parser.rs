@@ -285,6 +285,10 @@ enum BodyItem {
         value: ast::Expr,
     },
     Do(ast::Expr),
+    Guard {
+        cond: ast::Expr,
+        value: ast::Expr,
+    },
     Result(ast::Expr),
 }
 
@@ -310,7 +314,7 @@ impl<'a> Parser<'a> {
 
         let mut result_seen = false;
         let mut last_line_failed = false;
-        for line in lines {
+        for (index, line) in lines.iter().enumerate() {
             let first = match line.tokens.first() {
                 Some(first) => first,
                 None => continue,
@@ -323,7 +327,8 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let item = match parse_body_line(self.file, line, &env, &self.signatures) {
+            let is_last = index + 1 == lines.len();
+            let item = match parse_body_line(self.file, line, &env, &self.signatures, is_last) {
                 Ok(item) => item,
                 Err(diagnostic) => {
                     self.diagnostics.push(*diagnostic);
@@ -363,6 +368,11 @@ impl<'a> Parser<'a> {
                     id: NodeId::UNASSIGNED,
                     span: span_of(first),
                     kind: ast::StmtKind::Do { value },
+                }),
+                BodyItem::Guard { cond, value } => function.stmts.push(ast::Stmt {
+                    id: NodeId::UNASSIGNED,
+                    span: span_of(first),
+                    kind: ast::StmtKind::Guard { cond, value },
                 }),
                 BodyItem::Result(expr) => {
                     function.result = expr;
@@ -421,6 +431,7 @@ fn parse_body_line(
     line: &Line,
     env: &Env,
     signatures: &Signatures,
+    is_last: bool,
 ) -> PResult<BodyItem> {
     let tokens = &line.tokens;
     match body_keyword(&tokens[0]) {
@@ -429,10 +440,32 @@ fn parse_body_line(
         Some(BodyKeyword::Let) => parse_let(file, line, env, signatures),
         Some(BodyKeyword::Do) => parse_do(file, line, env, signatures),
         None => {
+            if !is_last && is_keyword(&tokens[0], "cond") {
+                if let Ok(guard) = parse_guard(file, line, env, signatures) {
+                    return Ok(guard);
+                }
+            }
             let value = parse_expr_all(file, line, tokens, env, signatures)?;
             Ok(BodyItem::Result(value))
         }
     }
+}
+
+/// A non-final `if C E` line: exactly two complete expressions after `if`.
+fn parse_guard(file: &str, line: &Line, env: &Env, signatures: &Signatures) -> PResult<BodyItem> {
+    let tokens = &line.tokens[1..];
+    let ctx = ExprCtx {
+        file,
+        line,
+        tokens,
+        signatures,
+    };
+    let (cond, next) = ctx.parse(0, env, 0)?;
+    let (value, end) = ctx.parse(next, env, 0)?;
+    if end != tokens.len() {
+        return Err(p001(file, &tokens[end], "unexpected token"));
+    }
+    Ok(BodyItem::Guard { cond, value })
 }
 
 fn parse_doc(file: &str, line: &Line) -> PResult<BodyItem> {
@@ -2719,6 +2752,53 @@ fn main -> res unit str
         let diagnostic = one_error("fn f -> i64\n let x x\n 0\n");
         assert_eq!(diagnostic.code, "P003");
         assert_eq!(diagnostic.found.as_deref(), Some("x"));
+    }
+
+    #[test]
+    fn a_non_last_if_with_two_expressions_is_a_guard() {
+        let source = "fn f b:bool -> i64\n if b 1\n 2\n";
+        let file = parse_ok(source);
+        let function = function(&file, "f");
+        assert_eq!(function.stmts.len(), 1);
+        let ast::StmtKind::Guard { cond, value } = &function.stmts[0].kind else {
+            panic!("expected a guard");
+        };
+        assert_eq!(
+            cond.kind,
+            ast::ExprKind::Var {
+                name: "b".to_string()
+            }
+        );
+        assert_eq!(value.kind, ast::ExprKind::Int { value: 1 });
+        assert_eq!(function.result.kind, ast::ExprKind::Int { value: 2 });
+    }
+
+    #[test]
+    fn a_guard_sees_only_earlier_lets() {
+        let source = "fn f x:i64 -> i64\n if == x 0 0\n let y 1\n y\n";
+        let file = parse_ok(source);
+        assert!(matches!(
+            function(&file, "f").stmts[0].kind,
+            ast::StmtKind::Guard { .. }
+        ));
+
+        // A binding made after the guard is not visible in it.
+        let diagnostic = one_error("fn f x:i64 -> i64\n if == x 0 y\n let y 1\n y\n");
+        assert_eq!(diagnostic.code, "P003");
+        assert_eq!(diagnostic.found.as_deref(), Some("y"));
+    }
+
+    #[test]
+    fn last_line_if_and_three_argument_if_keep_their_errors() {
+        let diagnostic = one_error("fn f b:bool -> i64\n if b 1\n");
+        assert_eq!(diagnostic.code, "P002");
+        assert_eq!(diagnostic.found.as_deref(), Some("2"));
+
+        // A non-last, fully applied `if` is still the result line, so the
+        // following line is after the result.
+        let diagnostic = one_error("fn f b:bool -> i64\n if b 1 2\n 3\n");
+        assert_eq!(diagnostic.code, "P001");
+        assert_eq!(diagnostic.msg, "line after result");
     }
 
     #[test]

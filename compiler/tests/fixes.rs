@@ -61,6 +61,10 @@ fn find_expr(file: &ast::File, id: u32) -> Option<ast::Expr> {
                 ast::StmtKind::Let { value, .. } | ast::StmtKind::Do { value } => {
                     ast::walk_expr(value, &mut visit)
                 }
+                ast::StmtKind::Guard { cond, value } => {
+                    ast::walk_expr(cond, &mut visit);
+                    ast::walk_expr(value, &mut visit);
+                }
             }
         }
         ast::walk_expr(&function.result, &mut visit);

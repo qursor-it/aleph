@@ -360,8 +360,9 @@ impl<'a> Interp<'a> {
                 .examples
                 .iter()
                 .flat_map(|example| [&example.lhs, &example.rhs])
-                .chain(function.stmts.iter().map(|stmt| match &stmt.kind {
-                    StmtKind::Let { value, .. } | StmtKind::Do { value } => value,
+                .chain(function.stmts.iter().flat_map(|stmt| match &stmt.kind {
+                    StmtKind::Let { value, .. } | StmtKind::Do { value } => vec![value],
+                    StmtKind::Guard { cond, value } => vec![cond, value],
                 }))
                 .chain([&function.result]);
             for root in roots {
@@ -723,6 +724,16 @@ impl<'a> Interp<'a> {
                 StmtKind::Do { value } => match self.eval(value, &Scope::Root(&env))? {
                     Flow::Value(_) => {}
                     Flow::Return(value) => return Ok(value),
+                },
+                StmtKind::Guard { cond, value } => match self.eval(cond, &Scope::Root(&env))? {
+                    Flow::Return(value) => return Ok(value),
+                    Flow::Value(Value::Bool(true)) => {
+                        match self.eval(value, &Scope::Root(&env))? {
+                            Flow::Value(value) | Flow::Return(value) => return Ok(value),
+                        }
+                    }
+                    Flow::Value(Value::Bool(false)) => {}
+                    Flow::Value(_) => panic!("type checker guarantees a bool guard condition"),
                 },
             }
         }

@@ -449,6 +449,11 @@ impl<'a> TypeChecker<'a> {
                 StmtKind::Do { value } => {
                     self.check_expr(value, Some(&Type::Unit));
                 }
+                StmtKind::Guard { cond, value } => {
+                    self.check_expr(cond, Some(&Type::Bool));
+                    let ret = self.current_ret.clone().unwrap_or(Type::Unit);
+                    self.check_expr(value, Some(&ret));
+                }
             }
         }
 

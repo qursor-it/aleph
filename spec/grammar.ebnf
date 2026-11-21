@@ -20,7 +20,9 @@ fn_item     = "fn" " " ident { " " param } " " "->" " " type NL
               " " expr NL ;
 param       = ident ":" type ;
 stmt        = "let" " " ident " " expr
-            | "do" " " expr ;
+            | "do" " " expr
+            | "if" " " expr " " expr ;               (* guard, ADR-0044; only on a
+                                                        non-last body line *)
 
 type        = "i64" | "f64" | "bool" | "str" | "unit"
             | "list" " " type

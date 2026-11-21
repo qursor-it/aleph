@@ -14,7 +14,7 @@ fn isprime n:i64 -> bool
  ex isprime 7 = true
  if <= n 1 false
  if == n 2 true
- if hasdiv 3 n false true
+ if hasdiv 2 n false true
 ```
 
 Each guard line is an `if` with two arguments, so today it is P002 "wrong

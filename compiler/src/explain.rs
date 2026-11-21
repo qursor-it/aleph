@@ -103,6 +103,9 @@ pub struct FunctionInfo {
     /// Lambdas of the body in pre-order (ADR-0037); omitted when empty.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub lambdas: Vec<String>,
+    /// Guards of the body in source order (ADR-0044); omitted when empty.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub guards: Vec<String>,
 }
 
 /// One function parameter, with its canonical type spelling.
@@ -219,7 +222,24 @@ fn function_info(
         calls,
         builtins,
         lambdas: lambdas(function),
+        guards: guards(function),
     }
+}
+
+/// `if C, return E` for each guard of the body, in source order (ADR-0044).
+fn guards(function: &ast::Fn) -> Vec<String> {
+    function
+        .stmts
+        .iter()
+        .filter_map(|stmt| match &stmt.kind {
+            StmtKind::Guard { cond, value } => Some(format!(
+                "if {}, return {}",
+                printer::print_expr(cond),
+                printer::print_expr(value)
+            )),
+            _ => None,
+        })
+        .collect()
 }
 
 /// `a function of x and y returning BODY` for each `lam` of the body (not
@@ -239,6 +259,10 @@ fn lambdas(function: &ast::Fn) -> Vec<String> {
         match &stmt.kind {
             StmtKind::Let { value, .. } | StmtKind::Do { value } => {
                 ast::walk_expr(value, &mut visit)
+            }
+            StmtKind::Guard { cond, value } => {
+                ast::walk_expr(cond, &mut visit);
+                ast::walk_expr(value, &mut visit);
             }
         }
     }
@@ -279,6 +303,10 @@ fn call_graph(function: &ast::Fn, user_fns: &BTreeSet<&str>) -> (Vec<String>, Ve
         match &stmt.kind {
             StmtKind::Let { value, .. } | StmtKind::Do { value } => {
                 ast::walk_expr(value, &mut visit)
+            }
+            StmtKind::Guard { cond, value } => {
+                ast::walk_expr(cond, &mut visit);
+                ast::walk_expr(value, &mut visit);
             }
         }
     }
@@ -340,6 +368,9 @@ pub fn to_text(report: &Report) -> String {
         lines.push(format!("  builtins: {}", names(&function.builtins)));
         for lambda in &function.lambdas {
             lines.push(format!("  lambdas: {lambda}"));
+        }
+        for guard in &function.guards {
+            lines.push(format!("  guards: {guard}"));
         }
     }
 
@@ -490,6 +521,15 @@ mod tests {
         assert_eq!(function.calls, ["alpha", "zed"]);
         assert_eq!(function.builtins, ["filter", "map", "sum"]);
         assert!(!function.effectful);
+    }
+
+    #[test]
+    fn guards_render_and_visit_both_expressions() {
+        let file = parse_ok("fn f n:i64 -> i64\n if > n 0 + n 1\n n\n");
+        let report = report("t.aph", &file);
+        let function = &report.functions[0];
+        assert_eq!(function.guards, ["if > n 0, return + n 1"]);
+        assert!(to_text(&report).contains("  guards: if > n 0, return + n 1\n"));
     }
 
     #[test]

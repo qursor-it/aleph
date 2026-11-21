@@ -338,8 +338,18 @@ impl PartialEq for Stmt {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StmtKind {
-    Let { name: String, value: Expr },
-    Do { value: Expr },
+    Let {
+        name: String,
+        value: Expr,
+    },
+    Do {
+        value: Expr,
+    },
+    /// `if C E`: return `E` when `C` is true (ADR-0044).
+    Guard {
+        cond: Expr,
+        value: Expr,
+    },
 }
 
 /// A type expression.
@@ -654,6 +664,10 @@ fn assign_fn(item: &mut Fn, next: &mut u32) {
         match &mut stmt.kind {
             StmtKind::Let { value, .. } => assign_expr(value, next),
             StmtKind::Do { value } => assign_expr(value, next),
+            StmtKind::Guard { cond, value } => {
+                assign_expr(cond, next);
+                assign_expr(value, next);
+            }
         }
     }
     assign_expr(&mut item.result, next);
@@ -788,6 +802,10 @@ fn collect_fn(item: &Fn, ids: &mut Vec<NodeId>) {
         match &stmt.kind {
             StmtKind::Let { value, .. } => collect_expr(value, ids),
             StmtKind::Do { value } => collect_expr(value, ids),
+            StmtKind::Guard { cond, value } => {
+                collect_expr(cond, ids);
+                collect_expr(value, ids);
+            }
         }
     }
     collect_expr(&item.result, ids);

@@ -922,3 +922,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - corpus points (chars4, without examples) Aleph/Python: 1.49 (Newton, both) -> 1.667 (140 / 84): Python lost its loop too, so the ratio rose; corpus.py verify OK for all 20
 - next: ADR-0043 can be Accepted by the user; bench/ref/{py,c}/points.* still carry Newton loops (not touched)
 - verification by the orchestrator: full suite 410 passed (ALEPH_REQUIRE_CC=1), clippy clean; the subagent's one timeout (build_deep_list 427 s) came from machine load (load 5-7 from other users), the test passes alone in 7 s
+
+## 2026-11-21T21:55 T-065 done (autonoma)
+- guard lines (ADR-0044): a non-last body line `if C E` returns E when C holds, else the body goes on. New statement kind `guard` in ast, parser (only when not the last line and exactly two expressions), checker (C bool, E the result type), interpreter, both C bodies (`goto L_epilogue`, region exit kept), printer, explain (`guards: if C, return E`), caps/edit/examples walkers; SPEC §3.3, grammar.ebnf, llms.txt (8434/8440 chars: dropped "Static bidirectional checking")
+- goldens run_guard (both engines), guard_value_type, guard_cond_type, guard_last_line (last-line `if c x` stays P002)
+- implemented by deepseek-coder (opencode), reviewed by the agent; fixed the golden's isprime (started at divisor 3)
+- replay: fewshot clean 85.7 -> 100%, lite 77.8 -> 88.9%; remaining failures are model errors (digitSum predates ord, a wrong own example)
+- tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean
+- decisions: ADR-0044 proposed
+- next: dev probe (experiments/devprobe) points to `cat` on lists (ADR-0045) and `tof` (ADR-0046)

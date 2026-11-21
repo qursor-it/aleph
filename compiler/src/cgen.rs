@@ -188,6 +188,10 @@ impl<'a> Generator<'a> {
                     StmtKind::Let { value, .. } | StmtKind::Do { value } => {
                         self.walk_location(value);
                     }
+                    StmtKind::Guard { cond, value } => {
+                        self.walk_location(cond);
+                        self.walk_location(value);
+                    }
                 }
             }
             self.walk_location(&function.result);
@@ -306,6 +310,10 @@ impl<'a> Generator<'a> {
             for stmt in &function.stmts {
                 match &stmt.kind {
                     StmtKind::Let { value, .. } | StmtKind::Do { value } => {
+                        ast::walk_expr(value, &mut visit);
+                    }
+                    StmtKind::Guard { cond, value } => {
+                        ast::walk_expr(cond, &mut visit);
                         ast::walk_expr(value, &mut visit);
                     }
                 }
@@ -463,12 +471,20 @@ impl<'a> Generator<'a> {
                     self.emit_expr(value, 0, 1);
                     self.line(1, &format!("(void)t_n{};", value.id.0));
                 }
+                StmtKind::Guard { cond, value } => {
+                    self.emit_expr(cond, 0, 1);
+                    self.line(1, &format!("if (t_n{}.u.b) {{", cond.id.0));
+                    self.emit_expr(value, 0, 2);
+                    self.line(2, &format!("aleph_ret_ = t_n{};", value.id.0));
+                    self.line(2, "goto L_epilogue;");
+                    self.line(1, "}");
+                }
             }
         }
 
         self.emit_expr(&function.result, 0, 1);
         self.line(1, &format!("aleph_ret_ = t_n{};", function.result.id.0));
-        if function_has_try(function) {
+        if function_needs_epilogue(function) {
             self.line(0, "L_epilogue:");
         }
         self.region_exit(function, Repr::Boxed);
@@ -512,8 +528,9 @@ impl<'a> Generator<'a> {
         let mut roots: Vec<&Expr> = function
             .stmts
             .iter()
-            .map(|stmt| match &stmt.kind {
-                StmtKind::Let { value, .. } | StmtKind::Do { value } => value,
+            .flat_map(|stmt| match &stmt.kind {
+                StmtKind::Let { value, .. } | StmtKind::Do { value } => vec![value],
+                StmtKind::Guard { cond, value } => vec![cond, value],
             })
             .collect();
         roots.push(&function.result);
@@ -1098,8 +1115,9 @@ fn frame_roots(function: &ast::Fn) -> impl Iterator<Item = &Expr> {
     function
         .stmts
         .iter()
-        .map(|stmt| match &stmt.kind {
-            StmtKind::Let { value, .. } | StmtKind::Do { value } => value,
+        .flat_map(|stmt| match &stmt.kind {
+            StmtKind::Let { value, .. } | StmtKind::Do { value } => vec![value],
+            StmtKind::Guard { cond, value } => vec![cond, value],
         })
         .chain([&function.result])
 }
@@ -1225,11 +1243,19 @@ impl Generator<'_> {
                     self.fast_expr(value, 0, 1);
                     self.line(1, &format!("(void)t_n{};", value.id.0));
                 }
+                StmtKind::Guard { cond, value } => {
+                    self.fast_expr(cond, 0, 1);
+                    self.line(1, &format!("if ({}) {{", Self::temp(cond)));
+                    self.fast_expr(value, 0, 2);
+                    self.line(2, &format!("aleph_ret_ = {};", Self::temp(value)));
+                    self.line(2, "goto L_epilogue;");
+                    self.line(1, "}");
+                }
             }
         }
         self.fast_expr(&function.result, 0, 1);
         self.line(1, &format!("aleph_ret_ = t_n{};", function.result.id.0));
-        if function_has_try(function) {
+        if function_needs_epilogue(function) {
             self.line(0, "L_epilogue:");
         }
         self.region_exit(function, ret_repr);
@@ -1859,7 +1885,14 @@ fn used_names<'c>(code: &'c str, prefix: &str) -> BTreeSet<&'c str> {
         .collect()
 }
 
-fn function_has_try(function: &ast::Fn) -> bool {
+fn function_needs_epilogue(function: &ast::Fn) -> bool {
+    if function
+        .stmts
+        .iter()
+        .any(|stmt| matches!(stmt.kind, StmtKind::Guard { .. }))
+    {
+        return true;
+    }
     let mut found = false;
     let mut visit = |expr: &Expr| {
         if matches!(expr.kind, ExprKind::Try { .. }) {
@@ -1869,6 +1902,10 @@ fn function_has_try(function: &ast::Fn) -> bool {
     for stmt in &function.stmts {
         match &stmt.kind {
             StmtKind::Let { value, .. } | StmtKind::Do { value } => {
+                ast::walk_expr(value, &mut visit);
+            }
+            StmtKind::Guard { cond, value } => {
+                ast::walk_expr(cond, &mut visit);
                 ast::walk_expr(value, &mut visit);
             }
         }

@@ -101,6 +101,7 @@ Body lines, each starting with one space, in this canonical order:
 3. Statements, any number:
    - `let NAME EXPR` — immutable binding. Shadowing is an error (T005).
    - `do EXPR` — evaluate for effect; EXPR must have type `unit`.
+   - `if EXPR EXPR` — guard (ADR-0044): if the first EXPR is true the function returns the second EXPR (type = the function's result type), else continues. Allowed only on a non-last body line.
 4. Result: exactly one final line `EXPR`, the value of the function.
 
 `main` has no parameters and returns `unit` or `res unit str`. If it returns `err e`, Tlön prints `e` to stderr and exits with code 1.

@@ -107,6 +107,12 @@ pub(crate) fn print_fn(function: &ast::Fn) -> Vec<String> {
                 format!("{} {} {}", keyword("bind"), name, print_expr(value))
             }
             StmtKind::Do { value } => format!("{} {}", keyword("effect"), print_expr(value)),
+            StmtKind::Guard { cond, value } => format!(
+                "{} {} {}",
+                keyword("cond"),
+                print_expr(cond),
+                print_expr(value)
+            ),
         };
         lines.push(line);
     }
@@ -304,6 +310,7 @@ mod tests {
             "fn add a:i64 b:i64 -> i64\n + a b\nfn f -> i64\n @add\n",
             "fn add a:i64 b:i64 -> i64\n doc \"sum\"\n ex add 2 3 = 5\n let s + a b\n s\n",
             "fn main -> unit\n do print \"hi\"\n nil\n",
+            "fn f b:bool -> i64\n if b 1\n 2\n",
             "use fs.read \"data\"\ntype point x:f64 y:f64\nfn main -> unit\n nil\n",
             "type shape | circle r:f64 | rect w:f64 h:f64 | dot\nfn area s:shape -> f64\n match s circle r * r r rect w h * w h dot 0.0\n",
             "type t | a x:list t | b\nfn f v:t -> i64\n + 1 match v a xs len xs b 0\n",

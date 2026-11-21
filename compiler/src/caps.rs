@@ -104,6 +104,14 @@ pub fn check_caps(file: &str, ast: &ast::File) -> Vec<Diagnostic> {
                         check_call(file, ast, expr, &mut diagnostics)
                     });
                 }
+                StmtKind::Guard { cond, value } => {
+                    ast::walk_expr(cond, &mut |expr| {
+                        check_call(file, ast, expr, &mut diagnostics)
+                    });
+                    ast::walk_expr(value, &mut |expr| {
+                        check_call(file, ast, expr, &mut diagnostics)
+                    });
+                }
             }
         }
         ast::walk_expr(&function.result, &mut |expr| {

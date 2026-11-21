@@ -1,0 +1,1 @@
+{"code":"P002","severity":"error","file":"tests/aph/guard_last_line.aph","line":2,"col":2,"msg":"wrong number of arguments","expected":"3","found":"2"}

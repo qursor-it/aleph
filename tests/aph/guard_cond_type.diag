@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/guard_cond_type.aph","line":2,"col":5,"node":"n6","msg":"type mismatch","expected":"bool","found":"i64"}
