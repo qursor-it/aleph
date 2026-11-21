@@ -987,3 +987,7 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - corpus json-field 1.40 -> 1.17; median without examples 0.757
 - implemented by deepseek-coder, reviewed by the agent
 - tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok
+
+## 2026-11-21T23:30 dev probe run7, freeze checklist (autonoma)
+- run7 (tasks2, isolated, after ADR-0048): 20/20, 0 errors; size 544 (reference 553; run2 702), 20 functions (run2 31); `okor` used 5 times as intended
+- FREEZE.md: ADR-0044..0048, T-065..T-072 listed; llms.txt 8433/8440; state 22 Nov: 414 tests, HumanEval validate 0 errors, verify_whatif A 60/61 B 61/61 C 61/61 (unchanged)

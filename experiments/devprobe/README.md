@@ -18,7 +18,7 @@ hidden test of EXP-002 or HumanEval was read, nothing is written in
 python3 probe.py prompt          # the task text given to the model
 python3 probe.py reference.md    # the agent's reference answers: 20/20
 python3 probe.py run1.md         # a recorded model run
-python3 probe.py --tasks tasks2.txt run2.md   # second task set (also run3.md, run5.md)
+python3 probe.py --tasks tasks2.txt run2.md   # second task set (also run3.md, run5.md, run7.md)
 python3 probe.py --tasks tasks3.txt run6.md   # third task set (reference3.md: 20/20)
 ```
 
@@ -34,6 +34,7 @@ python3 probe.py --tasks tasks3.txt run6.md   # third task set (reference3.md: 2
 | run4 (tasks1) | 2026-11-21 | same | T-069 (`push` note) | 20/20 | 20/20 | 0.00 |
 | run5 (tasks2) | 2026-11-21 | same, isolated workspace | T-069 | 18/20 | 18/20 | 0.10 |
 | run6 (tasks3) | 2026-11-22 | same, isolated workspace | after ADR-0047 | 19/20 | 19/20 | 0.05 |
+| run7 (tasks2) | 2026-11-22 | same, isolated workspace | after ADR-0048 | 20/20 | 20/20 | 0.00 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -78,6 +79,11 @@ run6 (tasks3: trees, records, dates, statistics, IPv4, Pascal): only
 `match` takes sum types only). Size 823 vs the reference's 646, same number
 of functions (22 vs 22). One occurrence of `match` on `res`/`opt` in 120
 answers so far: noted, not acted on.
+
+run7 (tasks2 again, after `okor`): all pass; `okor` used 5 times as
+intended (`try okor jparse text "bad"`, `mapr lam t okor int t t`). Size on
+tasks2 across runs: run2 702, run3 677, run5 594, run7 544 (reference 553);
+functions 31, 27, 21, 20.
 
 Limits: one model, one sample per task, tasks chosen by the same agent that
 changes the language; a run shows where models stumble, not how often.
