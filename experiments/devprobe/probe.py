@@ -4,13 +4,17 @@ ALEPH = os.environ.get("ALEPH", os.path.join(os.path.dirname(os.path.abspath(__f
 HERE = os.path.dirname(os.path.abspath(__file__))
 TMP = tempfile.mkdtemp(prefix="devprobe-")
 
+TASKS = os.path.join(HERE, "tasks.txt")
+
+
 def tasks():
     out = []
-    for line in open(os.path.join(HERE, "tasks.txt")):
+    for line in open(TASKS):
         if line.startswith("#") or not line.strip():
             continue
-        name, stmt, header, vis, hid = line.rstrip("\n").split("|")
-        out.append(dict(name=name, stmt=stmt, header=header,
+        f = line.rstrip("\n").split("|")
+        name, stmt, header, vis, hid = f[0], f[1], "|".join(f[2:-2]), f[-2], f[-1]
+        out.append(dict(name=name, stmt=stmt, header=header.replace("\\n", "\n"),
                         vis=vis.split(";"), hid=hid.split(";")))
     return out
 
@@ -36,7 +40,7 @@ def check(code, path):
 
 def inject(code, t):
     lines = code.split("\n")
-    head = t["header"].split(" ->")[0]
+    head = t["header"].split("\n")[-1].split(" ->")[0]
     for i, l in enumerate(lines):
         if l.startswith(head + " ") or l.startswith(head + "->") or l == head:
             return "\n".join(lines[:i+1] + [" ex " + e for e in t["hid"]] + lines[i+1:])
@@ -67,9 +71,13 @@ def main(answer_file):
     print(f"clean {clean}/{n}  hidden-pass {passed}/{n}  errors {errs} ({errs/n:.2f}/problem)  {dict(codes)}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        sys.exit("usage: probe.py prompt | probe.py ANSWERS.md")
-    if sys.argv[1] == "prompt":
+    args = sys.argv[1:]
+    if len(args) == 3 and args[0] == "--tasks":
+        TASKS = os.path.abspath(args[1])
+        args = args[2:]
+    if len(args) != 1:
+        sys.exit("usage: probe.py [--tasks FILE] prompt | ANSWERS.md")
+    if args[0] == "prompt":
         print(prompt())
     else:
-        main(sys.argv[1])
+        main(args[0])

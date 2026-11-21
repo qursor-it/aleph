@@ -946,3 +946,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - implemented by deepseek-coder, reviewed by the agent
 - dev probe run1 rechecked: rotate now passes; mean/median now fail because they define their own `tof` (now reserved)
 - tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok
+
+## 2026-11-21T22:12 dev probe run2 (autonoma)
+- tasks2.txt (20 new tasks: dicts, records, sum types, opt/res, json, parsing), reference2.md 20/20, run2 (deepseek-v4.1-flash, llms.txt only): 19/20, 0.10 errors/problem; failure sumints (fold with a res accumulator)
+- the model's answers are 1.2-1.45x the reference size and have ~2x the functions: index-walking recursive helpers instead of `filter lam`/`map lam`
+- next: T-068 an idiomatic example in llms.txt (replacing the eprint example), then rerun tasks2 (run3) and compare size and helpers
