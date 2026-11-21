@@ -1190,6 +1190,13 @@ impl<'a> Interp<'a> {
                     args[0].clone()
                 }
             }
+            "okor" => match &args[0] {
+                Value::Opt(Some(value)) | Value::Res(Ok(value)) => {
+                    result_ok(value.as_ref().clone())
+                }
+                Value::Opt(None) | Value::Res(Err(_)) => Value::Res(Err(Rc::new(args[1].clone()))),
+                _ => panic!("type checker guarantees opt or res for okor"),
+            },
             "ord" => Value::Opt(
                 as_str(&args[0])
                     .chars()

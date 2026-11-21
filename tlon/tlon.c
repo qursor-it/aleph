@@ -1981,6 +1981,22 @@ AlValue aleph_b_cat(AlValue left, AlValue right) {
     return value;
 }
 
+/* ADR-0048: `some v`/`ok v` -> ok v; `none`/`err _` -> err e. */
+AlValue aleph_b_okor(AlValue x, AlValue e) {
+    switch (x.tag) {
+    case AL_SOME:
+    case AL_OK:
+        return aleph_ok(x.u.box->value);
+    case AL_NONE:
+    case AL_ERR:
+        return aleph_err(e);
+    default:
+        /* The checker guarantees an opt or res. */
+        abort();
+    }
+    return e;
+}
+
 /* ADR-0045: list concatenation, elements of `left` then `right`. */
 AlValue aleph_b_catl(AlValue left, AlValue right) {
     size_t left_len = left.u.list->len;

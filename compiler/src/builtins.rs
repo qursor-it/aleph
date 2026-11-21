@@ -106,6 +106,7 @@ static FILTER_FN: Ty = Ty::Fn(&[&A], &BOOL);
 static FOLD_FN: Ty = Ty::Fn(&[&B, &A], &B);
 static MAP2_FN: Ty = Ty::Fn(&[&A, &B], &T);
 static RES_B_T: Ty = Ty::Res(&B, &T);
+static RES_T_T: Ty = Ty::Res(&T, &T);
 static MAPR_FN: Ty = Ty::Fn(&[&A], &RES_B_T);
 static RES_LIST_B_T: Ty = Ty::Res(&LIST_B, &T);
 static SORTBY_FN: Ty = Ty::Fn(&[&A], &T);
@@ -458,6 +459,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "okor",
+        params: &[&T, &T],
+        ret: &RES_T_T,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "ord",
         params: &[&STR],
         ret: &OPT_I64,
@@ -759,6 +769,8 @@ mod tests {
             ("tof", 1),
             // ADR-0047
             ("fields", 1),
+            // ADR-0048
+            ("okor", 2),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {

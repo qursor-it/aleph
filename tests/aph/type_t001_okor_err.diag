@@ -1,0 +1,1 @@
+{"code":"T001","severity":"error","file":"tests/aph/type_t001_okor_err.aph","line":3,"col":14,"node":"n12","msg":"type mismatch","expected":"str","found":"i64","fix":{"op":"replace","node":"n12","with":"show 5"}}

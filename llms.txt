@@ -12,7 +12,7 @@ Col 0 = item; one space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9]
 Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful), `let`/`do`/`if c E` (return E if c)*, one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).
 
 ## 4. Types
-`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
+`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Signatures explicit, `let` inferred; no subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
 
 ## 5. Expressions
 No parens; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010; `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder map/filter/mapr/sortby, 2 fold/map2; no `try`): fn value, only higher-order arg.
@@ -56,6 +56,7 @@ mapr (A->res B T),list A->res list B T
 max T,T->T (T i64 or f64)
 min T,T->T (T i64 or f64)
 now ()->i64 ! time
+okor opt T|res T U,E->res T E
 ord str->opt i64
 print str->unit !
 push list T,T->list T (at end)

@@ -289,6 +289,18 @@ static void test_builtins(void) {
     check_i64(aleph_b_sum(aleph_list_new(0)), 0, "sum empty");
 
     check_str(aleph_b_cat(strv("ab"), strv("cd")), "abcd", "cat");
+    check_show(aleph_b_okor(aleph_some(i64v(3)), strv("bad")), "ok 3",
+               "okor some");
+    check_show(aleph_b_okor(aleph_none(), strv("bad")), "err \"bad\"",
+               "okor none");
+    check_show(aleph_b_okor(aleph_ok(i64v(3)), strv("bad")), "ok 3",
+               "okor ok");
+    check_show(aleph_b_okor(aleph_err(strv("old")), strv("bad")),
+               "err \"bad\"", "okor err replaces the message");
+    check_show(aleph_b_okor(aleph_err(strv("old")), i64v(7)), "err 7",
+               "okor i64 error");
+    check_show(aleph_b_okor(aleph_ok(list2(i64v(1), i64v(2))), strv("bad")),
+               "ok [1 2]", "okor list payload");
     check_show(aleph_b_catl(list2(i64v(1), i64v(2)), list2(i64v(3), i64v(4))),
                "[1 2 3 4]", "catl");
     check_show(aleph_b_catl(aleph_list_new(0), list2(i64v(1), i64v(2))),

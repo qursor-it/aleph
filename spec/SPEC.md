@@ -203,6 +203,7 @@ Pure:
 | `mapr @f xs` | (A -> res B E), list A -> res (list B) E (first `err`; later elements not visited) (ADR-0042) |
 | `repeat s n` | str, i64 -> str (`s` repeated `n` times; `""` when `n <= 0`; R005 above 100,000,000 bytes) (ADR-0042) |
 | `index xs x` | list A, A -> opt i64 (A primitive; first position of `x`, `none` if absent) (ADR-0042) |
+| `okor x e` | opt T or res T U, E -> res T E (`some v`/`ok v` -> `ok v`, else `err e`) |
 
 Effectful:
 

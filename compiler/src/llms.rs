@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x0d5a312622e02d0c,
+        hash: 0x5d376eee47b97714,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -142,7 +142,7 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Signatures explicit, `let` inferred; no conversions/subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Signatures explicit, `let` inferred; no subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
         ),
     );
     section(
@@ -234,6 +234,15 @@ fn builtins_table() -> String {
 }
 
 fn signature(spec: &builtins::BuiltinSpec) -> String {
+    // ADR-0048: `okor` accepts either an `opt T` or a `res T U`; the builtin
+    // type table cannot spell that union.
+    if spec.name == "okor" {
+        let mut text = "opt T|res T U,E->res T E".to_string();
+        if let Some((_, note)) = NOTES.iter().find(|(name, _)| *name == spec.name) {
+            write!(text, " ({note})").expect("writing to a String never fails");
+        }
+        return text;
+    }
     let params = spec
         .params
         .iter()

@@ -541,6 +541,8 @@ AlValue aleph_b_index(AlValue xs, AlValue x);
 AlValue aleph_b_cat(AlValue left, AlValue right);
 /* ADR-0045 */
 AlValue aleph_b_catl(AlValue left, AlValue right);
+/* ADR-0048 */
+AlValue aleph_b_okor(AlValue x, AlValue e);
 AlValue aleph_b_count(AlValue text);
 AlValue aleph_b_split(AlValue text, AlValue separator);
 /* ADR-0047 */

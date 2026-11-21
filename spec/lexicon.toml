@@ -71,4 +71,4 @@ names = ["len","at","push","slice","rev","repeat","sort","sortby","range","sum",
          "args","print","env","eprint","fetch","read","write",
          "put","get","index","del","keys","vals","size",
          "json","jparse","jbool","jint","jnum","jstr","jlist","jdict",
-         "abs","min","max","now","starts","ends","uniq","map2","mapr","ord","chr","sqrt","tof"]
+         "abs","min","max","now","starts","ends","uniq","map2","mapr","ord","chr","sqrt","tof","okor"]

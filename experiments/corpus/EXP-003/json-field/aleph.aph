@@ -2,13 +2,10 @@ use fs.read "input.json"
 fn field j:json key:str -> res str str
  ex field json put dict str json "a" json "x" "a" = ok "x"
  ex field json put dict str json "a" json "x" "b" = err "missing"
- let d else jdict j dict str json
- let v else get d key json nil
- if has jstr v ok else jstr v "" err "missing"
+ okor jstr else get else jdict j dict str json key json nil "missing"
 fn main -> res unit str
  let text try read "input.json"
  let j try jparse text
- let key else at args 0 ""
- let value try field j key
+ let value try field j else at args 0 ""
  do print value
  ok nil

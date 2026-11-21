@@ -1,0 +1,3 @@
+fn bad -> res i64 str
+ ex bad = err "x"
+ okor some 1 5

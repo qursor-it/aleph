@@ -980,3 +980,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 ## 2026-11-21T23:10 review and dev probe run6 (autonoma)
 - independent review (Claude sub-agent, read-only) of eaa985d, f8e3d28, ecf5ff3: no confirmed defects; interpreter and native byte-identical on guards with try/regions/deep recursion (R004 boundaries agree), traps in guards, `cat` on nested/empty lists and `@cat`, `tof` extremes, `fields` on all ASCII whitespace and non-ASCII; minor: `show cat [] "a"` gives three diagnostics, a failed guard parse reports from the 3-argument `if` re-parse
 - tasks3 (20 new tasks), reference3 20/20, run6 (isolated workspace): 19/20, 0.05 errors/problem; the failure uses `match` on a `res` (1 of 120 answers so far)
+
+## 2026-11-21T23:25 T-072 done (autonoma)
+- builtin `okor x e` (ADR-0048): opt T / res T U with error E -> res T E; checker special case (check_okor: shape-based expected type, T001 "opt or res"), `@okor` rejected (T006); interpreter, Tlön aleph_b_okor + tests; goldens run_okor, type_t001_okor, type_t001_okor_err
+- llms.txt 8433/8440 (dropped "no conversions", false since tof)
+- corpus json-field 1.40 -> 1.17; median without examples 0.757
+- implemented by deepseek-coder, reviewed by the agent
+- tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok

@@ -1,0 +1,55 @@
+type point x:i64 y:i64
+fn find xs:list i64 i:i64 -> opt i64
+ ex find [10 20] 1 = some 20
+ at xs i
+fn keep n:i64 -> res i64 str
+ ex keep 3 = ok 3
+ okor ok n "bad"
+fn name v:json -> res str str
+ ex name json "a" = ok "a"
+ let text try okor jstr v "bad"
+ ok text
+fn parse s:str -> res i64 str
+ ex parse "12" = ok 12
+ let n try okor int s "bad"
+ ok n
+fn part s:str -> res i64 i64
+ ex part "12" = ok 12
+ let n try okor int s 7
+ ok n
+fn pointor p:opt point -> res point str
+ ex isok pointor some point 1 2 = true
+ okor p "no point"
+fn replace s:str -> res i64 str
+ ex replace "x" = err "bad"
+ okor err s "bad"
+fn main -> unit
+ let found find [10 20] 1
+ let missing find [10 20] 5
+ do print show isok okor found "missing"
+ do print show else okor found "missing" 0
+ do print show isok okor missing "missing"
+ do print show else okor missing "missing" 0
+ do print show isok keep 3
+ do print show else keep 3 0
+ do print show isok replace "x"
+ do print show else replace "x" 0
+ do print show isok parse "12"
+ do print show else parse "12" 0
+ do print show isok parse "x"
+ do print show else parse "x" 0
+ do print show isok part "12"
+ do print show else part "12" 0
+ do print show isok part "x"
+ do print show else part "x" 0
+ do print show isok name json "b"
+ do print show else name json "b" ""
+ do print show isok name json 7
+ do print show else name json 7 ""
+ let p point 1 2
+ do print show .x else okor some p "no point" point 0 0
+ do print show isok okor none point "no point"
+ let xs [1 2]
+ do print show else okor some xs "none" empty i64
+ do print show else okor none list i64 "none" empty i64
+ nil

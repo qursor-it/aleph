@@ -654,7 +654,7 @@ impl<'a> TypeChecker<'a> {
             return Type::Fn(params, Box::new(self.ctor_type(name)));
         }
         if let Some(spec) = builtins::lookup(name) {
-            if spec.effect == Effect::Effectful {
+            if name == "okor" || spec.effect == Effect::Effectful {
                 self.push_diag(
                     expr.id,
                     expr.span,
@@ -709,6 +709,9 @@ impl<'a> TypeChecker<'a> {
                 let Some(spec) = builtins::lookup(callee) else {
                     return Type::Error;
                 };
+                if callee == "okor" {
+                    return self.check_okor(args, expected);
+                }
                 let mut slots = [self.fresh(), self.fresh(), self.fresh()];
                 let params: Vec<Type> = spec
                     .params
@@ -1326,6 +1329,55 @@ impl<'a> TypeChecker<'a> {
                 }
             }
         }
+    }
+
+    /// `okor x e` (ADR-0048): `x` is an `opt T` or a `res T U`; the result is
+    /// `res T E`, where `E` comes from the expected result type when there is
+    /// one, else from `e`. The original error, if any, is dropped.
+    fn check_okor(&mut self, args: &[Expr], expected: Option<&Type>) -> Type {
+        let expected_res = expected.and_then(|ty| match self.resolve(ty) {
+            Type::Res(ok, err) => Some((*ok, *err)),
+            _ => None,
+        });
+        let value = &args[0];
+        let default = &args[1];
+        let value_expected = match (&expected_res, value_shape(value)) {
+            (Some((ok, _)), ValueShape::Opt) => Some(Type::Opt(Box::new(ok.clone()))),
+            (Some((ok, _)), ValueShape::Res) => {
+                Some(Type::Res(Box::new(ok.clone()), Box::new(self.fresh())))
+            }
+            _ => None,
+        };
+        let value_ty = self.check_expr(value, value_expected.as_ref());
+        let value_ty = self.resolve(&value_ty);
+        if contains_error(&value_ty) {
+            self.check_expr(default, expected_res.as_ref().map(|(_, err)| err));
+            return Type::Error;
+        }
+        let ok = match value_ty {
+            Type::Opt(inner) => *inner,
+            Type::Res(inner, _) => *inner,
+            other => {
+                let found = other.to_string();
+                self.push_diag_expected_found(
+                    value.id,
+                    value.span,
+                    "T001",
+                    "type mismatch",
+                    "opt or res",
+                    found,
+                );
+                self.check_expr(default, expected_res.as_ref().map(|(_, err)| err));
+                return Type::Error;
+            }
+        };
+        let error_expected = expected_res.as_ref().map(|(_, err)| err);
+        let error_ty = self.check_expr(default, error_expected);
+        let error_ty = self.resolve(&error_ty);
+        if contains_error(&error_ty) {
+            return Type::Error;
+        }
+        Type::Res(Box::new(ok), Box::new(error_ty))
     }
 
     fn check_has(&mut self, value: &Expr) -> Type {
