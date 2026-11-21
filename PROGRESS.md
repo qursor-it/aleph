@@ -931,3 +931,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean
 - decisions: ADR-0044 proposed
 - next: dev probe (experiments/devprobe) points to `cat` on lists (ADR-0045) and `tof` (ADR-0046)
+
+## 2026-11-21T21:55 dev probe run1 (autonoma)
+- experiments/devprobe/: 20 agent-written function tasks with hidden examples, a checker (probe.py), the agent's reference answers (20/20) and run1: deepseek-v4.1-flash via opencode, reading only llms.txt, after ADR-0044: 16/20 clean and passing, 0.30 errors/problem
+- not an experiment: no EXP suite task, no hidden test read, nothing in experiments/results; model use through opencode allowed by the owner on 21 Nov ("budget infinito opencode")
+- failures: rotate (`cat` on lists), merge (reversed via push), rle (wrong own example), caesar (two-argument `if` as result); helper `tof` written twice
+- decisions: ADR-0045 (`cat` on lists), ADR-0046 (`tof`) proposed; tasks T-066, T-067
