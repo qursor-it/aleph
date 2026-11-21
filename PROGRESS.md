@@ -976,3 +976,7 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - corpus: text-top-words 1.50 -> 1.32, wordcount 0.86 -> 0.40; median without examples 0.779 -> 0.757 (ci95 0.688-0.963)
 - implemented by deepseek-coder, reviewed by the agent; HumanEval validate 156 problems, 0 errors
 - tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok
+
+## 2026-11-21T23:10 review and dev probe run6 (autonoma)
+- independent review (Claude sub-agent, read-only) of eaa985d, f8e3d28, ecf5ff3: no confirmed defects; interpreter and native byte-identical on guards with try/regions/deep recursion (R004 boundaries agree), traps in guards, `cat` on nested/empty lists and `@cat`, `tof` extremes, `fields` on all ASCII whitespace and non-ASCII; minor: `show cat [] "a"` gives three diagnostics, a failed guard parse reports from the 3-argument `if` re-parse
+- tasks3 (20 new tasks), reference3 20/20, run6 (isolated workspace): 19/20, 0.05 errors/problem; the failure uses `match` on a `res` (1 of 120 answers so far)
