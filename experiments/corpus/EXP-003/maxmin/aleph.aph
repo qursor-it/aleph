@@ -1,10 +1,5 @@
-fn emit text:str -> res unit str
- ex emit "x" = ok nil
- do print text
- ok nil
-fn report xs:list i64 -> str
- ex report [1 2 3] = "max 3 min 1"
- cat cat "max " show fold @max else at xs 0 0 xs cat " min " show fold @min else at xs 0 0 xs
 fn main -> res unit str
  let xs try mapr @int args
- if == 0 len xs err "no numbers" emit report xs
+ if == 0 len xs err "no numbers"
+ do print join ["max" show fold @max else at xs 0 0 xs "min" show fold @min else at xs 0 0 xs] " "
+ ok nil

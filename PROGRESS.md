@@ -963,3 +963,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - dev probe run4 (tasks1): 20/20 (run1 16/20); run5 (tasks2, isolated workspace .agent-tmp/probe-ws with only llms.txt): 18/20, size 594 vs 702/677, 21 functions vs 31/27; `chunks` still reversed with `push REC x`: the note does not fix the habit (kept: 9 chars, true)
 - a first run5 written next to reference2.md was set aside as possibly contaminated (8 near copies); the isolated rerun is also close to the reference (similarity 0.78), so the copying cannot be proven; probes now always run isolated
 - tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean
+
+## 2026-11-21T22:41 T-070 done (autonoma)
+- corpus EXP-003 Aleph versions rewritten with guards and `cat` on lists: points 1.667->0.976 (also the bench_points golden, same output), maxmin 1.094->0.750, gcd 1.356->1.169, text-top-words 2.147->1.500, files-copy-prefix shorter; corpus verify passes
+- corpus median Aleph/Python without examples (chars4): 0.829 -> 0.779 (ci95 0.706-0.963); with examples 1.020
+- remaining long: text-top-words 1.50 (Python `split()` on whitespace and Counter), data-csv-column-sum 1.46, json-field 1.40; candidate builtin `words` (split on whitespace, drop empties) needs llms.txt budget (6 chars left): a person's decision or more trimming
+- tests: 414 passed (ALEPH_REQUIRE_CC=1)

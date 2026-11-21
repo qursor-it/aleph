@@ -2,8 +2,7 @@ use fs.read "in.txt"
 use fs.write "out.txt"
 fn collect prefix:str text:str -> str
  ex collect "a" "ab\nx\n" = "ab\n"
- let kept filter lam line and > count line 0 starts line prefix split text "\n"
- if == 0 len kept "" cat join kept "\n" "\n"
+ join map lam line cat line "\n" filter lam line and > count line 0 starts line prefix split text "\n" ""
 fn main -> res unit str
  let text try read "in.txt"
  let prefix else at args 0 ""

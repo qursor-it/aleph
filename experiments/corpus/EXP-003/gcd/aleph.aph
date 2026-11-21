@@ -5,12 +5,9 @@ fn gcd a:i64 b:i64 -> i64
 fn lcm a:i64 b:i64 -> i64
  ex lcm 4 6 = 12
  ex lcm 5 0 = 0
- if == a 0 0 if == b 0 0 / * a b gcd a b
-fn report a:i64 b:i64 -> str
- ex report 4 6 = "gcd 2 lcm 12"
- cat cat "gcd " show gcd a b cat " lcm " show lcm a b
+ if or == a 0 == b 0 0 / * a b gcd a b
 fn main -> res unit str
  let a try int else at args 0 ""
  let b try int else at args 1 ""
- do print report a b
+ do print join ["gcd" show gcd a b "lcm" show lcm a b] " "
  ok nil
