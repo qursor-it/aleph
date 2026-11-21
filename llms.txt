@@ -57,7 +57,7 @@ min T,T->T (T i64 or f64)
 now ()->i64 ! time
 ord str->opt i64
 print str->unit !
-push list T,T->list T
+push list T,T->list T (at end)
 put dict A B,A,B->dict A B
 range i64,i64->list i64
 read str->res str str ! fs.read

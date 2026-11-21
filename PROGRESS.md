@@ -957,3 +957,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - dev probe run3 (tasks2, same model): 17/20 pass (run2 19/20), size -4%, functions 27 vs 31: inconclusive at one sample per task; new failures are recursion with `push REC x` (reversed lists, third time across runs) and a propagated jparse error
 - tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean
 - next: the reversed-push pattern (3 of 60 answers) is the most repeated model error left
+
+## 2026-11-21T22:36 T-069 done (autonoma)
+- llms.rs: NOTES table for behaviour a signature cannot show; `push list T,T->list T (at end)`; llms.txt 8434/8440
+- dev probe run4 (tasks1): 20/20 (run1 16/20); run5 (tasks2, isolated workspace .agent-tmp/probe-ws with only llms.txt): 18/20, size 594 vs 702/677, 21 functions vs 31/27; `chunks` still reversed with `push REC x`: the note does not fix the habit (kept: 9 chars, true)
+- a first run5 written next to reference2.md was set aside as possibly contaminated (8 near copies); the isolated rerun is also close to the reference (similarity 0.78), so the copying cannot be proven; probes now always run isolated
+- tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean

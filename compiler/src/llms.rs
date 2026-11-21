@@ -255,8 +255,15 @@ fn signature(spec: &builtins::BuiltinSpec) -> String {
             .join("; ");
         write!(text, " ({bounds})").expect("writing to a String never fails");
     }
+    if let Some((_, note)) = NOTES.iter().find(|(name, _)| *name == spec.name) {
+        write!(text, " ({note})").expect("writing to a String never fails");
+    }
     text
 }
+
+/// Behaviour a signature cannot show and models get wrong: dev probe runs
+/// built lists reversed with `push REC x`, reading it as a prepend.
+const NOTES: &[(&str, &str)] = &[("push", "at end")];
 
 fn bound_text(var: TyVar, bound: Bound) -> String {
     let restriction = match bound {

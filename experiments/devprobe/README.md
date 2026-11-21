@@ -30,6 +30,8 @@ python3 probe.py --tasks tasks2.txt run2.md   # second task set (also run3.md)
 | run1 | 2026-11-21 | deepseek-v4.1-flash (opencode, researcher, no tools but read) | after ADR-0044 | 16/20 | 16/20 | 0.30 |
 | run2 (tasks2) | 2026-11-21 | same | after ADR-0046 | 19/20 | 19/20 | 0.10 |
 | run3 (tasks2) | 2026-11-21 | same | T-068 (idioms example in llms.txt) | 18/20 | 17/20 | 0.15 |
+| run4 (tasks1) | 2026-11-21 | same | T-069 (`push` note) | 20/20 | 20/20 | 0.00 |
+| run5 (tasks2) | 2026-11-21 | same, isolated workspace | T-069 | 18/20 | 18/20 | 0.10 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -53,6 +55,21 @@ and `cumsum` (recursion `push REC x` builds the list reversed, as `merge` in
 run1) and `jname` (passes `jparse`'s own error instead of "bad"). The
 change in size is within what one sample per task can show: inconclusive,
 kept because the replaced example taught nothing the tasks used.
+
+run4/run5 (llms.txt with `push ... (at end)`): run4 passes all of tasks1
+(run1: 16/20, older compiler); run5 fails `chunks` (still `push REC x`,
+reversed: the note did not stop it) and `sumints` (`try int` passes
+"invalid int" instead of the token). Size run5 594 (run2 702, run3 677),
+21 functions (31, 27).
+
+Contamination: the first run5 was written by a session allowed to edit
+`experiments/devprobe/`, next to `reference2.md`; 8 of its answers were near
+copies of the reference (`chunks` character for character). It was set
+aside and rerun from `.agent-tmp/probe-ws/`, a folder holding only
+`llms.txt`. The rerun is also close to the reference (mean similarity 0.78,
+8 answers >= 0.95; run1-run3 0.52-0.70), so short tasks with one obvious
+idiomatic answer converge and similarity alone cannot prove copying. From
+run5 on, probes run in the isolated folder.
 
 Limits: one model, one sample per task, tasks chosen by the same agent that
 changes the language; a run shows where models stumble, not how often.
