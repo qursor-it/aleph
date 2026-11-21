@@ -1,0 +1,18 @@
+fn countdown n:i64 -> list i64
+ ex countdown 3 = [3 2 1]
+ if == n 0 [] cat [n] countdown - n 1
+fn rotate xs:list i64 n:i64 -> list i64
+ ex rotate [1 2 3 4] 1 = [2 3 4 1]
+ cat slice xs n len xs slice xs 0 n
+fn main -> unit
+ do print show cat "ab" "cd"
+ do print show cat [1 2] [3 4]
+ do print show cat [] [1 2]
+ do print show cat [1 2] []
+ do print show cat empty i64 empty i64
+ do print show len cat [[1] [2]] [[3]]
+ do print show else at cat [[1] [2]] [[3]] 2 empty i64
+ do print show rotate [1 2 3 4] 1
+ do print show rotate [1 2 3 4] 2
+ do print show countdown 3
+ nil

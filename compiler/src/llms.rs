@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x2077f0d7655fac2e,
+        hash: 0xd433f8ec12c1f72d,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -173,11 +173,7 @@ pub fn render() -> String {
         "`llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
     );
 
-    section(
-        &mut out,
-        "## Examples",
-        "Check-clean, verbatim from `tests/aph/`:",
-    );
+    section(&mut out, "## Examples", "All check-clean:");
     for example in EXAMPLES {
         out.push_str("\n```\n");
         out.push_str(example);
@@ -272,6 +268,7 @@ fn bound_text(var: TyVar, bound: Bound) -> String {
         Bound::Key => "i64/bool/str",
         Bound::SortKey => "i64/f64/str; stable",
         Bound::Numeric => "i64 or f64",
+        Bound::StrOrList => "str or list",
     };
     format!("{var:?} {restriction}")
 }

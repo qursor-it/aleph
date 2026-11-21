@@ -179,7 +179,7 @@ Pure:
 | `map @f xs` | (A -> B), list A -> list B |
 | `filter @f xs` | (A -> bool), list A -> list A |
 | `fold @f init xs` | (B, A -> B), B, list A -> B |
-| `cat a b` | str, str -> str |
+| `cat a b` | T, T -> T (T `str` or `list U`; elements of `a` then `b`) (ADR-0045) |
 | `count s` | str -> i64 (bytes) |
 | `split s sep` | str, str -> list str |
 | `join xs sep` | list str, str -> str |
@@ -189,6 +189,7 @@ Pure:
 | `show x` | primitive, list of primitives or `json` -> str |
 | `int s` | str -> res i64 str |
 | `float s` | str -> res f64 str |
+| `tof n` | i64 -> f64 (nearest double, exact up to 2^53; ADR-0046) |
 | `args` | -> list str (command line arguments; always allowed) |
 | `abs x` | T -> T (T `i64` or `f64`; `i64` minimum traps R001) (ADR-0036) |
 | `sqrt x` | f64 -> f64 (IEEE 754 square root; NaN for negative or NaN input, `-0.0` for `-0.0`; ADR-0043) |

@@ -422,7 +422,14 @@ impl<'a> Generator<'a> {
                 }
             }
             RefKind::Builtin => {
-                self.line(1, &format!("aleph_ret_ = aleph_b_{name}({call_args});"));
+                let call = if name == "cat" {
+                    format!(
+                        "aleph_args[0].tag == AL_LIST ? aleph_b_catl({call_args}) : aleph_b_cat({call_args})"
+                    )
+                } else {
+                    format!("aleph_b_{name}({call_args})")
+                };
+                self.line(1, &format!("aleph_ret_ = {call};"));
             }
         }
         self.line(1, "return aleph_ret_;");
@@ -654,10 +661,11 @@ impl<'a> Generator<'a> {
                         }
                     }
                     CalleeKind::Builtin => {
+                        let runtime = self.builtin_c_name(callee, expr);
                         self.assign(
                             indent,
                             id,
-                            &format!("aleph_b_{}({})", callee, arg_list(args)),
+                            &format!("aleph_b_{}({})", runtime, arg_list(args)),
                         );
                     }
                 }
@@ -1281,6 +1289,16 @@ impl Generator<'_> {
         format!("t_n{}", expr.id.0)
     }
 
+    /// `cat` runs on strings or lists; the checked result type picks the
+    /// runtime function (ADR-0045).
+    fn builtin_c_name(&self, callee: &str, call: &Expr) -> String {
+        if callee == "cat" && matches!(self.checked.expr_types.get(&call.id), Some(Type::List(_))) {
+            "catl".to_string()
+        } else {
+            callee.to_string()
+        }
+    }
+
     fn boxed_temp(&self, expr: &Expr) -> String {
         self.repr(expr).boxed(&Self::temp(expr))
     }
@@ -1371,7 +1389,8 @@ impl Generator<'_> {
                             .map(|arg| self.boxed_temp(arg))
                             .collect::<Vec<_>>()
                             .join(", ");
-                        let call = repr.unbox(&format!("aleph_b_{callee}({call_args})"));
+                        let runtime = self.builtin_c_name(callee, expr);
+                        let call = repr.unbox(&format!("aleph_b_{runtime}({call_args})"));
                         self.line(indent, &format!("aleph_here(&L_n{id});"));
                         if calls_back(callee) {
                             let frames = depth + 1;

@@ -990,11 +990,20 @@ impl<'a> Interp<'a> {
                 }
                 accumulator
             }
-            "cat" => {
-                let mut text = as_str(&args[0]).to_string();
-                text.push_str(as_str(&args[1]));
-                Value::Str(Rc::from(text.as_str()))
-            }
+            "cat" => match &args[0] {
+                Value::List(left) => {
+                    let right = as_list(&args[1]);
+                    let mut values = Vec::with_capacity(left.len() + right.len());
+                    values.extend(left.iter().cloned());
+                    values.extend(right.iter().cloned());
+                    Value::List(Rc::new(values))
+                }
+                _ => {
+                    let mut text = as_str(&args[0]).to_string();
+                    text.push_str(as_str(&args[1]));
+                    Value::Str(Rc::from(text.as_str()))
+                }
+            },
             "count" => Value::I64(as_str(&args[0]).len() as i64),
             "split" => {
                 let text = as_str(&args[0]);
@@ -1143,6 +1152,10 @@ impl<'a> Interp<'a> {
             "sqrt" => match &args[0] {
                 Value::F64(number) => Value::F64(number.sqrt()),
                 _ => panic!("type checker guarantees an f64 argument"),
+            },
+            "tof" => match &args[0] {
+                Value::I64(number) => Value::F64(*number as f64),
+                _ => panic!("type checker guarantees an i64 argument"),
             },
             "min" | "max" => {
                 let take_right = match (&args[0], &args[1]) {

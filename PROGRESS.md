@@ -937,3 +937,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - not an experiment: no EXP suite task, no hidden test read, nothing in experiments/results; model use through opencode allowed by the owner on 21 Nov ("budget infinito opencode")
 - failures: rotate (`cat` on lists), merge (reversed via push), rle (wrong own example), caesar (two-argument `if` as result); helper `tof` written twice
 - decisions: ADR-0045 (`cat` on lists), ADR-0046 (`tof`) proposed; tasks T-066, T-067
+
+## 2026-11-21T22:12 T-066 T-067 done (autonoma)
+- `cat` generic over str and lists (ADR-0045): Bound::StrOrList (T001 on other types), list concat in interpreter and Tlön (`aleph_b_catl`), cgen picks the runtime function from the checked type (`@cat` wrapper dispatches on the tag); `cat [] xs` typed from the other operand
+- `tof i64->f64` (ADR-0046), reserved name, both engines
+- goldens run_cat_list, run_tof, type_t001_cat; tlon tests for catl and tof
+- llms.txt 8433/8440 chars (examples intro shortened to "All check-clean:")
+- implemented by deepseek-coder, reviewed by the agent
+- dev probe run1 rechecked: rotate now passes; mean/median now fail because they define their own `tof` (now reserved)
+- tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok

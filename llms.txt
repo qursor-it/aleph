@@ -22,7 +22,7 @@ No parens; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%`
 abs T->T (T i64 or f64)
 args ()->list str
 at list T,i64->opt T
-cat str,str->str
+cat T,T->T (T str or list)
 chr i64->opt str
 contains str,str->bool
 count str->i64
@@ -72,6 +72,7 @@ split str,str->list str
 sqrt f64->f64
 starts str,str->bool
 sum list i64->i64
+tof i64->f64
 trim str->str
 uniq list T->list T (T primitive)
 upper str->str
@@ -94,7 +95,7 @@ AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph chec
 `llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.
 
 ## Examples
-Check-clean, verbatim from `tests/aph/`:
+All check-clean:
 
 ```
 fn demo -> unit

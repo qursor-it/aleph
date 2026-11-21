@@ -1760,6 +1760,11 @@ AlValue aleph_b_sqrt(AlValue x) {
     return aleph_f64(sqrt(x.u.f64));
 }
 
+/* ADR-0046: i64 to the nearest f64, round-to-nearest-even like Rust's cast. */
+AlValue aleph_b_tof(AlValue n) {
+    return aleph_f64((double)n.u.i64);
+}
+
 /* `min a b` is b when b < a, else a; `max a b` is b when b > a, else a.
    With NaN the comparison is false, so the first argument is kept. */
 AlValue aleph_b_min(AlValue left, AlValue right) {
@@ -1974,6 +1979,26 @@ AlValue aleph_b_cat(AlValue left, AlValue right) {
     value.tag = AL_STR;
     value.u.str = string;
     return value;
+}
+
+/* ADR-0045: list concatenation, elements of `left` then `right`. */
+AlValue aleph_b_catl(AlValue left, AlValue right) {
+    size_t left_len = left.u.list->len;
+    size_t right_len = right.u.list->len;
+    AlValue result;
+    if (left_len > SIZE_MAX - right_len) {
+        out_of_memory();
+    }
+    result = aleph_list_new(left_len + right_len);
+    if (left_len > 0) {
+        memcpy(result.u.list->items, left.u.list->items,
+               left_len * sizeof(AlValue));
+    }
+    if (right_len > 0) {
+        memcpy(result.u.list->items + left_len, right.u.list->items,
+               right_len * sizeof(AlValue));
+    }
+    return result;
 }
 
 AlValue aleph_b_count(AlValue text) {

@@ -289,6 +289,18 @@ static void test_builtins(void) {
     check_i64(aleph_b_sum(aleph_list_new(0)), 0, "sum empty");
 
     check_str(aleph_b_cat(strv("ab"), strv("cd")), "abcd", "cat");
+    check_show(aleph_b_catl(list2(i64v(1), i64v(2)), list2(i64v(3), i64v(4))),
+               "[1 2 3 4]", "catl");
+    check_show(aleph_b_catl(aleph_list_new(0), list2(i64v(1), i64v(2))),
+               "[1 2]", "catl empty left");
+    check_show(aleph_b_catl(list2(i64v(1), i64v(2)), aleph_list_new(0)),
+               "[1 2]", "catl empty right");
+    check_show(aleph_b_catl(aleph_list_new(0), aleph_list_new(0)), "[]",
+               "catl empty");
+    check_show(aleph_b_catl(list2(list2(i64v(1), i64v(2)), aleph_list_new(0)),
+                            list2(list3(i64v(3), i64v(4), i64v(5)),
+                                  aleph_list_new(0))),
+               "[[1 2] [] [3 4 5] []]", "catl nested");
     check_i64(aleph_b_count(strv("abc")), 3, "count ascii");
     check_i64(aleph_b_count(strv("\xC3\xA9")), 2, "count bytes");
 
@@ -549,6 +561,10 @@ static void test_adr36(void) {
     check_show(aleph_b_sqrt(aleph_f64(2.0)), "1.4142135623730951", "sqrt 2");
     check_show(aleph_b_sqrt(aleph_f64(-0.0)), "-0.0", "sqrt negative zero");
     check_show(aleph_b_sqrt(aleph_f64(-1.0)), "NaN", "sqrt negative");
+    check_show(aleph_b_tof(i64v(0)), "0.0", "tof zero");
+    check_show(aleph_b_tof(i64v(-3)), "-3.0", "tof negative");
+    check_show(aleph_b_tof(i64v(INT64_C(9007199254740993))),
+               "9007199254740992.0", "tof rounds to nearest even");
     check_show(aleph_b_min(i64v(3), i64v(1)), "1", "min i64");
     check_show(aleph_b_max(i64v(3), i64v(1)), "3", "max i64");
     check_show(aleph_b_min(aleph_f64(1.5), aleph_f64(0.5)), "0.5", "min f64");

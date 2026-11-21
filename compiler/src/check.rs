@@ -494,14 +494,11 @@ impl<'a> TypeChecker<'a> {
             if !satisfied {
                 let expected = deferred_text(item.kind);
                 let found = ty.to_string();
-                self.push_diag_expected_found(
-                    item.id,
-                    item.span,
-                    "T004",
-                    "type constraint not satisfied",
-                    expected,
-                    found,
-                );
+                let (code, msg) = match item.kind {
+                    DeferredKind::Builtin(Bound::StrOrList) => ("T001", "type mismatch"),
+                    _ => ("T004", "type constraint not satisfied"),
+                };
+                self.push_diag_expected_found(item.id, item.span, code, msg, expected, found);
             }
         }
     }
@@ -759,7 +756,25 @@ impl<'a> TypeChecker<'a> {
                             0
                         };
                         if arg_pass == pass {
-                            self.check_expr(arg, Some(param));
+                            // `cat [] xs`: the first argument's type fixes T,
+                            // and an empty list can start as `list V` even
+                            // when the other operand is still unknown
+                            // (ADR-0041/ADR-0045).
+                            let arg_expected =
+                                if callee == "cat" && matches!(arg.kind, ExprKind::EmptyList) {
+                                    match self.resolve(param) {
+                                        Type::List(_) => param.clone(),
+                                        Type::Var(_) => {
+                                            let list = Type::List(Box::new(self.fresh()));
+                                            let _ = self.unify(param, &list);
+                                            list
+                                        }
+                                        other => other,
+                                    }
+                                } else {
+                                    param.clone()
+                                };
+                            self.check_expr(arg, Some(&arg_expected));
                         }
                     }
                 }
@@ -1496,6 +1511,7 @@ fn satisfies(ty: &Type, bound: Bound) -> bool {
             Type::Dict(key, val) => **key == Type::Str && **val == Type::Json,
             _ => false,
         },
+        Bound::StrOrList => matches!(ty, Type::Str | Type::List(_)),
     }
 }
 
@@ -1509,6 +1525,7 @@ fn deferred_text(kind: DeferredKind) -> String {
         DeferredKind::Builtin(Bound::SortKey) => "i64, f64 or str".to_string(),
         DeferredKind::Builtin(Bound::Jsonable) => "jsonable".to_string(),
         DeferredKind::Builtin(Bound::Numeric) | DeferredKind::Numeric => "numeric".to_string(),
+        DeferredKind::Builtin(Bound::StrOrList) => "str or list".to_string(),
         DeferredKind::I64 => "i64".to_string(),
         DeferredKind::Inferred => "empty T".to_string(),
     }

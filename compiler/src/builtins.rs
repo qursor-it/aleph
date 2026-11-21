@@ -51,6 +51,8 @@ pub enum Bound {
     /// A type `json x` accepts: `unit`, `bool`, `i64`, `f64`, `str`, `json`,
     /// `list json` or `dict str json` (ADR-0033).
     Jsonable,
+    /// `str` or `list U` (ADR-0045).
+    StrOrList,
 }
 
 /// Whether a builtin is pure or has observable effects (SPEC §5.1).
@@ -151,9 +153,9 @@ pub static BUILTINS: &[BuiltinSpec] = &[
     },
     BuiltinSpec {
         name: "cat",
-        params: &[&STR, &STR],
-        ret: &STR,
-        bounds: &[],
+        params: &[&T, &T],
+        ret: &T,
+        bounds: &[(TyVar::T, Bound::StrOrList)],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
@@ -600,6 +602,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "tof",
+        params: &[&I64],
+        ret: &F64,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "trim",
         params: &[&STR],
         ret: &STR,
@@ -735,6 +746,8 @@ mod tests {
             ("chr", 1),
             // ADR-0043
             ("sqrt", 1),
+            // ADR-0045/ADR-0046
+            ("tof", 1),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {

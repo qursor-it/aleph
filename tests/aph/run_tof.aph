@@ -1,0 +1,11 @@
+fn mean xs:list i64 -> f64
+ ex mean [1 2 3 4] = 2.5
+ let total fold lam a x + a x 0 xs
+ / tof total tof len xs
+fn main -> unit
+ do print show tof 0
+ do print show tof -3
+ do print show tof 9007199254740993
+ do print show tof 9007199254740992
+ do print show mean [1 2 3 4]
+ nil
