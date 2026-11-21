@@ -1,0 +1,10 @@
+fn above xs:list i64 t:i64 -> list i64
+ ex above [5 1 9] 4 = [0 2]
+ filter lam i > else at xs i 0 t range 0 len xs
+fn total s:str -> res i64 str
+ ex isok total "1 x" = false
+ if == s "" ok 0
+ let ns try mapr @int split s " "
+ ok sum ns
+fn main -> unit
+ print show above cat [5 1] map lam x * x 3 [3] 4

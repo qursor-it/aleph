@@ -951,3 +951,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tasks2.txt (20 new tasks: dicts, records, sum types, opt/res, json, parsing), reference2.md 20/20, run2 (deepseek-v4.1-flash, llms.txt only): 19/20, 0.10 errors/problem; failure sumints (fold with a res accumulator)
 - the model's answers are 1.2-1.45x the reference size and have ~2x the functions: index-walking recursive helpers instead of `filter lam`/`map lam`
 - next: T-068 an idiomatic example in llms.txt (replacing the eprint example), then rerun tasks2 (run3) and compare size and helpers
+
+## 2026-11-21T22:19 T-068 done (autonoma)
+- llms.txt: example `run_eprint` replaced by new golden `run_idioms` (`filter lam` over `range 0 len xs`, guard, `mapr`, `cat` on lists); paid by dropping "One file = module", the diagnostic prefix legend, `ast`/`tokens` commands, "stdout/stderr allowed", "(stderr flushes stdout)", the jparse error format: 8425/8440 chars. run_eprint stays a golden
+- dev probe run3 (tasks2, same model): 17/20 pass (run2 19/20), size -4%, functions 27 vs 31: inconclusive at one sample per task; new failures are recursion with `push REC x` (reversed lists, third time across runs) and a propagated jparse error
+- tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean
+- next: the reversed-push pattern (3 of 60 answers) is the most repeated model error left

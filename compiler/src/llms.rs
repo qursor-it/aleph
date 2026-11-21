@@ -92,7 +92,7 @@ const EXAMPLES: &[&str] = &[
     include_str!("../../tests/aph/run_lam_llms.aph"),
     include_str!("../../tests/aph/run_records.aph"),
     include_str!("../../tests/aph/bench_fib.aph"),
-    include_str!("../../tests/aph/run_eprint.aph"),
+    include_str!("../../tests/aph/run_idioms.aph"),
     include_str!("../../tests/aph/run_args.aph"),
     include_str!("../../tests/aph/run_show.aph"),
 ];
@@ -117,7 +117,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("1."),
-        "`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout/order free (`aleph fmt` canonicalizes). One file = module (imports v0.2).",
+        "`.aph`; UTF-8; outside strings only printable ASCII and LF. Layout/order free (`aleph fmt` canonicalizes).",
     );
     section(
         &mut out,
@@ -154,12 +154,12 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("8."),
-        "Deny by default. `use fs.read \"PREFIX\"`/`use fs.write \"PREFIX\"` (`read`/`write`), `use env` (`env`), `use time` (`now` ms), `use net.host \"HOST\"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). Prefixes normalized (empty/`.` dropped), `..` never covered; empty/`..` prefix or fs capability without a path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). stdout/stderr allowed. Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.",
+        "Deny by default. `use fs.read \"PREFIX\"`/`use fs.write \"PREFIX\"` (`read`/`write`), `use env` (`env`), `use time` (`now` ms), `use net.host \"HOST\"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). Prefixes normalized (empty/`.` dropped), `..` never covered; empty/`..` prefix or fs capability without a path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.",
     );
     section(
         &mut out,
         "## Semantics",
-        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF (stderr flushes stdout). `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jparse` RFC 8259, err `json: REASON at byte N`; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.",
+        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF. `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jparse` RFC 8259; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.",
     );
     section(&mut out, spec_heading("9."), &diagnostics_section());
     section(
@@ -170,7 +170,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("11."),
-        "`llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`; `ast FILE`; `tokens FILE`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
+        "`llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
     );
 
     section(&mut out, "## Examples", "All check-clean:");
@@ -317,7 +317,7 @@ fn diagnostics_section() -> String {
         codes.push(cells[0]);
     }
     format!(
-        "JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Prefixes: L lex, P parse, F format, T type, C cap, E example, R runtime, X tool. Codes: {}.",
+        "JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Codes: {}.",
         collapse_codes(&codes)
     )
 }
