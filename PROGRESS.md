@@ -969,3 +969,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - corpus median Aleph/Python without examples (chars4): 0.829 -> 0.779 (ci95 0.706-0.963); with examples 1.020
 - remaining long: text-top-words 1.50 (Python `split()` on whitespace and Counter), data-csv-column-sum 1.46, json-field 1.40; candidate builtin `words` (split on whitespace, drop empties) needs llms.txt budget (6 chars left): a person's decision or more trimming
 - tests: 414 passed (ALEPH_REQUIRE_CC=1)
+
+## 2026-11-21T23:03 T-071 done (autonoma)
+- builtin `fields str->list str` (ADR-0047; named after Go's strings.Fields because `words` is a parameter of HumanEval 158 and a function in goldens/SPEC): runs of non-ASCII-whitespace bytes, both engines, reserved; HumanEval translator reserved list updated (lacked index mapr repeat sortby sqrt tof)
+- llms.txt 8415/8440: section 8 prefix rules shortened; `fields` line carries "(split on whitespace)" via NOTES
+- corpus: text-top-words 1.50 -> 1.32, wordcount 0.86 -> 0.40; median without examples 0.779 -> 0.757 (ci95 0.688-0.963)
+- implemented by deepseek-coder, reviewed by the agent; HumanEval validate 156 problems, 0 errors
+- tests: 414 passed (ALEPH_REQUIRE_CC=1), clippy clean, test_tlon ok

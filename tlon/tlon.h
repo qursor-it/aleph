@@ -543,6 +543,8 @@ AlValue aleph_b_cat(AlValue left, AlValue right);
 AlValue aleph_b_catl(AlValue left, AlValue right);
 AlValue aleph_b_count(AlValue text);
 AlValue aleph_b_split(AlValue text, AlValue separator);
+/* ADR-0047 */
+AlValue aleph_b_fields(AlValue text);
 AlValue aleph_b_join(AlValue parts, AlValue separator);
 AlValue aleph_b_trim(AlValue text);
 AlValue aleph_b_upper(AlValue text);

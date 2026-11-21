@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xd433f8ec12c1f72d,
+        hash: 0x0d5a312622e02d0c,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -154,7 +154,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("8."),
-        "Deny by default. `use fs.read \"PREFIX\"`/`use fs.write \"PREFIX\"` (`read`/`write`), `use env` (`env`), `use time` (`now` ms), `use net.host \"HOST\"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). Prefixes normalized (empty/`.` dropped), `..` never covered; empty/`..` prefix or fs capability without a path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.",
+        "Deny by default. `use fs.read \"PREFIX\"`/`use fs.write \"PREFIX\"` (`read`/`write`), `use env` (`env`), `use time` (`now` ms), `use net.host \"HOST\"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). `..` never covered; empty/`..` prefix or no path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.",
     );
     section(
         &mut out,
@@ -263,7 +263,7 @@ fn signature(spec: &builtins::BuiltinSpec) -> String {
 
 /// Behaviour a signature cannot show and models get wrong: dev probe runs
 /// built lists reversed with `push REC x`, reading it as a prepend.
-const NOTES: &[(&str, &str)] = &[("push", "at end")];
+const NOTES: &[(&str, &str)] = &[("fields", "split on whitespace"), ("push", "at end")];
 
 fn bound_text(var: TyVar, bound: Bound) -> String {
     let restriction = match bound {

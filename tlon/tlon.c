@@ -2197,6 +2197,56 @@ AlValue aleph_b_split(AlValue text, AlValue separator) {
     return result;
 }
 
+/* ADR-0047: ASCII whitespace bytes that separate fields. */
+static bool is_field_space(unsigned char byte) {
+    return byte == ' ' || byte == '\t' || byte == '\n' || byte == '\r' ||
+           byte == '\v' || byte == '\f';
+}
+
+/* ADR-0047: maximal runs of bytes that are not ASCII whitespace. */
+AlValue aleph_b_fields(AlValue text) {
+    const char *source = text.u.str->data;
+    size_t source_len = text.u.str->len;
+    AlValue result;
+    size_t count = 0;
+    size_t index = 0;
+
+    while (index < source_len) {
+        while (index < source_len &&
+               is_field_space((unsigned char)source[index])) {
+            index += 1;
+        }
+        if (index < source_len) {
+            count += 1;
+            while (index < source_len &&
+                   !is_field_space((unsigned char)source[index])) {
+                index += 1;
+            }
+        }
+    }
+    result = aleph_list_new(count);
+    index = 0;
+    count = 0;
+    while (index < source_len) {
+        size_t start;
+        while (index < source_len &&
+               is_field_space((unsigned char)source[index])) {
+            index += 1;
+        }
+        if (index >= source_len) {
+            break;
+        }
+        start = index;
+        while (index < source_len &&
+               !is_field_space((unsigned char)source[index])) {
+            index += 1;
+        }
+        result.u.list->items[count++] =
+            string_from_bytes(source + start, index - start);
+    }
+    return result;
+}
+
 AlValue aleph_b_join(AlValue parts, AlValue separator) {
     size_t index;
     size_t total = 0;

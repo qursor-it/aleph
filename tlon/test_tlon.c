@@ -316,6 +316,16 @@ static void test_builtins(void) {
     check_show(aleph_b_split(strv("\xC3\xA9x"), strv("")),
                "[\"\xC3\xA9\" \"x\"]", "split Unicode scalar");
 
+    check_show(aleph_b_fields(strv("a b  c")), "[\"a\" \"b\" \"c\"]",
+               "fields words");
+    check_show(aleph_b_fields(strv("")), "[]", "fields empty");
+    check_show(aleph_b_fields(strv(" \t\n\r\v\f")), "[]",
+               "fields whitespace only");
+    check_show(aleph_b_fields(strv(" \tA\r\nB\vC\fD ")),
+               "[\"A\" \"B\" \"C\" \"D\"]", "fields mixed separators");
+    check_show(aleph_b_fields(strv("\xC3\xA9 x")), "[\"\xC3\xA9\" \"x\"]",
+               "fields non-ASCII");
+
     check_str(aleph_b_join(list2(strv("a"), strv("b")), strv("-")), "a-b",
               "join");
     check_str(aleph_b_join(aleph_list_new(0), strv("-")), "", "join empty");

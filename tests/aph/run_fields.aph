@@ -1,0 +1,16 @@
+fn main -> unit
+ do print show fields "the quick brown fox"
+ do print show fields "  the   quick  "
+ do print show fields " \t\nlead and trail\t\n "
+ do print show fields ""
+ do print show fields "   "
+ do print show fields "one\ttwo\nthree"
+ do print show fields "héllo wörld"
+ do print show len fields "a b c"
+ do print show map lam w count w fields "abc de fghi"
+ do print join map lam w upper w fields "one two three" " "
+ let cr else chr 13 ""
+ let vt else chr 11 ""
+ let ff else chr 12 ""
+ do print show fields cat "A" cat "\t" cat cr cat "\n" cat vt cat ff "B"
+ nil

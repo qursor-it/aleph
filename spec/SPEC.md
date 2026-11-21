@@ -182,6 +182,7 @@ Pure:
 | `cat a b` | T, T -> T (T `str` or `list U`; elements of `a` then `b`) (ADR-0045) |
 | `count s` | str -> i64 (bytes) |
 | `split s sep` | str, str -> list str |
+| `fields s` | str -> list str (split on ASCII whitespace, no empty items) (ADR-0047) |
 | `join xs sep` | list str, str -> str |
 | `trim s` | str -> str |
 | `upper s` / `lower s` | str -> str (ASCII) |

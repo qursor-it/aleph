@@ -5,7 +5,7 @@ fn top d:dict str i64 -> list str
  map lam w join [w show else get d w 0] " " slice ws 0 3
 fn main -> res unit str
  let text try read "text.txt"
- let ws filter lam w > count w 0 split join split text "\n" " " " "
+ let ws fields text
  let ls top fold lam m w put m w + 1 else get m w 0 dict str i64 ws
  if == 0 len ls ok nil
  do print join ls "\n"

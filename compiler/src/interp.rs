@@ -1019,6 +1019,15 @@ impl<'a> Interp<'a> {
                 };
                 Value::List(Rc::new(parts))
             }
+            "fields" => {
+                let text = as_str(&args[0]);
+                let parts: Vec<Value> = text
+                    .split([' ', '\t', '\n', '\r', '\u{0B}', '\u{0C}'])
+                    .filter(|part| !part.is_empty())
+                    .map(|part| Value::Str(Rc::from(part)))
+                    .collect();
+                Value::List(Rc::new(parts))
+            }
             "join" => {
                 let parts: Vec<&str> = as_list(&args[0]).iter().map(as_str).collect();
                 Value::Str(Rc::from(parts.join(as_str(&args[1])).as_str()))

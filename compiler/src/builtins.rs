@@ -233,6 +233,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "fields",
+        params: &[&STR],
+        ret: &LIST_STR,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "filter",
         params: &[&FILTER_FN, &LIST_A],
         ret: &LIST_A,
@@ -748,6 +757,8 @@ mod tests {
             ("sqrt", 1),
             // ADR-0045/ADR-0046
             ("tof", 1),
+            // ADR-0047
+            ("fields", 1),
         ];
         assert_eq!(expected.len(), BUILTINS.len());
         for (name, arity) in expected {
