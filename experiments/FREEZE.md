@@ -4,8 +4,8 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 
 ## Decisions for a person before tagging
 
-- [ ] **ADR status.** The v0.2 ADRs below (0032-0048) are all `Proposed`. Agents never accept ADRs: decide which ones the tag freezes as they stand.
-- [ ] **`llms.txt` budget.** It is at its limit of 2110 tokens (ADR-0026), 8433/8440 chars after ADR-0048. The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
+- [ ] **ADR status.** The v0.2 ADRs below (0032-0050) are all `Proposed`. Agents never accept ADRs: decide which ones the tag freezes as they stand.
+- [ ] **`llms.txt` budget.** Its limit is 2110 tokens (ADR-0026); 8212/8440 chars after the T-074 prose trim (about 57 tokens free). The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
 
 ## In (implemented on `agent/aleph-m3`)
 
@@ -28,6 +28,8 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 | Builtin `tof` (i64 -> f64) | 0046 | T-067 |
 | Builtin `fields` (split on whitespace) | 0047 | T-071 |
 | Builtin `okor` (opt/res with a chosen error) | 0048 | T-072 |
+| E002 names a list found reversed | 0049 | T-073 |
+| T001 names `count`/`len` for the other length | 0050 | T-076 |
 | llms.txt: idiomatic loop example, `push` note | — | T-068, T-069 |
 | Static tables for literal lists in generated C | — | T-062 |
 | Generated C names no longer clash with Tlön | — | T-034 |
@@ -56,7 +58,7 @@ cd ../../..
 ALEPH=$PWD/target/debug/aleph python3 experiments/pilot/tokens/verify_whatif.py          # C 61/61 pass
 ```
 
-State on 22 Nov 2026 (after T-072): all of the above pass. `cargo test` runs 414 tests (one machine-wide `cargo test` at a time, ~/.cargo/bin/cargo lock); `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61 (A/29 uses the reserved name `starts`). Experiment protocols EXP-001..004 are `approved` (owner delegation of 20 Nov) and their tools are built (T-035..T-042).
+State on 22 Nov 2026 (after T-076): all of the above pass. `cargo test` runs 415 tests (one machine-wide `cargo test` at a time, ~/.cargo/bin/cargo lock); `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61 (A/29 uses the reserved name `starts`). Experiment protocols EXP-001..004 are `approved` (owner delegation of 20 Nov) and their tools are built (T-035..T-042).
 
 ## After tagging
 
