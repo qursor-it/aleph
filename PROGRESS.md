@@ -1019,3 +1019,7 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 ## 2026-11-22T14:03 T-076 done (autonoma)
 - compiler/src/check.rs `length_hint`: T001 on `len` of str says "str length is `count`", on `count` of a list "list length is `len`" (and drops the `show` fix there); golden type_len_count
 - decisions: ADR-0050 (Proposed)
+
+## 2026-11-22T14:30 analysis (autonoma, no task)
+- experiments/devprobe/patterns.md: model answers vs references over run1-run9: median size ratio 1.29, 1.5-1.8x on set 4; main cost is hand-written head/tail recursion helpers; `okor` unused in set 4 (0 vs 11 test-then-unwrap pairs) though in the builtin table; a tail builtin not worth its line
+- next: candidate llms.txt changes (okor in an example; a nudge to fold/map/mapr), each with a before/after probe run
