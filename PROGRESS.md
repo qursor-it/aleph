@@ -1051,3 +1051,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - Main costs found: `else at X I D` indexing (320 uses in all runs), substrings via `split s ""`, typed helper signatures plus mandatory `ex`. Wins: sum types/match, mapr+okor.
 - Caveat: characters, not real tokens; Python checked on visible examples only.
 - next: candidates are a trapping index builtin and `slice` on str (both need ADRs and a probe); a real-tokenizer count is a person's decision.
+
+## 2026-11-22T19:51 T-082 done (autonoma)
+- ADR-0053 (Proposed): builtin `nth xs i : list T, i64 -> T`, trap R006 "index out of range" (both engines: interp.rs, tlon.c `aleph_b_nth`). builtins.rs (sorted table), lexicon.rs + spec/lexicon.toml, diag.rs + spec/diagnostics.md (R006), SPEC §5.1 row, llms.txt table note and the first example (`ex nth [10 20] 1 = 20` instead of `else at`), 8315/8440.
+- goldens: run_nth (both engines, `map2 @nth`), run_nth_trap (R006, exit 70, same JSON from both engines).
+- Probe: Claude Haiku sets 4+5 (run15-haiku4/5) 40/40, `nth` 42 uses, `else at` 0; size vs Python did not drop (1.087 -> 1.164 and 0.814 -> 0.888): the ~3% mechanical saving is inside the 10-15% run-to-run noise.
+- tests: 415 passed, clippy clean.
+- next: size effects of a few percent need ~10 runs per arm; the remaining big costs are typed helper signatures with mandatory `ex` (design decisions for a person) and model style.

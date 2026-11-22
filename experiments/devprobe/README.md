@@ -50,6 +50,8 @@ python3 probe.py --tasks tasks5.txt run12.md  # fifth set, written after the T-0
 | run13-haiku (tasks4) | 2026-11-22 | claude haiku | T-077 llms.txt; scored after ADR-0051 (16/20 before) | 17/20 | 17/20 | 0.40 |
 | run14 (tasks4) | 2026-11-22 | deepseek flash, isolated workspace | T-080 (ADR-0051, ADR-0052; llms.txt 8280) | 19/20 | 19/20 | 0.10 |
 | run14-haiku (tasks4) | 2026-11-22 | claude haiku | T-080 | 20/20 | 20/20 | 0.00 |
+| run15-haiku4 (tasks4) | 2026-11-22 | claude haiku | T-082 (ADR-0053 `nth`; llms.txt 8315) | 20/20 | 20/20 | 0.00 |
+| run15-haiku5 (tasks5) | 2026-11-22 | claude haiku | T-082 | 20/20 | 20/20 | 0.00 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -199,3 +201,16 @@ line, and Python's comprehensions/`zip`. Where it wins: sum types and
 lookall 0.58). Caveats: characters are a proxy (Aleph's spaces and short
 words may tokenize differently from Python punctuation); Python was checked
 only on the visible examples; one prompt per model.
+
+run15 (Haiku, sets 4 and 5, after ADR-0053 `nth`): 40/40. Haiku switched
+completely: `nth` 30 + 12 times, `else at` 0 (run14-haiku/run12-haiku: 23
+and 8 `else at`, 0 `nth`). Logic size vs its Python did not drop: set 4
+1.087 -> 1.164, set 5 0.814 -> 0.888. The mechanical saving (each
+`else at X I D` -> `nth X I`, about 8 chars) is about 3% of run14-haiku;
+run-to-run size noise for one model on one set is 10-15% (run13-haiku 7264
+vs run14-haiku 8309 chars on the same llms.txt minus two lines), so an
+effect this small cannot be seen with one run per arm. What the runs do
+show: the builtin is adopted at once, causes no error, and removes the
+dummy defaults from the code a reader has to check. Measuring size effects
+of a few percent needs about ten runs per arm; that is the next methodical
+step, not another feature.

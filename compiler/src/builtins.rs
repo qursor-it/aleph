@@ -459,6 +459,15 @@ pub static BUILTINS: &[BuiltinSpec] = &[
         path_arg: None,
     },
     BuiltinSpec {
+        name: "nth",
+        params: &[&LIST_T, &I64],
+        ret: &T,
+        bounds: &[],
+        effect: Effect::Pure,
+        capability: None,
+        path_arg: None,
+    },
+    BuiltinSpec {
         name: "okor",
         params: &[&T, &T],
         ret: &RES_T_T,
@@ -705,6 +714,7 @@ mod tests {
         let expected = [
             ("len", 1),
             ("at", 2),
+            ("nth", 2),
             ("push", 2),
             ("slice", 3),
             ("rev", 1),

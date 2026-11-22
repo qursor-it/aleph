@@ -169,6 +169,7 @@ Pure:
 |---|---|
 | `len xs` | T -> i64 (T `list U`: elements; T `str`: bytes, as `count`) (ADR-0051) |
 | `at xs i` | list T, i64 -> opt T |
+| `nth xs i` | list T, i64 -> T (R006 when i < 0 or i >= len) (ADR-0053) |
 | `push xs x` | list T, T -> list T (new list) |
 | `slice xs a b` | list T, i64, i64 -> list T (clamped) |
 | `rev xs` | list T -> list T |

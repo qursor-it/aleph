@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xf8b96fdd895eef5a,
+        hash: 0xace8cf3307b1d4d1,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -49,7 +49,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/diagnostics.md",
         contents: DIAGNOSTICS,
-        hash: 0x48d3e3b239ae5435,
+        hash: 0x9f083768a226f34c,
     },
     SourceDigest {
         path: "adr/0018-shadowing-callables.md",
@@ -272,7 +272,11 @@ fn signature(spec: &builtins::BuiltinSpec) -> String {
 
 /// Behaviour a signature cannot show and models get wrong: dev probe runs
 /// built lists reversed with `push REC x`, reading it as a prepend.
-const NOTES: &[(&str, &str)] = &[("fields", "split on whitespace"), ("push", "at end")];
+const NOTES: &[(&str, &str)] = &[
+    ("fields", "split on whitespace"),
+    ("push", "at end"),
+    ("nth", "R006 if out of range"),
+];
 
 fn bound_text(var: TyVar, bound: Bound) -> String {
     let restriction = match bound {

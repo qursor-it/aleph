@@ -893,6 +893,13 @@ impl<'a> Interp<'a> {
                     _ => Value::Opt(None),
                 }
             }
+            "nth" => {
+                let values = as_list(&args[0]);
+                match usize::try_from(as_i64(&args[1])) {
+                    Ok(index) if index < values.len() => values[index].clone(),
+                    _ => return Err(Trap::new("R006", "index out of range", node, span)),
+                }
+            }
             "index" => {
                 let values = as_list(&args[0]);
                 let target = &args[1];

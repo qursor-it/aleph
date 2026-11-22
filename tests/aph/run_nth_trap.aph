@@ -1,0 +1,7 @@
+fn third xs:list i64 -> i64
+ ex third [1 2 3] = 3
+ nth xs 2
+fn main -> unit
+ do print show third [4 5 6]
+ do print show third [1]
+ nil

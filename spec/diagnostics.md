@@ -31,6 +31,7 @@ must match this table exactly.
 | R003 | capability violation at run time |
 | R004 | stack overflow |
 | R005 | allocation limit exceeded |
+| R006 | index out of range (ADR-0053) |
 | X001 | command not implemented |
 | X002 | cannot read file |
 | X003 | no main function |

@@ -495,6 +495,7 @@ AlValue aleph_literal(AlValue value);
 /* Non-higher-order builtins (SPEC §5.1). */
 AlValue aleph_b_len(AlValue xs);
 AlValue aleph_b_at(AlValue xs, AlValue index);
+AlValue aleph_b_nth(AlValue xs, AlValue index);
 AlValue aleph_b_push(AlValue xs, AlValue value);
 AlValue aleph_b_slice(AlValue xs, AlValue start, AlValue end);
 AlValue aleph_b_rev(AlValue xs);

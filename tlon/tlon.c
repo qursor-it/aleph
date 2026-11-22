@@ -1448,6 +1448,14 @@ AlValue aleph_b_at(AlValue xs, AlValue index) {
     return aleph_some(xs.u.list->items[(size_t)i]);
 }
 
+AlValue aleph_b_nth(AlValue xs, AlValue index) {
+    int64_t i = index.u.i64;
+    if (i < 0 || (uint64_t)i >= (uint64_t)xs.u.list->len) {
+        aleph_trap("R006", "index out of range");
+    }
+    return xs.u.list->items[(size_t)i];
+}
+
 AlValue aleph_b_push(AlValue xs, AlValue value) {
     AlValue result = aleph_list_new(xs.u.list->len + 1);
     if (xs.u.list->len > 0) {
