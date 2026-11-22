@@ -14,7 +14,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::ast::{self, CalleeKind, Expr, ExprKind, Fn, NodeId, StmtKind};
 use crate::builtins::{self, Effect};
 use crate::diag::Diagnostic;
-use crate::interp::{self, Env, Interp};
+use crate::interp::{self, Env, Interp, Value};
+
+const REVERSED_MSG: &str = "example failed: found is expected reversed (push appends at the end)";
 
 /// `aleph check`: `E001` for missing examples, then `E002` for every failing
 /// example.
@@ -55,10 +57,14 @@ fn evaluate(file: &str, ast: &ast::File) -> Vec<Diagnostic> {
         for example in &function.examples {
             let lhs = interp.eval_expr(&example.lhs, &env);
             let rhs = interp.eval_expr(&example.rhs, &env);
+            let mut msg = "example failed";
             let (expected, found) = match (lhs, rhs) {
                 (Ok(left), Ok(right)) => {
                     if interp::values_equal(&left, &right) {
                         continue;
+                    }
+                    if is_reversal(&right, &left) {
+                        msg = REVERSED_MSG;
                     }
                     (interp::literal(&right), interp::literal(&left))
                 }
@@ -69,21 +75,39 @@ fn evaluate(file: &str, ast: &ast::File) -> Vec<Diagnostic> {
                 }
             };
             diagnostics.push(
-                Diagnostic::error(
-                    "E002",
-                    file,
-                    example.span.line,
-                    example.span.col,
-                    "example failed",
-                )
-                .with_node(node_name(example.id))
-                .with_expected_found(expected, found),
+                Diagnostic::error("E002", file, example.span.line, example.span.col, msg)
+                    .with_node(node_name(example.id))
+                    .with_expected_found(expected, found),
             );
         }
     }
 
     diagnostics.sort_by_key(|diagnostic| (diagnostic.line, diagnostic.col));
     diagnostics
+}
+
+/// True when `found` is the list `expected` reversed, or reversed together
+/// with each of its inner lists: the usual result of building a list
+/// front-first with `push` (ADR-0049).
+fn is_reversal(expected: &Value, found: &Value) -> bool {
+    let Value::List(items) = expected else {
+        return false;
+    };
+    if items.len() < 2 {
+        return false;
+    }
+    let outer: Vec<Value> = items.iter().rev().cloned().collect();
+    let both: Vec<Value> = outer.iter().map(reverse_list).collect();
+    [outer, both]
+        .into_iter()
+        .any(|candidate| interp::values_equal(&Value::List(candidate.into()), found))
+}
+
+fn reverse_list(value: &Value) -> Value {
+    match value {
+        Value::List(items) => Value::List(items.iter().rev().cloned().collect::<Vec<_>>().into()),
+        other => other.clone(),
+    }
 }
 
 fn trap_text(trap: &interp::Trap) -> String {
@@ -344,6 +368,24 @@ mod tests {
         assert_eq!(diagnostics[0].line, 2);
         assert_eq!(diagnostics[0].col, 2);
         assert_eq!(diagnostics[0].node.as_deref(), Some("n5"));
+    }
+
+    #[test]
+    fn e002_names_a_reversed_list() {
+        let flat = diagnostics(
+            "fn two n:i64 -> list i64\n ex two 1 = [1 2]\n [+ n 1 n]\nfn main -> unit\n nil\n",
+        );
+        assert_eq!(flat[0].msg, REVERSED_MSG);
+        let nested = diagnostics(
+            "fn m n:i64 -> list list i64\n ex m 1 = [[1 2] [3 4]]\n [[4 3] [2 n]]\nfn main -> unit\n nil\n",
+        );
+        assert_eq!(nested[0].msg, REVERSED_MSG);
+        let other =
+            diagnostics("fn m n:i64 -> list i64\n ex m 1 = [1 2]\n [n 3]\nfn main -> unit\n nil\n");
+        assert_eq!(other[0].msg, "example failed");
+        let single =
+            diagnostics("fn m n:i64 -> list i64\n ex m 1 = [1]\n [2]\nfn main -> unit\n nil\n");
+        assert_eq!(single[0].msg, "example failed");
     }
 
     #[test]

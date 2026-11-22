@@ -991,3 +991,12 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 ## 2026-11-21T23:30 dev probe run7, freeze checklist (autonoma)
 - run7 (tasks2, isolated, after ADR-0048): 20/20, 0 errors; size 544 (reference 553; run2 702), 20 functions (run2 31); `okor` used 5 times as intended
 - FREEZE.md: ADR-0044..0048, T-065..T-072 listed; llms.txt 8433/8440; state 22 Nov: 414 tests, HumanEval validate 0 errors, verify_whatif A 60/61 B 61/61 C 61/61 (unchanged)
+
+## 2026-11-22T09:16 T-073 done (autonoma)
+- dev probe set 4 (`experiments/devprobe/tasks4.txt`, harder: rpn, roman both ways, sum-type eval, bracket stack, word wrap, bank commands, JSON, graph reachability...); reference4.md 20/20 (kvdict pairs use `,`: the task file splits examples on `;`)
+- run8 (deepseek-v4.1-flash, isolated workspace): 17/20, 0 compile errors; `merge` and `transpose` reversed by `push REC x` (4th run with this habit), `reachable` logic slip
+- compiler/src/examples.rs: E002 msg "example failed: found is expected reversed (push appends at the end)" when found == expected reversed (outer, or outer + inner lists, >=2 items); golden ex_e002_reversed, unit test
+- repair turn with the new messages: 3/3 fixed (run8-fix.md, merged 20/20); no control with the old message yet
+- tests: 415 passed, clippy clean
+- decisions: ADR-0049 (Proposed)
+- next: control repair turn with the old E002 text, to see whether the message matters

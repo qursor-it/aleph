@@ -1,0 +1,1 @@
+{"code":"E002","severity":"error","file":"tests/aph/ex_e002_reversed.aph","line":2,"col":2,"node":"n6","msg":"example failed: found is expected reversed (push appends at the end)","expected":"[1 2 3]","found":"[3 2 1]"}
