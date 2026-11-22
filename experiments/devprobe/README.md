@@ -20,6 +20,7 @@ python3 probe.py reference.md    # the agent's reference answers: 20/20
 python3 probe.py run1.md         # a recorded model run
 python3 probe.py --tasks tasks2.txt run2.md   # second task set (also run3.md, run5.md, run7.md)
 python3 probe.py --tasks tasks3.txt run6.md   # third task set (reference3.md: 20/20)
+python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.md: 20/20)
 ```
 
 `ALEPH` selects the binary (default `target/debug/aleph`).
@@ -35,6 +36,8 @@ python3 probe.py --tasks tasks3.txt run6.md   # third task set (reference3.md: 2
 | run5 (tasks2) | 2026-11-21 | same, isolated workspace | T-069 | 18/20 | 18/20 | 0.10 |
 | run6 (tasks3) | 2026-11-22 | same, isolated workspace | after ADR-0047 | 19/20 | 19/20 | 0.05 |
 | run7 (tasks2) | 2026-11-22 | same, isolated workspace | after ADR-0048 | 20/20 | 20/20 | 0.00 |
+| run8 (tasks4) | 2026-11-22 | same, isolated workspace | after ADR-0048 | 17/20 | 17/20 | 0.35 |
+| run8 repair | 2026-11-22 | same session, given `aleph check` output (ADR-0049 messages) | T-073 | 20/20 | 20/20 | 0.00 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -87,3 +90,15 @@ functions 31, 27, 21, 20.
 
 Limits: one model, one sample per task, tasks chosen by the same agent that
 changes the language; a run shows where models stumble, not how often.
+
+run8 (tasks4: harder tasks, written after run7 saturated sets 1-3): three
+wrong answers, all caught by the model's own `ex` lines (E002), none a
+compile error. `merge` and `transpose` built their lists with `push REC x`
+as if `push` prepended, the habit already seen in run1, run3 and run5 that
+the "(at end)" note did not remove: ADR-0049 makes E002 say "found is
+expected reversed (push appends at the end)". `reachable` never marked the
+neighbours as seen (a logic slip). In a repair turn the same session got
+the `aleph check` output for the three answers (`run8-fix.md`) and fixed
+all three, both list cases with `cat [x] REC`. There is no control turn
+with the old message, so this shows the message is usable, not that it is
+needed: E002's expected/found alone may have been enough.
