@@ -47,6 +47,8 @@ python3 probe.py --tasks tasks5.txt run12.md  # fifth set, written after the T-0
 | run12-haiku (tasks5) | 2026-11-22 | claude haiku (Claude Code subagent, read 2 files, no commands) | T-077 | 20/20 | 20/20 | 0.00 |
 | run13 (tasks4) | 2026-11-22 | deepseek flash, isolated workspace | T-078 trial (`cat [0] [1 2]` example); scored after ADR-0051 | 15/20 | 14/20 | 0.25 |
 | run13-haiku (tasks4) | 2026-11-22 | claude haiku | T-077 llms.txt; scored after ADR-0051 (16/20 before) | 17/20 | 17/20 | 0.40 |
+| run14 (tasks4) | 2026-11-22 | deepseek flash, isolated workspace | T-080 (ADR-0051, ADR-0052; llms.txt 8280) | 19/20 | 19/20 | 0.10 |
+| run14-haiku (tasks4) | 2026-11-22 | claude haiku | T-080 | 20/20 | 20/20 | 0.00 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -158,3 +160,13 @@ run13-haiku (tasks4, Claude Haiku, current llms.txt): 16/20 when written;
 `wrap`. ADR-0051 makes `len` accept a str (bytes, like `count`); rescored
 with it, run13-haiku is 17/20 and run9 20/20. All probe scores above were
 taken with the compiler of their day except where the table says so.
+
+run14 (tasks4, after ADR-0051 `len` on str and ADR-0052 `match` on
+opt/res): DeepSeek 19/20 (one logic slip, `titlecase` does not lowercase),
+uses `match .. some x ..`/`ok x` 3 times; Claude Haiku 20/20, uses it 0
+times. Answer size did not drop (DeepSeek 8733, Haiku 8309 chars against
+the reference 5396): the dummy heads `else at X 0 D` stay (17 and 13).
+Set 4 first-attempt scores so far: DeepSeek 17, 19, 13, 17, 15, 19; Haiku
+16 (17 rescored), 20. Correctness on first attempt is near the ceiling for
+both models; answer size, about 1.5x the reference, is what is left, and
+none of the llms.txt text changes tried (T-077, T-078) moved it.
