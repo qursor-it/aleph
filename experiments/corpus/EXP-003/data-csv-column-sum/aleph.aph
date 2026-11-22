@@ -2,9 +2,7 @@ use fs.read "data.csv"
 fn main -> res unit str
  let text try read "data.csv"
  let lines filter lam s > count s 0 split text "\n"
- let header else at lines 0 ""
- let idx else index split header "," else at args 0 "" -1
- let cells map lam row else at split row "," idx "" slice lines 1 len lines
- let n try if < idx 0 err "column not found" mapr @int cells
+ let idx try okor index split else at lines 0 "" "," else at args 0 "" "column not found"
+ let n try mapr lam row int else at split row "," idx "" slice lines 1 len lines
  do print show sum n
  ok nil

@@ -2,12 +2,9 @@ fn gcd a:i64 b:i64 -> i64
  ex gcd 12 18 = 6
  ex gcd 5 0 = 5
  if == b 0 a gcd b % a b
-fn lcm a:i64 b:i64 -> i64
- ex lcm 4 6 = 12
- ex lcm 5 0 = 0
- if or == a 0 == b 0 0 / * a b gcd a b
 fn main -> res unit str
  let a try int else at args 0 ""
  let b try int else at args 1 ""
- do print join ["gcd" show gcd a b "lcm" show lcm a b] " "
+ let g gcd a b
+ do print join ["gcd" show g "lcm" show if == g 0 0 * / a g b] " "
  ok nil

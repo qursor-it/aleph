@@ -1,12 +1,8 @@
 use fs.read "text.txt"
-fn top d:dict str i64 -> list str
- ex top put put dict str i64 "a" 2 "b" 3 = ["b 3" "a 2"]
- let ws sortby lam w neg else get d w 0 keys d
- map lam w join [w show else get d w 0] " " slice ws 0 3
 fn main -> res unit str
  let text try read "text.txt"
- let ws fields text
- let ls top fold lam m w put m w + 1 else get m w 0 dict str i64 ws
- if == 0 len ls ok nil
- do print join ls "\n"
+ let c fold lam a w put a w + 1 else get a w 0 dict str i64 fields text
+ let ws slice sortby lam w neg else get c w 0 keys c 0 3
+ if == 0 len ws ok nil
+ do print join map lam w join [w show else get c w 0] " " ws "\n"
  ok nil
