@@ -38,6 +38,7 @@ python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.m
 | run7 (tasks2) | 2026-11-22 | same, isolated workspace | after ADR-0048 | 20/20 | 20/20 | 0.00 |
 | run8 (tasks4) | 2026-11-22 | same, isolated workspace | after ADR-0048 | 17/20 | 17/20 | 0.35 |
 | run8 repair | 2026-11-22 | same session, given `aleph check` output (ADR-0049 messages) | T-073 | 20/20 | 20/20 | 0.00 |
+| run8 control | 2026-11-22 | fresh session, the 2 list answers with the old E002 text | T-073 | 19/20 | 19/20 | 0.05 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -99,6 +100,11 @@ the "(at end)" note did not remove: ADR-0049 makes E002 say "found is
 expected reversed (push appends at the end)". `reachable` never marked the
 neighbours as seen (a logic slip). In a repair turn the same session got
 the `aleph check` output for the three answers (`run8-fix.md`) and fixed
-all three, both list cases with `cat [x] REC`. There is no control turn
-with the old message, so this shows the message is usable, not that it is
-needed: E002's expected/found alone may have been enough.
+all three, both list cases with `cat [x] REC`. Control: a fresh session
+given the same two list answers with the old message (`example failed`,
+same expected/found; `run8-control.md`) fixed both, byte-identical to the
+repair turn. So for this model the reversal is obvious from expected/found
+and the ADR-0049 message is not needed; it stays as a harmless, free hint
+until a person decides (it is Proposed). The probe's real lesson: every
+run8 error is caught by the model's own examples, so with one `aleph check`
+turn the set is 20/20.

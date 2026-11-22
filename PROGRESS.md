@@ -1000,3 +1000,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - tests: 415 passed, clippy clean
 - decisions: ADR-0049 (Proposed)
 - next: control repair turn with the old E002 text, to see whether the message matters
+
+## 2026-11-22T09:30 T-073 follow-up
+- control repair turn (fresh deepseek session, old E002 text): fixed both reversed-list answers identically (experiments/devprobe/run8-control.md)
+- decisions: ADR-0049 message shown not needed for this model; kept (free, Proposed), evidence added to the ADR and the probe README
+- next: run8 errors were all caught by the model's own `ex` lines; one check turn gives 20/20, so remaining wins are in tokens, not correctness on these sets

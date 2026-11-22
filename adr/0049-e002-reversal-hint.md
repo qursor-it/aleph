@@ -34,3 +34,10 @@ each inner list) equals the found value, `E002` uses the message above.
 ## Consequences
 - One more message string; deterministic; no change for any other E002.
 - A reversed palindrome cannot trigger it (values are equal, no E002).
+
+## Evidence after the change
+Dev probe run8 repair turn: with these messages the model fixed both list
+answers. Control (fresh session, old `example failed` message, same
+expected/found): it fixed both, identically. On this evidence the message
+is not needed for that model; it costs no llms.txt text and is kept unless
+rejected.
