@@ -1030,3 +1030,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - New task set experiments/devprobe/tasks5.txt + reference5.md (20/20), written after the change. run12 (DeepSeek flash): 20/20, 0 errors, answers 1.95x the reference size. run12-haiku (Claude Haiku as a second model, Claude Code subagent reading only TASK.md and llms.txt): 20/20, 1.25x.
 - tests: 415 passed (with the trial line; the final llms.txt only drops that line again).
 - next: the most frequent remaining semantic error is still building a list with `push REC x` (reversed); try showing prepend `cat [x] xs` in an llms example and re-run set 4 twice.
+
+## 2026-11-22T19:17 T-078 dropped, T-079 done (autonoma)
+- T-078: prepend example `ex cat [0] [1 2] = [0 1 2]` in tests/aph/llms_ops.aph against the `push REC x` reversal; dev probe run13 (set 4) used `cat [x]` 0 times and reversed `runs` again; reverted.
+- T-079 (ADR-0051, Proposed): `len` takes `str` or `list U` (bound StrOrList, as `cat`); a str gives its byte count like `count`. builtins.rs, interp.rs, tlon.c `aleph_b_len` (tag dispatch), SPEC §5.1 row, llms.txt line + "`count`/`len` of str: bytes"; ADR-0050's `len` hint removed (its `count LIST` hint stays). Goldens: type_len_count.diag keeps only the count case; new run_len_str (both engines). Evidence: `len STR` was 5 of Claude Haiku's 12 errors on set 4 (run13-haiku) and DeepSeek run9's only error; rescored, run9 20/20 and run13-haiku 17/20.
+- llms.txt 8228/8440.
+- tests: 415 passed, clippy clean.
+- next: ADR-0052 (match on opt/res, written, not implemented yet).

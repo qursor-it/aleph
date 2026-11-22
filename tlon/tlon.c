@@ -1433,6 +1433,10 @@ AlValue aleph_literal(AlValue value) {
 /* ------------------------------------------------------------------ */
 
 AlValue aleph_b_len(AlValue xs) {
+    /* ADR-0051: `len` on a str is its byte count, like `count`. */
+    if (xs.tag == AL_STR) {
+        return aleph_i64((int64_t)xs.u.str->len);
+    }
     return aleph_i64((int64_t)xs.u.list->len);
 }
 

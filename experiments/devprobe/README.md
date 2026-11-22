@@ -45,6 +45,8 @@ python3 probe.py --tasks tasks5.txt run12.md  # fifth set, written after the T-0
 | run11 (tasks4) | 2026-11-22 | same, isolated workspace | same as run10 | 17/20 | 17/20 | 0.15 |
 | run12 (tasks5) | 2026-11-22 | same, isolated workspace | T-077 (okor example only, llms.txt 8203 chars) | 20/20 | 20/20 | 0.00 |
 | run12-haiku (tasks5) | 2026-11-22 | claude haiku (Claude Code subagent, read 2 files, no commands) | T-077 | 20/20 | 20/20 | 0.00 |
+| run13 (tasks4) | 2026-11-22 | deepseek flash, isolated workspace | T-078 trial (`cat [0] [1 2]` example); scored after ADR-0051 | 15/20 | 14/20 | 0.25 |
+| run13-haiku (tasks4) | 2026-11-22 | claude haiku | T-077 llms.txt; scored after ADR-0051 (16/20 before) | 17/20 | 17/20 | 0.40 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -143,3 +145,16 @@ told to read only TASK.md and llms.txt and run nothing; 3 tool calls):
 20/20, 4081 chars over 23 functions (1.25x), `okor` 6 times. Its `avgstr`
 copies the `total` example's shape exactly, a hint that idioms reach models
 through examples, not through the builtin table.
+
+run13 (tasks4) tried a prepend example (`ex cat [0] [1 2] = [0 1 2]` next to
+`push`) against the `push REC x` reversal: the answers use `cat [x]` 0 times
+and `runs` is reversed again, so the line was dropped (T-078). Two of its
+errors are new: `match` on an `opt` (`rpn`) and on a `res` (`brackets`),
+written `match X some v A none B` / `match X ok v A err e B` as in Rust; run6
+`inventory` did the same. ADR-0052 (Proposed) lets `match` take those arms.
+
+run13-haiku (tasks4, Claude Haiku, current llms.txt): 16/20 when written;
+5 of its 12 errors were `len` on a `str`, the same T001 as DeepSeek run9
+`wrap`. ADR-0051 makes `len` accept a str (bytes, like `count`); rescored
+with it, run13-haiku is 17/20 and run9 20/20. All probe scores above were
+taken with the compiler of their day except where the table says so.

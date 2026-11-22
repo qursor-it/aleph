@@ -167,7 +167,7 @@ Pure:
 
 | Name | Signature |
 |---|---|
-| `len xs` | list T -> i64 |
+| `len xs` | T -> i64 (T `list U`: elements; T `str`: bytes, as `count`) (ADR-0051) |
 | `at xs i` | list T, i64 -> opt T |
 | `push xs x` | list T, T -> list T (new list) |
 | `slice xs a b` | list T, i64, i64 -> list T (clamped) |

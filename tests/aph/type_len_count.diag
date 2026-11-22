@@ -1,2 +1,1 @@
 {"code":"T001","severity":"error","file":"tests/aph/type_len_count.aph","line":3,"col":8,"node":"n12","msg":"type mismatch: list length is `len`","expected":"str","found":"list i64"}
-{"code":"T001","severity":"error","file":"tests/aph/type_len_count.aph","line":6,"col":6,"node":"n22","msg":"type mismatch: str length is `count`","expected":"list _","found":"str"}

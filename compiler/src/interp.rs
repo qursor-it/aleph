@@ -825,7 +825,10 @@ impl<'a> Interp<'a> {
         let spec = builtins::lookup(name).unwrap_or_else(|| panic!("unknown builtin `{name}`"));
         debug_assert_eq!(spec.arity(), args.len(), "arity of builtin `{name}`");
         let value = match name {
-            "len" => Value::I64(as_list(&args[0]).len() as i64),
+            "len" => match &args[0] {
+                Value::Str(text) => Value::I64(text.len() as i64),
+                other => Value::I64(as_list(other).len() as i64),
+            },
             "put" => {
                 let mut pairs = as_dict(&args[0]).as_ref().clone();
                 match find_key(&pairs, &args[1]) {

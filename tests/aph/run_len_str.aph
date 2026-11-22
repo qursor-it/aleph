@@ -1,0 +1,8 @@
+fn width s:str -> i64
+ ex width "abc" = 3
+ ex width "" = 0
+ len s
+fn main -> unit
+ do print show len "héllo"
+ do print show len [1 2]
+ print show map @width ["a" "bb"]

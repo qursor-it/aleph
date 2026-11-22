@@ -790,14 +790,10 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    /// `len` on a str or `count` on a list: the T001 names the other
-    /// builtin (ADR-0050).
+    /// `count` on a list: the T001 names `len` (ADR-0050; `len` takes a
+    /// str since ADR-0051).
     fn length_hint(&mut self, callee: &str, args: &[Expr]) {
         let (is_wrong, msg): (fn(&str) -> bool, &str) = match callee {
-            "len" => (
-                |found| found == "str",
-                "type mismatch: str length is `count`",
-            ),
             "count" => (
                 |found| found.starts_with("list "),
                 "type mismatch: list length is `len`",

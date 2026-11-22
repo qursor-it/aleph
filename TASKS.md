@@ -103,3 +103,5 @@ Goal: make Aleph the cheapest language for agents to read and write correctly. M
 - [x] T-075 (autonoma) Corpus EXP-003 rewrites with okor/inline single-use helpers/`do try write`: data-csv-column-sum, text-top-words, gcd, json-field, files-copy-prefix; corpus verify passes
 - [x] T-076 (autonoma) T001 on `len STR` / `count LIST` names the other builtin, no misleading `show` fix (dev probe run9 `wrap`) — ADR-0050
 - [x] T-077 (autonoma) llms.txt `total` example uses `okor` and `fields`; a "prefer map/fold" line was measured (dev probe run10, run11) and dropped; new task set 5 (run12, run12-haiku)
+- [x] T-078 (autonoma) prepend example `cat [0] [1 2]` in llms.txt against the `push` reversal: measured (run13, 0 uses, reversal still there) and dropped
+- [x] T-079 (autonoma) `len` also takes a `str` (bytes, like `count`): the most frequent T001 across two models — ADR-0051

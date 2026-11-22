@@ -388,9 +388,9 @@ pub static BUILTINS: &[BuiltinSpec] = &[
     },
     BuiltinSpec {
         name: "len",
-        params: &[&LIST_T],
+        params: &[&T],
         ret: &I64,
-        bounds: &[],
+        bounds: &[(TyVar::T, Bound::StrOrList)],
         effect: Effect::Pure,
         capability: None,
         path_arg: None,
