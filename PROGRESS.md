@@ -1037,3 +1037,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - llms.txt 8228/8440.
 - tests: 415 passed, clippy clean.
 - next: ADR-0052 (match on opt/res, written, not implemented yet).
+
+## 2026-11-22T19:21 T-080 done (autonoma)
+- ADR-0052 (Proposed): `match` takes `opt T` (arms `some x A none B`) and `res T E` (arms `ok x A err y B`), in that order. parser.rs (arm list from the first arm keyword; P001 names `some`/`ok` when `none`/`err` comes first), check.rs (binder types from the scrutinee), interp.rs, cgen.rs (both paths: tag test, payload `u.box->value`). SPEC §5 match row, llms.txt §5 (8280/8440).
+- Evidence: DeepSeek wrote this spelling on its own in run6 `inventory`, run13 `rpn` and `brackets` (P001 each). Rescored: run6 20/20, run13 rpn ok (brackets now fails on its own fold accumulator type).
+- goldens: run_match_optres (both engines), parse_match_optres_order, type_match_optres.
+- tests: 415 passed, clippy clean.
+- next: probe set 4 with DeepSeek and Haiku on the new llms.txt; count dummy heads (`else at X 0 D`) and answer size.

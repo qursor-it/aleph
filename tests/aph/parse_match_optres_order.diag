@@ -1,0 +1,1 @@
+{"code":"P001","severity":"error","file":"tests/aph/parse_match_optres_order.aph","line":3,"col":10,"msg":"unexpected token","expected":"some"}

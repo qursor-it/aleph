@@ -565,19 +565,35 @@ impl<'a> Interp<'a> {
             )))),
             ExprKind::Match { value, arms } => {
                 let value = eval_value!(self, value, env);
-                let Value::Record(variant, fields) = &value else {
-                    panic!("type checker guarantees a sum value for match");
+                // `opt`/`res` arms (ADR-0052) pick an arm and its one binder value.
+                let payload;
+                let (variant, fields): (&str, &[Value]) = match &value {
+                    Value::Record(variant, fields) => (variant.as_ref(), fields.as_slice()),
+                    Value::Opt(Some(inner)) => {
+                        payload = [(**inner).clone()];
+                        ("some", &payload[..])
+                    }
+                    Value::Opt(None) => ("none", &[]),
+                    Value::Res(Ok(inner)) => {
+                        payload = [(**inner).clone()];
+                        ("ok", &payload[..])
+                    }
+                    Value::Res(Err(inner)) => {
+                        payload = [(**inner).clone()];
+                        ("err", &payload[..])
+                    }
+                    _ => panic!("type checker guarantees a sum, opt or res value for match"),
                 };
                 let arm = arms
                     .iter()
-                    .find(|arm| arm.variant.as_str() == variant.as_ref())
+                    .find(|arm| arm.variant.as_str() == variant)
                     .unwrap_or_else(|| panic!("no arm for variant `{variant}`"));
                 if arm.binders.is_empty() {
                     return self.eval(&arm.body, env);
                 }
                 let inner = Scope::Bind {
                     names: &arm.binders,
-                    values: fields.as_slice(),
+                    values: fields,
                     outer: env,
                 };
                 self.eval(&arm.body, &inner)

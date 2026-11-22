@@ -818,7 +818,7 @@ impl<'a> Generator<'a> {
                 for (index, arm) in arms.iter().enumerate() {
                     self.match_arm_open(value, arms.len(), index, &arm.variant, indent);
                     for (k, binder) in arm.binders.iter().enumerate() {
-                        let field = format!("t_n{}.u.rec->fields[{k}]", value.id.0);
+                        let field = match_field(&format!("t_n{}", value.id.0), &arm.variant, k);
                         // `(void)` keeps an unused binder from warning under -Wall.
                         self.line(
                             indent + 1,
@@ -845,7 +845,11 @@ impl<'a> Generator<'a> {
         variant: &str,
         indent: usize,
     ) {
-        let test = format!("if (t_n{}.u.rec->info == &RI_{variant}) {{", value.id.0);
+        let base = format!("t_n{}", value.id.0);
+        let test = match builtin_arm_tag(variant) {
+            Some(tag) => format!("if ({base}.tag == {tag}) {{"),
+            None => format!("if ({base}.u.rec->info == &RI_{variant}) {{"),
+        };
         let text = match (index, index + 1 == count) {
             (0, true) => "{".to_string(),
             (0, false) => test,
@@ -853,6 +857,27 @@ impl<'a> Generator<'a> {
             (_, false) => format!("}} else {test}"),
         };
         self.line(indent, &text);
+    }
+
+    /// Field types of a match arm: a sum variant's fields, or the payload
+    /// type of a `some`/`ok`/`err` arm (ADR-0052).
+    fn arm_field_types(&self, value: &Expr, variant: &str) -> Vec<Type> {
+        match (variant, self.checked.expr_types.get(&value.id)) {
+            ("some", Some(Type::Opt(inner))) | ("ok", Some(Type::Res(inner, _))) => {
+                vec![(**inner).clone()]
+            }
+            ("err", Some(Type::Res(_, err))) => vec![(**err).clone()],
+            ("none", _) => Vec::new(),
+            _ => self
+                .checked
+                .records
+                .get(variant)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(_, ty)| ty)
+                .collect(),
+        }
     }
 
     fn assign(&mut self, indent: usize, id: u32, value: &str) {
@@ -1526,15 +1551,10 @@ impl Generator<'_> {
                 self.fast_expr(value, depth + 1, indent);
                 for (index, arm) in arms.iter().enumerate() {
                     self.match_arm_open(value, arms.len(), index, &arm.variant, indent);
-                    let fields = self
-                        .checked
-                        .records
-                        .get(&arm.variant)
-                        .cloned()
-                        .unwrap_or_default();
-                    for (k, (binder, (_, ty))) in arm.binders.iter().zip(&fields).enumerate() {
+                    let fields = self.arm_field_types(value, &arm.variant);
+                    for (k, (binder, ty)) in arm.binders.iter().zip(&fields).enumerate() {
                         let binder_repr = Repr::of(ty);
-                        let field = format!("{}.u.rec->fields[{k}]", Self::temp(value));
+                        let field = match_field(&Self::temp(value), &arm.variant, k);
                         self.line(
                             indent + 1,
                             &format!(
@@ -1986,6 +2006,26 @@ fn c_string(value: &str) -> String {
     }
     text.push('"');
     text
+}
+
+/// The runtime tag tested by a `some`/`none`/`ok`/`err` match arm (ADR-0052).
+fn builtin_arm_tag(variant: &str) -> Option<&'static str> {
+    match variant {
+        "some" => Some("AL_SOME"),
+        "none" => Some("AL_NONE"),
+        "ok" => Some("AL_OK"),
+        "err" => Some("AL_ERR"),
+        _ => None,
+    }
+}
+
+/// The C expression for binder `k` of a match arm on `base`.
+fn match_field(base: &str, variant: &str, k: usize) -> String {
+    if builtin_arm_tag(variant).is_some() {
+        format!("{base}.u.box->value")
+    } else {
+        format!("{base}.u.rec->fields[{k}]")
+    }
 }
 
 #[cfg(test)]

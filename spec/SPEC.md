@@ -157,7 +157,7 @@ All expressions are prefix with fixed arity. There are no parentheses. The parse
 | `else e d` | 2 | e: `opt T` or `res T E`, d: T; yields T |
 | `has e` | 1 | e: `opt T`; bool |
 | `isok e` | 1 | e: `res T E`; bool |
-| `match e ARM..` | 1 + one arm per variant | e: sum S (T001); arms in S's declaration order, each `VARIANT b1 .. bk body` with one binder per field (k = field count); all bodies same type T; yields T. Wrong/missing arm: P001. Binders are local to their arm; shadowing: T005 (v0.2, ADR-0034) |
+| `match e ARM..` | 1 + one arm per variant | e: sum S (T001); arms in S's declaration order, each `VARIANT b1 .. bk body` with one binder per field (k = field count); all bodies same type T; yields T. Wrong/missing arm: P001. Binders are local to their arm; shadowing: T005 (v0.2, ADR-0034). e may also be `opt T` with arms `some x A none B` or `res T E` with arms `ok x A err y B`, in that order (x: T, y: E) (ADR-0052) |
 
 Evaluation is strict, arguments left to right (ADR-0009).
 

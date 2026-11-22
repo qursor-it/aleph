@@ -1,0 +1,3 @@
+fn f o:opt i64 -> i64
+ ex f none i64 = 0
+ match o none 0 some x x

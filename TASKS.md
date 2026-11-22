@@ -105,3 +105,4 @@ Goal: make Aleph the cheapest language for agents to read and write correctly. M
 - [x] T-077 (autonoma) llms.txt `total` example uses `okor` and `fields`; a "prefer map/fold" line was measured (dev probe run10, run11) and dropped; new task set 5 (run12, run12-haiku)
 - [x] T-078 (autonoma) prepend example `cat [0] [1 2]` in llms.txt against the `push` reversal: measured (run13, 0 uses, reversal still there) and dropped
 - [x] T-079 (autonoma) `len` also takes a `str` (bytes, like `count`): the most frequent T001 across two models — ADR-0051
+- [x] T-080 (autonoma) `match` on `opt`/`res` with arms `some x A none B` / `ok x A err e B`, written spontaneously by DeepSeek in run6 and run13 — ADR-0052

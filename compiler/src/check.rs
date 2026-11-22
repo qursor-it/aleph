@@ -601,16 +601,42 @@ impl<'a> TypeChecker<'a> {
     /// `match`: the scrutinee has the arms' sum type; the expected type flows
     /// into the first arm, whose type then flows into the others (as `if`).
     fn check_match(&mut self, value: &Expr, arms: &[ast::Arm], expected: Option<&Type>) -> Type {
-        let sum = arms
-            .first()
-            .map(|arm| self.ctor_type(&arm.variant))
-            .unwrap_or(Type::Error);
-        self.check_expr(value, Some(&sum));
+        let first_variant = arms.first().map(|arm| arm.variant.as_str());
+        // `opt`/`res` arms (ADR-0052): binder types come from the scrutinee.
+        let (scrutinee, builtin_binders) = match first_variant {
+            Some("some") => {
+                let inner = self.fresh();
+                (
+                    Type::Opt(Box::new(inner.clone())),
+                    Some(vec![vec![inner], vec![]]),
+                )
+            }
+            Some("ok") => {
+                let (ok, err) = (self.fresh(), self.fresh());
+                (
+                    Type::Res(Box::new(ok.clone()), Box::new(err.clone())),
+                    Some(vec![vec![ok], vec![err]]),
+                )
+            }
+            Some(variant) => (self.ctor_type(variant), None),
+            None => (Type::Error, None),
+        };
+        self.check_expr(value, Some(&scrutinee));
         let mut first: Option<Type> = None;
-        for arm in arms {
-            let fields = self.records.get(&arm.variant).cloned().unwrap_or_default();
+        for (index, arm) in arms.iter().enumerate() {
+            let fields: Vec<Type> = match &builtin_binders {
+                Some(types) => types[index].iter().map(|ty| self.resolve(ty)).collect(),
+                None => self
+                    .records
+                    .get(&arm.variant)
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(_, ty)| ty)
+                    .collect(),
+            };
             let saved = self.env.clone();
-            for (binder, (_, ty)) in arm.binders.iter().zip(fields) {
+            for (binder, ty) in arm.binders.iter().zip(fields) {
                 self.env.insert(binder.clone(), ty);
             }
             let want = match &first {

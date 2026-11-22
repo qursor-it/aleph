@@ -1031,21 +1031,37 @@ impl<'a> ExprCtx<'a> {
         span: ast::Span,
     ) -> PResult<(ast::Expr, usize)> {
         let (value, mut index) = self.parse(pos + 1, env, depth + 1)?;
-        let first = match self.tokens.get(index).map(|token| &token.kind) {
-            Some(TokenKind::Ident(name)) => self.signatures.variant_sum.get(name),
-            Some(_) => None,
+        // (variant, binder count) per arm, in the required order.
+        let variants: Vec<(String, usize)> = match self.tokens.get(index).map(|token| &token.kind) {
+            // `opt`/`res` arms (ADR-0052).
+            Some(TokenKind::Keyword(word)) if word == "some" => {
+                vec![("some".to_string(), 1), ("none".to_string(), 0)]
+            }
+            Some(TokenKind::Keyword(word)) if word == "ok" => {
+                vec![("ok".to_string(), 1), ("err".to_string(), 1)]
+            }
+            Some(TokenKind::Ident(name)) if self.signatures.variant_sum.contains_key(name) => {
+                let sum = &self.signatures.variant_sum[name];
+                self.signatures.sums[sum]
+                    .iter()
+                    .map(|variant| (variant.clone(), self.signatures.records[variant]))
+                    .collect()
+            }
+            Some(kind) => {
+                let mut diagnostic = self.diagnostic_at(index, "unexpected token");
+                diagnostic.expected = Some(match kind {
+                    TokenKind::Keyword(word) if word == "none" => "some".to_string(),
+                    TokenKind::Keyword(word) if word == "err" => "ok".to_string(),
+                    _ => "variant name".to_string(),
+                });
+                return Err(diagnostic);
+            }
             None => return Err(p001_eol(self.file, self.line, "expected variant name")),
         };
-        let Some(sum) = first else {
-            let mut diagnostic = self.diagnostic_at(index, "unexpected token");
-            diagnostic.expected = Some("variant name".to_string());
-            return Err(diagnostic);
-        };
-        let variants = &self.signatures.sums[sum];
         let mut arms = Vec::with_capacity(variants.len());
-        for variant in variants {
+        for (variant, binder_count) in &variants {
             match self.tokens.get(index).map(|token| &token.kind) {
-                Some(TokenKind::Ident(name)) if name == variant => {}
+                Some(TokenKind::Ident(name) | TokenKind::Keyword(name)) if name == variant => {}
                 Some(_) => {
                     // Arms follow declaration order, so the wanted variant is known.
                     let mut diagnostic = self.diagnostic_at(index, "unexpected token");
@@ -1057,7 +1073,7 @@ impl<'a> ExprCtx<'a> {
             index += 1;
             let mut inner = env.clone();
             let mut binders = Vec::new();
-            for _ in 0..self.signatures.records[variant] {
+            for _ in 0..*binder_count {
                 let Some(token) = self.tokens.get(index) else {
                     return Err(p001_eol(self.file, self.line, "expected binding name"));
                 };

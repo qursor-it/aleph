@@ -1,0 +1,23 @@
+fn half x:f64 -> opt f64
+ ex half 3.0 = some 1.5
+ some / x 2.0
+fn head xs:list i64 d:i64 -> i64
+ ex head [4 5] 0 = 4
+ ex head empty i64 7 = 7
+ match at xs 0 some x x none d
+fn parse t:str -> str
+ ex parse "12" = "n12"
+ ex parse "x" = "invalid int"
+ match int t ok n cat "n" show n err e e
+fn total xs:list str -> res i64 str
+ ex total ["1" "2"] = ok 3
+ ex total ["1" "y"] = err "y"
+ fold lam a t match a ok s match int t ok n ok + s n err e err t err e err e ok 0 xs
+fn main -> unit
+ do print show head [9] 0
+ do print show head empty i64 -1
+ do print parse "42"
+ do print parse "4x"
+ do print show match total ["5" "6"] ok v v err e -1
+ do print match total ["5" "q"] ok v show v err e e
+ print show match half 5.0 some h * h 2.0 none 0.0

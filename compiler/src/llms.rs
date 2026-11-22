@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0x41a39f2a61e384ac,
+        hash: 0xf8b96fdd895eef5a,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -148,7 +148,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("5."),
-        "No parens; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010; `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder map/filter/mapr/sortby, 2 fold/map2; no `try`): fn value, only higher-order arg.",
+        "No parens; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010; `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant, in order, a binder per field, same type (`opt`: `some x A none B`; `res`: `ok x A err e B`). `@f`/`lam x.. E` (1 binder map/filter/mapr/sortby, 2 fold/map2; no `try`): fn value, only higher-order arg.",
     );
     section(&mut out, spec_heading("5.1"), &builtins_table());
     section(
