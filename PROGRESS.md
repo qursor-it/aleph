@@ -1005,3 +1005,17 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - control repair turn (fresh deepseek session, old E002 text): fixed both reversed-list answers identically (experiments/devprobe/run8-control.md)
 - decisions: ADR-0049 message shown not needed for this model; kept (free, Proposed), evidence added to the ADR and the probe README
 - next: run8 errors were all caught by the model's own `ex` lines; one check turn gives 20/20, so remaining wins are in tokens, not correctness on these sets
+
+## 2026-11-22T14:03 T-074 done (autonoma)
+- compiler/src/llms.rs prose trim, nothing a code writer uses: §9 shape list (required/optional, lowercase msg, fix rule), §10 to one sentence, §4 "Prefix, fixed arity." (said in §5), §11 "`llms` prints this text", "`jparse` RFC 8259", "`sort` ascending", §2 "`x:` param; `[1 2]`" (in §3/§5); llms.txt 8433 -> 8212 chars (2053 est. tokens, budget 2110)
+- dev probe run9 (tasks4, fresh session, trimmed text): 19/20, answers shorter than run8; within run noise
+- next: ~57 est. tokens free for a future builtin or example
+
+## 2026-11-22T14:03 T-075 done (autonoma)
+- corpus EXP-003: data-csv-column-sum (`try okor index ..` instead of -1 sentinel), text-top-words and json-field and files-copy-prefix (single-use helper inlined; `do try write`), gcd (lcm inlined)
+- ratios without examples: csv 1.455->1.258, top-words 1.324->1.118, gcd 1.169->0.983, json-field 1.167->0.883, files-copy-prefix 1.025->0.741; overall median 0.757->0.745 (p 0.0495->0.00068), break-even all 11.0->7.7 programs
+- corpus verify: every version passed
+
+## 2026-11-22T14:03 T-076 done (autonoma)
+- compiler/src/check.rs `length_hint`: T001 on `len` of str says "str length is `count`", on `count` of a list "list length is `len`" (and drops the `show` fix there); golden type_len_count
+- decisions: ADR-0050 (Proposed)

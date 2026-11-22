@@ -1,0 +1,8 @@
+fn m xs:list i64 -> i64
+ ex m [1] = 1
+ count xs
+fn n s:str -> i64
+ ex n "ab" = 2
+ len s
+fn main -> unit
+ nil

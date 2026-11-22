@@ -784,7 +784,40 @@ impl<'a> TypeChecker<'a> {
                 for (var, bound) in spec.bounds {
                     self.defer_bound(expr, &slots[var_index(*var)], DeferredKind::Builtin(*bound));
                 }
+                self.length_hint(callee, args);
                 ret
+            }
+        }
+    }
+
+    /// `len` on a str or `count` on a list: the T001 names the other
+    /// builtin (ADR-0050).
+    fn length_hint(&mut self, callee: &str, args: &[Expr]) {
+        let (is_wrong, msg): (fn(&str) -> bool, &str) = match callee {
+            "len" => (
+                |found| found == "str",
+                "type mismatch: str length is `count`",
+            ),
+            "count" => (
+                |found| found.starts_with("list "),
+                "type mismatch: list length is `len`",
+            ),
+            _ => return,
+        };
+        let Some(arg) = args.first() else {
+            return;
+        };
+        let node = format!("n{}", arg.id.0);
+        let diagnostic = self
+            .diagnostics
+            .iter_mut()
+            .rev()
+            .find(|d| d.code == "T001" && d.node.as_deref() == Some(node.as_str()));
+        if let Some(diagnostic) = diagnostic {
+            if diagnostic.found.as_deref().is_some_and(is_wrong) {
+                diagnostic.msg = msg.to_string();
+                // `count show xs` type checks but is not a length.
+                diagnostic.fix = None;
             }
         }
     }
