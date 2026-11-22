@@ -6,13 +6,13 @@ Aleph is a programming language whose primary authors and readers are AI agents.
 `.aph`; UTF-8; outside strings only printable ASCII and LF. Layout/order free (`aleph fmt` canonicalizes).
 
 ## 2. Lexical structure
-Col 0 = item; one space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam`.
+Col 0 = item; one space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\.[0-9]+`; string `"..."` escapes `\n \t \" \\`; `@f` fnref; `.f` field; ops `+ - * / % == != < <= > >=`. Keywords: `fn type use let do ex doc if try some none ok err else has isok empty nil true false and or not neg match lam`.
 
 ## 3. Top-level items and canonical order
 Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful), `let`/`do`/`if c E` (return E if c)*, one result `E`. Items: `use CAP ["PREFIX"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).
 
 ## 4. Types
-`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Signatures explicit, `let` inferred; no subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
+`i64 f64 bool str unit`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Signatures explicit, `let` inferred; no subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005).
 
 ## 5. Expressions
 No parens; arity from signatures/ctors/builtins. `+ - * / %` 2 same numeric (`%` i64); `== !=` 2 same primitive -> bool; `< <= > >=` 2 numeric -> bool; `and or` 2 bool short-circuit; `not` 1 bool; `neg` 1 numeric; `if c a b` 3 bool/same; `[e..]` n>=1 list T; `[]` empty list, T from context (else T010; `empty T`); `empty T`/`none T` 1 type; `.f e` 1 field; `some`/`ok`/`err` 1; `try e` 1 res T E -> T or early err (fn returns `res U E`); `else e d` 2 opt/res default T; `has e`/`isok e` 1 -> bool; `match e V b.. E ..`: an arm per variant, in order, a binder per field, same type. `@f`/`lam x.. E` (1 binder map/filter/mapr/sortby, 2 fold/map2; no `try`): fn value, only higher-order arg.
@@ -85,16 +85,16 @@ write str,str->res unit str ! fs.write
 Deny by default. `use fs.read "PREFIX"`/`use fs.write "PREFIX"` (`read`/`write`), `use env` (`env`), `use time` (`now` ms), `use net.host "HOST"` (`fetch` http(s) GET; status >=400 -> err; no redirects; bare host, any case/port). `..` never covered; empty/`..` prefix or no path -> C003. Literal args checked statically (C001/C002), computed at runtime (R003). Traps (JSON stderr, exit 70): R001 overflow, R002 div by zero, R003 capability, R004 stack, R005 allocation.
 
 ## Semantics
-T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF. `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jparse` RFC 8259; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s ""` -> Unicode chars (`split "" ""` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err "invalid int"`; `float` `-?[0-9]+\.[0-9]+` else `err "invalid float"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.
+T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF. `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `count` bytes; `split s ""` -> Unicode chars (`split "" ""` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err "invalid int"`; `float` `-?[0-9]+\.[0-9]+` else `err "invalid float"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.
 
 ## 9. Diagnostics (ADR-0011)
-JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Codes: L001-L002 P001-P003 F001 T001-T008 T010 E001-E002 C001-C003 R001-R005 X001-X011.
+JSON lines `code severity file line col msg`, optional `node expected found fix canonical`. Codes: L001-L002 P001-P003 F001 T001-T008 T010 E001-E002 C001-C003 R001-R005 X001-X011.
 
 ## 10. Canonical form (ADR-0003)
-AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` warns on other text (F001, `canonical`); `--strict` rejects.
+`aleph fmt` prints the canonical text; `check` warns F001 on other text (`--strict` rejects).
 
 ## 11. Command line (`aleph`)
-`llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`. Exit 0 ok, 1 error, 2 usage, 70 trap.
+`check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`. Exit 0 ok, 1 error, 2 usage, 70 trap.
 
 ## Examples
 All check-clean:

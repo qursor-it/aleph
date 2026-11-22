@@ -123,7 +123,7 @@ pub fn render() -> String {
         &mut out,
         spec_heading("2."),
         &format!(
-            "Col 0 = item; one space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\\.[0-9]+`; string `\"...\"` escapes `\\n \\t \\\" \\\\`; `@f` fnref; `.f` field; `x:` param; `[1 2]`; ops `+ - * / % == != < <= > >=`. Keywords: `{}`.",
+            "Col 0 = item; one space = `fn` body line. ident `[a-z][a-z0-9]*`; int `0|-?[1-9][0-9]*`; float `-?[0-9]+\\.[0-9]+`; string `\"...\"` escapes `\\n \\t \\\" \\\\`; `@f` fnref; `.f` field; ops `+ - * / % == != < <= > >=`. Keywords: `{}`.",
             keyword_list()
         ),
     );
@@ -142,7 +142,7 @@ pub fn render() -> String {
         &mut out,
         spec_heading("4."),
         &format!(
-            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Prefix, fixed arity. Signatures explicit, `let` inferred; no subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
+            "`{primitives}`; `list T`; `opt T`; `res T E`; `dict K V` (K i64/bool/str; `dict K V` = empty; immutable, keys ascending, not showable/comparable); record; sum. Signatures explicit, `let` inferred; no subtyping/overloading; builtins generic, user fns not. `json`: `json x` (x jsonable: unit bool i64 f64 str json, list json, dict str json; NaN -> null; depth >256 -> R005)."
         ),
     );
     section(
@@ -159,18 +159,18 @@ pub fn render() -> String {
     section(
         &mut out,
         "## Semantics",
-        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF. `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jparse` RFC 8259; `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `sort` ascending; `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.",
+        "T005: params/lets/binders may not reuse a param/local/fn/ctor/builtin name. `ex` sides see globals only; examples hermetic (effects -> R003, no args, output dropped). `print`/`eprint` add LF. `show`: i64 decimal; f64 Rust `{:?}` (`1.0`, `0.1`, `1e20`); list `[1 2]` (str quoted, `[]` empty); str raw at top; json compact. `jint` integers, `jnum` any number. `upper`/`lower` ASCII only. `at` negative/oob -> `none`; `slice` clamps to `[0 len]`; `range a b` half-open (>1e7 elements -> R005); `count` bytes; `split s \"\"` -> Unicode chars (`split \"\" \"\"` -> `[]`); `int` `-?[0-9]+` in i64 (leading zeros) else `err \"invalid int\"`; `float` `-?[0-9]+\\.[0-9]+` else `err \"invalid float\"`. `ok`/`err` need an expected `res` else T010. recursion >10,000 calls or deep eval -> R004. `main err e` -> stderr, exit 1.",
     );
     section(&mut out, spec_heading("9."), &diagnostics_section());
     section(
         &mut out,
         spec_heading("10."),
-        "AST is truth; text is its canonical printing. `aleph fmt` prints it; `aleph check` warns on other text (F001, `canonical`); `--strict` rejects.",
+        "`aleph fmt` prints the canonical text; `check` warns F001 on other text (`--strict` rejects).",
     );
     section(
         &mut out,
         spec_heading("11."),
-        "`llms` prints this text; `check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
+        "`check FILE [--json] [--strict]`; `fmt FILE [-w]`; `test FILE [--json]`; `run FILE [ARGS..]`; `build FILE -o OUT`; `explain FILE [--json]`. Exit 0 ok, 1 error, 2 usage, 70 trap.",
     );
 
     section(&mut out, "## Examples", "All check-clean:");
@@ -333,7 +333,7 @@ fn diagnostics_section() -> String {
         codes.push(cells[0]);
     }
     format!(
-        "JSON lines: required `code severity file line col msg`; optional `node expected found fix canonical`; lowercase msg; `fix` (replace/insert) only when certain. Codes: {}.",
+        "JSON lines `code severity file line col msg`, optional `node expected found fix canonical`. Codes: {}.",
         collapse_codes(&codes)
     )
 }

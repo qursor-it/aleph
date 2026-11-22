@@ -20,7 +20,7 @@ python3 probe.py reference.md    # the agent's reference answers: 20/20
 python3 probe.py run1.md         # a recorded model run
 python3 probe.py --tasks tasks2.txt run2.md   # second task set (also run3.md, run5.md, run7.md)
 python3 probe.py --tasks tasks3.txt run6.md   # third task set (reference3.md: 20/20)
-python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.md: 20/20)
+python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.md: 20/20; also run9.md)
 ```
 
 `ALEPH` selects the binary (default `target/debug/aleph`).
@@ -39,6 +39,7 @@ python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.m
 | run8 (tasks4) | 2026-11-22 | same, isolated workspace | after ADR-0048 | 17/20 | 17/20 | 0.35 |
 | run8 repair | 2026-11-22 | same session, given `aleph check` output (ADR-0049 messages) | T-073 | 20/20 | 20/20 | 0.00 |
 | run8 control | 2026-11-22 | fresh session, the 2 list answers with the old E002 text | T-073 | 19/20 | 19/20 | 0.05 |
+| run9 (tasks4) | 2026-11-22 | same, isolated workspace | T-074 (llms.txt 8212 chars) | 19/20 | 19/20 | 0.10 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -108,3 +109,10 @@ and the ADR-0049 message is not needed; it stays as a harmless, free hint
 until a person decides (it is Proposed). The probe's real lesson: every
 run8 error is caught by the model's own examples, so with one `aleph check`
 turn the set is 20/20.
+
+run9 (tasks4, after the T-074 trim of llms.txt prose, 8433 -> 8212 chars):
+19/20, answers 8082 chars over 39 functions (run8: 9500 over 43; reference
+5396 over 31). One error: `wrap` used `len` on a `str` (T001); ADR-0050
+makes that T001 say "str length is `count`". With run-to-run noise of about
+2 tasks on set 2 (runs 2, 3, 5, 7: 19, 17, 18, 20), this shows the trim did
+no visible harm, not that it helped.
