@@ -52,6 +52,7 @@ python3 probe.py --tasks tasks5.txt run12.md  # fifth set, written after the T-0
 | run14-haiku (tasks4) | 2026-11-22 | claude haiku | T-080 | 20/20 | 20/20 | 0.00 |
 | run15-haiku4 (tasks4) | 2026-11-22 | claude haiku | T-082 (ADR-0053 `nth`; llms.txt 8315) | 20/20 | 20/20 | 0.00 |
 | run15-haiku5 (tasks5) | 2026-11-22 | claude haiku | T-082 | 20/20 | 20/20 | 0.00 |
+| rep16a/b/c (tasks5) | 2026-11-22 | deepseek flash, isolated workspace, tasks read from TASK.md | T-082 | 18, 20, 19 /20 | 18, 20, 19 /20 | 0.20, 0.00, 0.10 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -214,3 +215,25 @@ show: the builtin is adopted at once, causes no error, and removes the
 dummy defaults from the code a reader has to check. Measuring size effects
 of a few percent needs about ten runs per arm; that is the next methodical
 step, not another feature.
+
+## Repetitions (T-083)
+Three more DeepSeek runs of set 5 on the current llms.txt (`rep16a-c.md`;
+same prompt, read from TASK.md instead of pasted) and two more DeepSeek
+Python runs of the 40 tasks (`py-deepseek-a.md`, `-b`; all 40/40 pass).
+Ratios of logic size, Aleph/Python, on set 5 tasks where the Aleph answer
+passes the hidden examples, each Aleph run against each Python run:
+
+| Aleph run | llms.txt | vs py-deepseek | vs -a | vs -b |
+|---|---|---|---|---|
+| run12 | T-077 (before ADR-0051..0053) | 1.194 | 1.125 | 1.155 |
+| rep16a | T-082 | 0.920 | 0.863 | 0.884 |
+| rep16b | T-082 | 0.851 | 0.802 | 0.823 |
+| rep16c | T-082 | 1.102 | 1.035 | 1.063 |
+
+The model's Python is stable (3488-3704 chars on set 5, +-3%); its Aleph is
+not (2969-4166): the noise is in how the model writes Aleph. With the
+current llms.txt DeepSeek's Aleph is 0.80-1.10x its Python (mean about
+0.93); run12 on the older text is above all three, weak evidence (one run)
+that ADR-0051..0053 helped. Errors in the repetitions are ordinary type and
+logic slips (bylen, minmax, rle), none from the new builtins; `nth` is used
+6-19 times per run and `else at` never.

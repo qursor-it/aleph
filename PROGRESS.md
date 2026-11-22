@@ -1058,3 +1058,8 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - Probe: Claude Haiku sets 4+5 (run15-haiku4/5) 40/40, `nth` 42 uses, `else at` 0; size vs Python did not drop (1.087 -> 1.164 and 0.814 -> 0.888): the ~3% mechanical saving is inside the 10-15% run-to-run noise.
 - tests: 415 passed, clippy clean.
 - next: size effects of a few percent need ~10 runs per arm; the remaining big costs are typed helper signatures with mandatory `ex` (design decisions for a person) and model style.
+
+## 2026-11-22T20:12 T-083 done (autonoma)
+- experiments/devprobe: rep16a/b/c.md (DeepSeek, set 5, current llms.txt: 18, 20, 19 /20), py-deepseek-a/b.md (Python 40/40 each); README "Repetitions" table.
+- Aleph/Python logic size on verified set 5 tasks: 0.80-1.10 (mean ~0.93) against three Python runs; run12 (older llms.txt) 1.13-1.19. Python size is stable (+-3%), Aleph size varies +-17%: the variance is in how the model writes Aleph.
+- next: decisions for a person (see FREEZE.md and the handover doc): explicit types on helper signatures and the one-`ex`-per-fn rule are the largest remaining structural costs against Python; a real-tokenizer count.
