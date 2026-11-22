@@ -1044,3 +1044,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - goldens: run_match_optres (both engines), parse_match_optres_order, type_match_optres.
 - tests: 415 passed, clippy clean.
 - next: probe set 4 with DeepSeek and Haiku on the new llms.txt; count dummy heads (`else at X 0 D`) and answer size.
+
+## 2026-11-22T19:38 T-081 done (autonoma)
+- experiments/devprobe/pyratio.py (stdlib): runs a model's Python answers with their asserts and compares sizes with the same model's verified Aleph answers. py-haiku.md, py-deepseek.md: 40/40 Python pass.
+- Result (chars, logic only): Haiku Aleph/Python 0.983 (median per task 1.085), DeepSeek 1.109 (1.142); with ex/asserts 1.105 and 1.235. The agent's references vs Haiku's Python: 0.801. The corpus advantage (0.745) does not carry over to model-written code.
+- Main costs found: `else at X I D` indexing (320 uses in all runs), substrings via `split s ""`, typed helper signatures plus mandatory `ex`. Wins: sum types/match, mapr+okor.
+- Caveat: characters, not real tokens; Python checked on visible examples only.
+- next: candidates are a trapping index builtin and `slice` on str (both need ADRs and a probe); a real-tokenizer count is a person's decision.

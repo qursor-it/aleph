@@ -21,6 +21,7 @@ python3 probe.py run1.md         # a recorded model run
 python3 probe.py --tasks tasks2.txt run2.md   # second task set (also run3.md, run5.md, run7.md)
 python3 probe.py --tasks tasks3.txt run6.md   # third task set (reference3.md: 20/20)
 python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.md: 20/20; also run9-run11)
+python3 pyratio.py py-haiku.md run14-haiku.md run12-haiku.md   # same model, Aleph vs Python size (also py-deepseek.md with run14.md run12.md)
 python3 probe.py --tasks tasks5.txt run12.md  # fifth set, written after the T-077 change (reference5.md: 20/20; also run12-haiku.md)
 ```
 
@@ -170,3 +171,31 @@ Set 4 first-attempt scores so far: DeepSeek 17, 19, 13, 17, 15, 19; Haiku
 16 (17 rescored), 20. Correctness on first attempt is near the ceiling for
 both models; answer size, about 1.5x the reference, is what is left, and
 none of the llms.txt text changes tried (T-077, T-078) moved it.
+
+## Aleph vs Python, same model (T-081)
+Each model also wrote the 40 tasks of sets 4 and 5 in Python (`py-haiku.md`,
+`py-deepseek.md`: same statements, the Aleph header and examples given only
+as the spec, one `assert` per example, stdlib only). `pyratio.py` runs every
+Python block (all 40/40 pass their asserts, for both models) and compares
+its size with the same model's verified Aleph answers (run14 + run12, 40/40
+and 39/40 hidden-pass). Characters, not tokens (no real tokenizer offline;
+`aleph tokens` also estimates chars/4).
+
+| Aleph written by | logic only (no `ex`/`assert`) | whole answer | median per task (logic) |
+|---|---|---|---|
+| Claude Haiku | 0.983 | 1.105 | 1.085 |
+| DeepSeek flash | 1.109 | 1.235 | 1.142 |
+| the agent (reference4/5) vs Haiku's Python | 0.801 | 0.772 | 0.886 |
+
+So the size advantage measured on hand-written programs (EXP-003 corpus
+0.745, references 0.77-0.80) does not carry over to model-written code:
+with these two models Aleph answers are as long as or longer than their
+Python. Where Aleph loses (per-task, Haiku): indexing through `opt`
+(`else at else at m i empty i64 i 0` vs `m[i]`, 320 `else at X I D` in all
+runs), substrings through a char list (`join slice split s "" 0 i ""` vs
+`s[:i]`), helper functions each needing a signature with types and an `ex`
+line, and Python's comprehensions/`zip`. Where it wins: sum types and
+`match` (runops 0.28, inorder 0.43), `mapr`+`okor` parsing (sumcol 0.42,
+lookall 0.58). Caveats: characters are a proxy (Aleph's spaces and short
+words may tokenize differently from Python punctuation); Python was checked
+only on the visible examples; one prompt per model.

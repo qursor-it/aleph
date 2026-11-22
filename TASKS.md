@@ -106,3 +106,4 @@ Goal: make Aleph the cheapest language for agents to read and write correctly. M
 - [x] T-078 (autonoma) prepend example `cat [0] [1 2]` in llms.txt against the `push` reversal: measured (run13, 0 uses, reversal still there) and dropped
 - [x] T-079 (autonoma) `len` also takes a `str` (bytes, like `count`): the most frequent T001 across two models — ADR-0051
 - [x] T-080 (autonoma) `match` on `opt`/`res` with arms `some x A none B` / `ok x A err e B`, written spontaneously by DeepSeek in run6 and run13 — ADR-0052
+- [x] T-081 (autonoma) same model writes the 40 set 4/5 tasks in Python: model-written Aleph is 0.98x (Haiku) / 1.11x (DeepSeek) the size of its Python (logic, chars); experiments/devprobe/pyratio.py
