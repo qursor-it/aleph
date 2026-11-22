@@ -1023,3 +1023,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 ## 2026-11-22T14:30 analysis (autonoma, no task)
 - experiments/devprobe/patterns.md: model answers vs references over run1-run9: median size ratio 1.29, 1.5-1.8x on set 4; main cost is hand-written head/tail recursion helpers; `okor` unused in set 4 (0 vs 11 test-then-unwrap pairs) though in the builtin table; a tail builtin not worth its line
 - next: candidate llms.txt changes (okor in an example; a nudge to fold/map/mapr), each with a before/after probe run
+
+## 2026-11-22T19:02 T-077 done (autonoma)
+- tests/aph/run_idioms.aph: `total` is now `let ns try mapr lam t okor int t t fields s` (one line shorter, shows `okor` and `fields` in an example); llms.txt 8212 -> 8203 chars.
+- Tried and dropped: a §5 line "Lists: prefer `map filter fold mapr` to recursion." Dev probe set 4 with both changes: run10 13/20, run11 17/20 (before run8 17, run9 19); answer size and higher-order use unchanged, okor 0 -> 1-2 uses. No measurable gain, so the line was removed.
+- New task set experiments/devprobe/tasks5.txt + reference5.md (20/20), written after the change. run12 (DeepSeek flash): 20/20, 0 errors, answers 1.95x the reference size. run12-haiku (Claude Haiku as a second model, Claude Code subagent reading only TASK.md and llms.txt): 20/20, 1.25x.
+- tests: 415 passed (with the trial line; the final llms.txt only drops that line again).
+- next: the most frequent remaining semantic error is still building a list with `push REC x` (reversed); try showing prepend `cat [x] xs` in an llms example and re-run set 4 twice.

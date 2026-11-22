@@ -102,3 +102,4 @@ Goal: make Aleph the cheapest language for agents to read and write correctly. M
 - [x] T-074 (autonoma) llms.txt prose trim without content loss for writing code (§9 diagnostics shape, §10 canonical form, §4 "prefix, fixed arity", §11 `llms`, RFC 8259, `sort` ascending, §2 duplicates): 8433 -> 8212 chars; dev probe run9 (tasks4) 19/20 with the trimmed text
 - [x] T-075 (autonoma) Corpus EXP-003 rewrites with okor/inline single-use helpers/`do try write`: data-csv-column-sum, text-top-words, gcd, json-field, files-copy-prefix; corpus verify passes
 - [x] T-076 (autonoma) T001 on `len STR` / `count LIST` names the other builtin, no misleading `show` fix (dev probe run9 `wrap`) — ADR-0050
+- [x] T-077 (autonoma) llms.txt `total` example uses `okor` and `fields`; a "prefer map/fold" line was measured (dev probe run10, run11) and dropped; new task set 5 (run12, run12-haiku)

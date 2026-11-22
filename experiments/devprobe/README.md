@@ -20,7 +20,8 @@ python3 probe.py reference.md    # the agent's reference answers: 20/20
 python3 probe.py run1.md         # a recorded model run
 python3 probe.py --tasks tasks2.txt run2.md   # second task set (also run3.md, run5.md, run7.md)
 python3 probe.py --tasks tasks3.txt run6.md   # third task set (reference3.md: 20/20)
-python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.md: 20/20; also run9.md)
+python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.md: 20/20; also run9-run11)
+python3 probe.py --tasks tasks5.txt run12.md  # fifth set, written after the T-077 change (reference5.md: 20/20; also run12-haiku.md)
 ```
 
 `ALEPH` selects the binary (default `target/debug/aleph`).
@@ -40,6 +41,10 @@ python3 probe.py --tasks tasks4.txt run8.md   # fourth, harder set (reference4.m
 | run8 repair | 2026-11-22 | same session, given `aleph check` output (ADR-0049 messages) | T-073 | 20/20 | 20/20 | 0.00 |
 | run8 control | 2026-11-22 | fresh session, the 2 list answers with the old E002 text | T-073 | 19/20 | 19/20 | 0.05 |
 | run9 (tasks4) | 2026-11-22 | same, isolated workspace | T-074 (llms.txt 8212 chars) | 19/20 | 19/20 | 0.10 |
+| run10 (tasks4) | 2026-11-22 | same, isolated workspace | T-077 trial (okor example + "prefer map filter fold mapr" line) | 13/20 | 13/20 | 0.50 |
+| run11 (tasks4) | 2026-11-22 | same, isolated workspace | same as run10 | 17/20 | 17/20 | 0.15 |
+| run12 (tasks5) | 2026-11-22 | same, isolated workspace | T-077 (okor example only, llms.txt 8203 chars) | 20/20 | 20/20 | 0.00 |
+| run12-haiku (tasks5) | 2026-11-22 | claude haiku (Claude Code subagent, read 2 files, no commands) | T-077 | 20/20 | 20/20 | 0.00 |
 
 run1 failures: `rotate` (`cat` on lists, T001: ADR-0045), `merge` (built
 reversed with `push`, no way to concatenate: ADR-0045), `rle` (wrong own
@@ -116,3 +121,25 @@ run9 (tasks4, after the T-074 trim of llms.txt prose, 8433 -> 8212 chars):
 makes that T001 say "str length is `count`". With run-to-run noise of about
 2 tasks on set 2 (runs 2, 3, 5, 7: 19, 17, 18, 20), this shows the trim did
 no visible harm, not that it helped.
+
+run10 and run11 (tasks4) tested the two candidates of `patterns.md` together:
+the `run_idioms` example `total` rewritten as
+`let ns try mapr lam t okor int t t fields s`, and a §5 line "Lists:
+prefer `map filter fold mapr` to recursion." Result: 13/20 and 17/20
+(before: run8 17, run9 19); answer size 8212 and 8317 chars (before 9500,
+8082); `okor` used 2 and 1 times (before 0, 0); fold/map/mapr/filter 7 and
+9 (before 7, 6). The line changed nothing measurable and was removed; the
+example stays because it is shorter than the old one and the only place
+`okor` appears outside the table. Six of the run10 errors are again the
+`push` reversal (merge, runs, wrap) and two are logic slips in toroman /
+fromroman; all would be caught by the model's own `ex` lines in one
+`aleph check` turn.
+
+run12 (tasks5, a new set written after the change so it was not tuned on):
+DeepSeek 20/20 with 0 errors, 6376 chars over 38 functions against the
+reference 3271 over 22 (1.95x): correct but helper-heavy. Claude Haiku on
+the same prompt and llms.txt (a second model, run as a Claude Code subagent
+told to read only TASK.md and llms.txt and run nothing; 3 tool calls):
+20/20, 4081 chars over 23 functions (1.25x), `okor` 6 times. Its `avgstr`
+copies the `total` example's shape exactly, a hint that idioms reach models
+through examples, not through the builtin table.
