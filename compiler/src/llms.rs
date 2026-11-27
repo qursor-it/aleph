@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xace8cf3307b1d4d1,
+        hash: 0x0020de77d4e5fe12,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",
@@ -130,7 +130,7 @@ pub fn render() -> String {
     section(
         &mut out,
         spec_heading("3."),
-        "Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful), `let`/`do`/`if c E` (return E if c)*, one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).",
+        "Body: <=1 `doc`, `ex E = E`+ (E001; unless `main`/effectful/run by a caller's `ex`), `let`/`do`/`if c E` (return E if c)*, one result `E`. Items: `use CAP [\"PREFIX\"]`; `type NAME FIELD*` (field `f:T`; ctor `NAME a b`; `.f e`); sum `type NAME | V FIELD* | ..` (ctor `V a`); `fn NAME PARAM* -> TYPE` (param `x:T`; `main` no params -> `unit` or `res unit str`). `fn`/`type`/variant names unique, not builtin/type (P001).",
     );
     let primitives = lexicon::TYPES
         .iter()

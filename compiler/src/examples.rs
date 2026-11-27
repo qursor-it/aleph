@@ -116,11 +116,13 @@ fn trap_text(trap: &interp::Trap) -> String {
 
 fn missing_examples(file: &str, ast: &ast::File) -> Vec<Diagnostic> {
     let effectful = effectful_fns(ast);
+    let exercised = exercised_fns(ast);
     let mut diagnostics = Vec::new();
     for function in &ast.fns {
         if function.name == "main"
             || effectful.contains(&function.name)
             || !function.examples.is_empty()
+            || exercised.contains(&function.name)
         {
             continue;
         }
@@ -195,6 +197,55 @@ pub(crate) fn effectful_fns(ast: &ast::File) -> BTreeSet<String> {
             return effectful;
         }
         effectful = next;
+    }
+}
+
+/// The functions some example runs: those an example calls, then everything
+/// their bodies call, transitively (ADR-0054). A helper needs no examples of
+/// its own when the examples of a caller already run it.
+fn exercised_fns(ast: &ast::File) -> BTreeSet<String> {
+    let user_fns: BTreeSet<&str> = ast.fns.iter().map(|f| f.name.as_str()).collect();
+    let mut exercised = BTreeSet::new();
+    for function in &ast.fns {
+        for example in &function.examples {
+            for side in [&example.lhs, &example.rhs] {
+                ast::walk_expr(side, &mut |expr| {
+                    collect_user_callee(expr, &user_fns, &mut exercised)
+                });
+            }
+        }
+    }
+    let mut pending: Vec<String> = exercised.iter().cloned().collect();
+    while let Some(name) = pending.pop() {
+        let Some(function) = ast.fns.iter().find(|f| f.name == name) else {
+            continue;
+        };
+        let mut callees = BTreeSet::new();
+        walk_body(function, &mut |expr| {
+            collect_user_callee(expr, &user_fns, &mut callees)
+        });
+        for callee in callees {
+            if exercised.insert(callee.clone()) {
+                pending.push(callee);
+            }
+        }
+    }
+    exercised
+}
+
+fn collect_user_callee(expr: &Expr, user_fns: &BTreeSet<&str>, out: &mut BTreeSet<String>) {
+    match &expr.kind {
+        ExprKind::Call {
+            callee,
+            callee_kind: CalleeKind::Fn,
+            ..
+        } => {
+            out.insert(callee.clone());
+        }
+        ExprKind::FnRef { name } if user_fns.contains(name.as_str()) => {
+            out.insert(name.clone());
+        }
+        _ => {}
     }
 }
 
@@ -344,6 +395,20 @@ mod tests {
         assert_eq!(diagnostics[0].line, 1);
         assert_eq!(diagnostics[0].col, 1);
         assert_eq!(diagnostics[0].node.as_deref(), Some("n1"));
+    }
+
+    #[test]
+    fn helpers_run_by_a_callers_examples_need_none() {
+        let diagnostics = diagnostics(
+            "fn inc n:i64 -> i64\n + n 1\n\
+             fn viaref xs:list i64 -> list i64\n map @inc xs\n\
+             fn twice n:i64 -> i64\n inc inc n\n\
+             fn top xs:list i64 -> list i64\n ex top [1] = [4]\n map lam x twice x viaref xs\n\
+             fn lone n:i64 -> i64\n inc n\n\
+             fn main -> unit\n nil\n",
+        );
+        assert_eq!(codes(&diagnostics), ["E001"]);
+        assert_eq!(diagnostics[0].line, 10);
     }
 
     #[test]

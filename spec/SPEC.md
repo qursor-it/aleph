@@ -97,7 +97,7 @@ PARAM := ident ":" TYPE        (no space around ":")
 Body lines, each starting with one space, in this canonical order:
 
 1. `doc "STRING"` — optional, at most one. Intent annotation (ADR-0003, §4.10 of the design doc). Does not affect execution.
-2. `ex EXPR = EXPR` — examples. MUST be at least one for every function except `main` and functions that call effectful builtins. Examples are executed by `aleph check`/`aleph test` (ADR-0010).
+2. `ex EXPR = EXPR` — examples. MUST be at least one for every function except `main`, functions that call effectful builtins, and functions some example already runs: called from an `ex` line or, transitively, from the body of such a function (ADR-0054). Examples are executed by `aleph check`/`aleph test` (ADR-0010).
 3. Statements, any number:
    - `let NAME EXPR` — immutable binding. Shadowing is an error (T005).
    - `do EXPR` — evaluate for effect; EXPR must have type `unit`.

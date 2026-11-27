@@ -1,0 +1,8 @@
+fn sq n:i64 -> i64
+ * n n
+fn sumsq xs:list i64 -> i64
+ ex sumsq [1 2 3] = 14
+ sum map @sq xs
+fn main -> unit
+ do print show sumsq [2 3]
+ nil
