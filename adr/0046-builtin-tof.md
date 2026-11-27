@@ -1,6 +1,7 @@
 # ADR-0046: Builtin `tof` (i64 to f64)
 
-Status: Proposed
+Status: Accepted
+Accepted: 2026-11-27, by the owner (v0.2-experiment freeze)
 Date: 2026-11-21
 
 ## Context

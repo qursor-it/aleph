@@ -39,7 +39,7 @@ pub const SOURCE_DIGESTS: &[SourceDigest] = &[
     SourceDigest {
         path: "spec/SPEC.md",
         contents: SPEC,
-        hash: 0xace8cf3307b1d4d1,
+        hash: 0xca42d47d79abd3f7,
     },
     SourceDigest {
         path: "spec/grammar.ebnf",

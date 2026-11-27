@@ -1,6 +1,7 @@
 # ADR-0050: T001 names `count`/`len` for the other length
 
-Status: Proposed (its `len` half superseded by ADR-0051)
+Status: Accepted (its `len` half superseded by ADR-0051)
+Accepted: 2026-11-27, by the owner (v0.2-experiment freeze)
 Date: 2026-11-22
 
 ## Context

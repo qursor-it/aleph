@@ -73,7 +73,7 @@ type point x:f64 y:f64
 - Field access: `.x p`.
 - User generics: v0.2.
 
-Sum types (v0.2, ADR-0034 Proposed):
+Sum types (v0.2, ADR-0034 Accepted):
 
 ```
 type shape | circle r:f64 | rect w:f64 h:f64 | dot
@@ -123,9 +123,9 @@ Type syntax is prefix with fixed arity, like expressions: `res list i64 str` = r
 - Static typing, bidirectional checking. Function signatures are always explicit; `let` types are inferred.
 - No implicit conversions, no subtyping, no overloading of user functions.
 - Builtins may be generic (e.g. `len` over any `list T`); user functions are monomorphic in v0.1.
-- `dict K V` (v0.2, ADR-0032 Proposed): immutable map, key type `i64`, `bool` or `str` (else T004); see §5.2.
-- `json` (v0.2, ADR-0033 Proposed): a JSON value; see §5.3.
-- Sum types (v0.2, ADR-0034 Proposed): see §3.2.
+- `dict K V` (v0.2, ADR-0032 Accepted): immutable map, key type `i64`, `bool` or `str` (else T004); see §5.2.
+- `json` (v0.2, ADR-0033 Accepted): a JSON value; see §5.3.
+- Sum types (v0.2, ADR-0034 Accepted): see §3.2.
 - User generics: v0.2.
 
 ## 5. Expressions
@@ -218,7 +218,7 @@ Effectful:
 | `now` | -> i64 (milliseconds since the Unix epoch, wall clock) | `time` |
 | `fetch url` | str -> res str str (HTTP GET body) | `net.host` matching the URL host |
 
-### 5.2 Dicts (v0.2, ADR-0032 Proposed)
+### 5.2 Dicts (v0.2, ADR-0032 Accepted)
 
 `dict K V` as an expression is the empty dict of that type. Dicts are immutable; keys are ordered ascending (`i64` numerically, `false` before `true`, `str` by bytes) and every observation follows that order. Dicts are not showable, primitive or comparable.
 
@@ -231,7 +231,7 @@ Effectful:
 | `vals d` | dict K V -> list V (key order) |
 | `size d` | dict K V -> i64 |
 
-### 5.3 JSON (v0.2, ADR-0033 Proposed)
+### 5.3 JSON (v0.2, ADR-0033 Accepted)
 
 A `json` value is null, a bool, an integer (`i64`), a number (`f64`), a string, a `list json` or an object (`dict str json`). `json` is not primitive or comparable; `show` prints compact JSON (no whitespace, keys ascending, numbers as `show`). `jparse` accepts RFC 8259 text; a number without fraction or exponent that fits `i64` is an integer; errors are `json: <reason> at byte <n>` (see ADR-0033).
 

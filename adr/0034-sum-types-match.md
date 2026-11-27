@@ -1,6 +1,7 @@
 # ADR-0034: Sum types and `match`
 
-Status: Proposed
+Status: Accepted
+Accepted: 2026-11-27, by the owner (v0.2-experiment freeze)
 Date: 2026-11-17
 
 ## Context

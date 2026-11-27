@@ -1,6 +1,7 @@
 # ADR-0041: `[]` is an empty list whose element type comes from the context
 
-Status: Proposed
+Status: Accepted
+Accepted: 2026-11-27, by the owner (v0.2-experiment freeze)
 Date: 2026-11-20
 
 ## Context

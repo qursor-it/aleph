@@ -4,8 +4,8 @@ The language version used by the experiments (EXP-002: "a frozen tag, `v0.2-expe
 
 ## Decisions for a person before tagging
 
-- [ ] **ADR status.** The v0.2 ADRs below (0032-0053) are all `Proposed`. Agents never accept ADRs: decide which ones the tag freezes as they stand.
-- [ ] **`llms.txt` budget.** Its limit is 2110 tokens (ADR-0026); 8315/8440 chars after T-074, T-077, T-079, T-080 and T-082 (about 31 tokens free). The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
+- [x] **ADR status.** Decided by the owner on 27 Nov 2026: ADRs 0032-0053 below are `Accepted` and frozen as they stand. ADR-0054 (helpers without examples, branch `agent/helper-lite`) stays `Proposed` and out of the tag.
+- [x] **`llms.txt` budget.** Decided by the owner on 27 Nov 2026: the limit stays 2110 tokens (ADR-0026) and the text is frozen with the tag. Its limit is 2110 tokens; 8315/8440 chars after T-074, T-077, T-079, T-080 and T-082 (about 31 tokens free). The experiments use it as the language description, so freeze its text together with the tag. Every feature since JSON paid for its lines by trimming prose; raising the budget is a decision for a person.
 
 ## In (implemented on `agent/aleph-m3`)
 
@@ -61,7 +61,7 @@ cd ../../..
 ALEPH=$PWD/target/debug/aleph python3 experiments/pilot/tokens/verify_whatif.py          # C 61/61 pass
 ```
 
-State on 22 Nov 2026 (after T-082): all of the above pass. `cargo test` runs 415 tests (one machine-wide `cargo test` at a time, ~/.cargo/bin/cargo lock); `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61 (A/29 uses the reserved name `starts`). Experiment protocols EXP-001..004 are `approved` (owner delegation of 20 Nov) and their tools are built (T-035..T-042).
+State on 27 Nov 2026 (ADRs 0032-0053 accepted, T-085): all of the above pass. `cargo test` runs 415 tests (one machine-wide `cargo test` at a time, ~/.cargo/bin/cargo lock); `verify_whatif.py` gives A 60/61, B 61/61 and C 61/61 (A/29 uses the reserved name `starts`). Experiment protocols EXP-001..004 are `approved` (owner delegation of 20 Nov) and their tools are built (T-035..T-042).
 
 ## After tagging
 

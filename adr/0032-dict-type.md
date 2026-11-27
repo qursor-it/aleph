@@ -1,6 +1,7 @@
 # ADR-0032: `dict K V` type and builtins
 
-Status: Proposed
+Status: Accepted
+Accepted: 2026-11-27, by the owner (v0.2-experiment freeze)
 Date: 2026-11-16
 
 ## Context

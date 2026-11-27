@@ -1063,3 +1063,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - experiments/devprobe: rep16a/b/c.md (DeepSeek, set 5, current llms.txt: 18, 20, 19 /20), py-deepseek-a/b.md (Python 40/40 each); README "Repetitions" table.
 - Aleph/Python logic size on verified set 5 tasks: 0.80-1.10 (mean ~0.93) against three Python runs; run12 (older llms.txt) 1.13-1.19. Python size is stable (+-3%), Aleph size varies +-17%: the variance is in how the model writes Aleph.
 - next: decisions for a person (see FREEZE.md and the handover doc): explicit types on helper signatures and the one-`ex`-per-fn rule are the largest remaining structural costs against Python; a real-tokenizer count.
+
+## 2026-11-27T13:20 T-085 done
+- owner decided (in session): ADR-0032..0053 Accepted (status lines + "Accepted: 2026-11-27, by the owner"), ADR-0054 stays Proposed on agent/helper-lite, llms.txt budget stays 2110
+- SPEC: "ADR-00NN Proposed" -> "Accepted" for those six mentions; SPEC digest updated; FREEZE.md checkboxes ticked
+- tests: 415 passed, clippy clean, fmt check, tlon tests, llms current, humaneval validate 156/0, verify_whatif B/C 61/61
+- next: a person creates the tag v0.2-experiment on this commit (FREEZE.md), then EXP-002
