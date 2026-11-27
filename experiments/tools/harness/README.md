@@ -172,3 +172,16 @@ cd experiments/tools/harness && \
   ALEPH=/home/claude_mobile/projects/aleph/target/debug/aleph \
   python3 -m unittest -v test_harness
 ```
+
+## HumanEval A/B (`humaneval_ab.py`, T-086)
+
+First phase of EXP-002 on the 156 HumanEval problems that exist in both languages (see `experiments/benchmarks/humaneval/`). One session per problem: the model gets the prompt (for Aleph, after `llms.txt`), answers with code, gets the **visible** check output (Aleph: `aleph check`; Python: the docstring examples run as checks) and retries, up to `--rounds` (default 5), stopping at the first visible pass. Hidden tests score every round but are never shown to the model.
+
+```sh
+python3 experiments/tools/harness/humaneval_ab.py calibrate --model opencode:opencode-go/deepseek-v4.1-flash
+python3 experiments/tools/harness/humaneval_ab.py run --model opencode:opencode-go/deepseek-v4.1-flash \
+  --lang aleph --rep 1 --out LOG.jsonl          # resumable: skips (problem, lang, rep) already logged
+python3 experiments/tools/harness/humaneval_ab.py summary LOG.jsonl --overhead 7371
+```
+
+The `opencode:` backend runs `opencode run --pure` with a tool-less `plain` agent in `.agent-tmp/exp002-oc`; its fixed system prompt (measured by `calibrate`) is subtracted per call in the summary. A backend failure stops the run without logging the problem. Tests: `cd experiments/tools/harness && python3 -m unittest test_humaneval_ab` (offline, fake model).

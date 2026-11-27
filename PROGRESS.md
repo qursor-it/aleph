@@ -1069,3 +1069,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - SPEC: "ADR-00NN Proposed" -> "Accepted" for those six mentions; SPEC digest updated; FREEZE.md checkboxes ticked
 - tests: 415 passed, clippy clean, fmt check, tlon tests, llms current, humaneval validate 156/0, verify_whatif B/C 61/61
 - next: a person creates the tag v0.2-experiment on this commit (FREEZE.md), then EXP-002
+
+## 2026-11-27T17:45 T-086 done (autonoma)
+- experiments/tools/harness/humaneval_ab.py + test_humaneval_ab.py (5 offline tests): EXP-002 first phase on HumanEval, opencode backend, visible feedback only, hidden scoring per round, resumable log, summary with system-prompt overhead subtracted and reasoning tokens shown.
+- experiments/benchmarks/humaneval/python/: original HumanEval (MIT) + MultiPL-E typed prompts for the 156 problems; README sections; EXP-002 Amendment (proposed by agent, run at the owner's request).
+- pitfall: `opencode run` finds its config through $PWD, not the process cwd; the runner sets PWD (otherwise every call fails with "Unexpected server error").
+- pilot (5 problems x 2 languages, DeepSeek v4.1 flash): Python 5/5 first round; Aleph 4/5 first, 5/5 final. Aleph calls spend ~6000 reasoning tokens vs ~200 for Python: reasoning, not code, dominates the cost.
+- next: full run 156 x 2 x 3 reps, results in experiments/results/EXP-002.json.

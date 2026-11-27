@@ -37,3 +37,14 @@ Current state (compiler at `agent/aleph-m3`, 18 Nov 2026): 156 problems translat
 
 - HumanEval: © OpenAI, MIT licence.
 - The typed problems come from MultiPL-E: © 2022 Northeastern University, Oberlin College, Roblox Inc, Stevens Institute of Technology, University of Massachusetts Amherst and Wellesley College, BSD 3-Clause License **with a Machine Learning Restriction**: its contents may not be used as training data for any machine learning model. `humaneval-aleph.jsonl` is derived from them, so the same restriction applies: it is an **evaluation** set only, and it must never enter the training data of EXP-004.
+
+## Python side (EXP-002)
+
+`python/` holds the same 156 problems for the Python arm of EXP-002:
+
+| File | |
+|---|---|
+| `python/HumanEval.jsonl.gz` | the original HumanEval (openai/human-eval, MIT licence): hidden tests (`test`, `entry_point`) |
+| `python/humaneval-python.jsonl` | one line per Aleph problem: `task_id`, `prompt` (MultiPL-E's typed Python prompt, the part before the canonical solution), `entry_point`, `test` (original HumanEval) |
+
+The Python prompt is MultiPL-E's typed prompt so both languages show the same docstring examples (154 of 156 identical). MultiPL-E asks that its data not be used to train models; this is evaluation only. Built by `experiments/tools/harness/humaneval_ab.py build-python`.
