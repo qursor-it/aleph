@@ -1063,3 +1063,10 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - experiments/devprobe: rep16a/b/c.md (DeepSeek, set 5, current llms.txt: 18, 20, 19 /20), py-deepseek-a/b.md (Python 40/40 each); README "Repetitions" table.
 - Aleph/Python logic size on verified set 5 tasks: 0.80-1.10 (mean ~0.93) against three Python runs; run12 (older llms.txt) 1.13-1.19. Python size is stable (+-3%), Aleph size varies +-17%: the variance is in how the model writes Aleph.
 - next: decisions for a person (see FREEZE.md and the handover doc): explicit types on helper signatures and the one-`ex`-per-fn rule are the largest remaining structural costs against Python; a real-tokenizer count.
+
+## 2026-11-27T12:38 T-084 done (autonoma)
+- branch agent/helper-lite (from agent/aleph-m3): E001 skips helpers run by any example (calls, @f, lambdas); a fn with its own ex never reports E001; spec §3, llms note, golden ex_helper_covered
+- measured: set 5, DeepSeek, 5 runs per arm (rep16a-e vs rep17a-e): -6.5% chars written, not significant; helper ex share 9.9% -> 5.8%; pass 96 vs 93 (noise)
+- tests: 416 passed, clippy clean
+- decisions: ADR-0054 (Proposed); not merged into agent/aleph-m3: weak effect, a person decides
+- next: writing overhead left is small; the next measurement worth doing is total session cost (EXP-002 after the v0.2 freeze)

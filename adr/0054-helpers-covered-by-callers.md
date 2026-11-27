@@ -34,3 +34,9 @@ Options (score 1-10):
   removed; the helper keeps the precise message when it has its own `ex`.
 - To be measured on the dev probe (several runs per arm) before acceptance:
   characters written, first-attempt pass rate, compile errors.
+
+## Measurement (T-084)
+Set 5, DeepSeek, 5 runs per arm (experiments/devprobe/README.md): 6.5%
+fewer characters written (not significant), helper `ex` share 9.9% -> 5.8%,
+pass 96/100 vs 93/100 (within noise). Small effect; keep or drop is a
+decision for a person.

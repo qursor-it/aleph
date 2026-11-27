@@ -237,3 +237,26 @@ current llms.txt DeepSeek's Aleph is 0.80-1.10x its Python (mean about
 that ADR-0051..0053 helped. Errors in the repetitions are ordinary type and
 logic slips (bylen, minmax, rle), none from the new builtins; `nth` is used
 6-19 times per run and `else at` never.
+
+## Helpers without examples (T-084, ADR-0054, branch agent/helper-lite)
+ADR-0054 lets a helper skip `ex` when a caller's examples already run it.
+Set 5, DeepSeek (opencode-go/deepseek-v4.1-flash), 5 runs per arm, scored
+with the ADR-0054 compiler. Arm A: llms.txt of T-082 and the usual prompt
+("each fn with at least one `ex` line"): `rep16a-e.md`. Arm B: llms.txt with
+the ADR-0054 note and the prompt without that clause: `rep17a-e.md`.
+`helpercost.py` gives the share of helper `ex` lines.
+
+| Arm | chars written (mean, sd) | helper `ex` share | hidden-pass | compile errors | logic Aleph/Python vs py-deepseek |
+|---|---|---|---|---|---|
+| A | 5175 (553) | 9.9% (5.1-13.3) | 96/100 | 7 | 0.943 (0.83-1.14) |
+| B | 4840 (323) | 5.8% (0-11.1) | 93/100 | 6 | 0.923 (0.83-1.02) |
+
+B writes 6.5% fewer characters, about 1.2 standard errors: not significant
+with 5 runs. The model uses the freedom only in part: one run dropped every
+helper `ex`, the others kept some. Logic size (no `ex` lines) does not
+change, as expected. Pass rate 93 vs 96 is within noise; B's failures are
+type/arity slips (T001, P002, T005, T010) and one logic error, none traced
+to a missing helper example. Conclusion: a small saving at best; the
+remaining writing overhead against Python is not in helper examples. Most
+`ex` text (about 25-30% of an answer) is the requested function's examples,
+copied from the task.

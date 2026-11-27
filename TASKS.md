@@ -109,4 +109,4 @@ Goal: make Aleph the cheapest language for agents to read and write correctly. M
 - [x] T-081 (autonoma) same model writes the 40 set 4/5 tasks in Python: model-written Aleph is 0.98x (Haiku) / 1.11x (DeepSeek) the size of its Python (logic, chars); experiments/devprobe/pyratio.py
 - [x] T-082 (autonoma) builtin `nth xs i` (trap R006 out of range) instead of `else at xs i DUMMY` (320 uses in the probe answers) — ADR-0053
 - [x] T-083 (autonoma) repetitions: 3 DeepSeek Aleph runs of set 5 and 2 more DeepSeek Python runs; model Aleph/Python 0.80-1.10 (mean ~0.93) on the current llms.txt
-- [ ] T-084 (autonoma) helpers run by a caller's `ex` need no examples of their own (E001), branch agent/helper-lite; measure on set 5, 5 runs per arm — ADR-0054
+- [x] T-084 (autonoma) helpers run by a caller's `ex` need no examples of their own (E001), branch agent/helper-lite; measure on set 5, 5 runs per arm; B writes 6.5% fewer chars (n.s., 5 runs per arm), pass 93 vs 96 — ADR-0054
