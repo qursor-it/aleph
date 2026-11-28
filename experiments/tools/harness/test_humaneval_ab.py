@@ -70,6 +70,17 @@ class HumanEvalABTest(unittest.TestCase):
             h.time.sleep = sleep
         self.assertEqual((len(calls), b.session), (5, "good"))
 
+    def test_result_metrics_gap_and_ratio(self):
+        def rec(name, lang, first, tokens):
+            return {"name": name, "lang": lang, "first": first, "final": "pass", "rounds": [
+                {"usage": {"input": tokens, "output": 0, "steps": 1}, "wall_s": 1.0, "code": ""}]}
+        recs = [rec("a", "python", "pass", 100), rec("a", "aleph", "wrong", 300),
+                rec("b", "python", "pass", 100), rec("b", "aleph", "pass", 300)]
+        m = {(x["name"], x.get("condition")): x for x in h.result_metrics(recs, overhead=0, resamples=50)}
+        self.assertEqual(m[("pass@1 gap aleph-python", None)]["value"], -0.5)
+        self.assertEqual(m[("tokens_per_solved ratio aleph/python", None)]["value"], 3.0)
+        self.assertEqual(m[("tokens_per_solved ratio aleph/python", None)]["ci95"], [3.0, 3.0])
+
     def test_summary_counts_pass_rounds_and_net_tokens(self):
         rec = {"lang": "aleph", "first": "wrong", "final": "pass",
                "rounds": [{"usage": {"input": 6000, "output": 100, "steps": 1}, "code": "x"},

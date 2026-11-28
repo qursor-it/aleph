@@ -1076,3 +1076,9 @@ Append-only log written by agents. Newest entries at the bottom. Format in AGENT
 - pitfall: `opencode run` finds its config through $PWD, not the process cwd; the runner sets PWD (otherwise every call fails with "Unexpected server error").
 - pilot (5 problems x 2 languages, DeepSeek v4.1 flash): Python 5/5 first round; Aleph 4/5 first, 5/5 final. Aleph calls spend ~6000 reasoning tokens vs ~200 for Python: reasoning, not code, dominates the cost.
 - next: full run 156 x 2 x 3 reps, results in experiments/results/EXP-002.json.
+
+## 2026-11-28T02:55 T-087 done (autonoma)
+- EXP-002 first phase run (owner's request): 936 sessions, DeepSeek v4.1 flash, compiler/spec/llms.txt = v0.2-experiment. Results in experiments/results/EXP-002.json, raw in EXP-002-humaneval.jsonl; humaneval_ab.py `metrics` subcommand (paired bootstrap by problem) + test (6 tests).
+- pass@1 Aleph 85.0% vs Python 99.4% (gap -14.3 [-18.6, -10.5]); after <=5 rounds 96.8% vs 98.3%. Tokens per solved 8.4x [4.9, 16.1]; median session: reasoning 3808 vs 121, spec input ~3100, output 228 vs 185.
+- round-1 Aleph failures (70 sessions): E002 18, P002 17, L002 15, T001 6, P001 4; 11 passed visible checks but failed hidden tests.
+- next: the cost is reasoning, not code: try cutting reasoning (shorter/clearer llms.txt, condition 4 with solved examples, a cheap no-reasoning mode), capture reasoning text for H2.5, a second model.

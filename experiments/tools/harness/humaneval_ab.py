@@ -24,7 +24,9 @@ import hashlib
 import json
 import os
 import pathlib
+import random
 import re
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -352,6 +354,72 @@ def summarize(records, overhead=0):
     return lines
 
 
+def session_tokens(rec, overhead):
+    """Net input (system prompt removed, spec kept), output and reasoning of one session."""
+    net = out = reas = 0
+    for rd in rec["rounds"]:
+        u = rd["usage"]
+        net += u.get("input", 0) + u.get("cache_read", 0) + u.get("cache_write", 0) - overhead * u.get("steps", 1)
+        out += u.get("output", 0)
+        reas += u.get("reasoning", 0)
+    return net, out, reas
+
+
+def result_metrics(records, overhead, resamples=2000, seed=0):
+    """EXP-002 metrics per language, gaps with 95% bootstrap intervals resampling problems."""
+    by = {}
+    for r in records:
+        by.setdefault(r["name"], {}).setdefault(r["lang"], []).append(r)
+    names = sorted(n for n, v in by.items() if "aleph" in v and "python" in v)
+
+    def stats(sample):
+        acc = {lang: {"n": 0, "first": 0, "final": 0, "rounds": 0, "tokens": 0} for lang in ("aleph", "python")}
+        for n in sample:
+            for lang, recs in by[n].items():
+                a = acc[lang]
+                for r in recs:
+                    a["n"] += 1
+                    a["first"] += r["first"] == "pass"
+                    a["final"] += r["final"] == "pass"
+                    a["rounds"] += len(r["rounds"])
+                    a["tokens"] += sum(session_tokens(r, overhead))
+        out = {}
+        for lang, a in acc.items():
+            out[lang] = {"pass@1": a["first"] / a["n"], "pass_final": a["final"] / a["n"],
+                         "rounds": a["rounds"] / a["n"], "tokens_per_solved": a["tokens"] / max(a["final"], 1)}
+        return out
+
+    point = stats(names)
+    rng = random.Random(seed)
+    boots = [stats([rng.choice(names) for _ in names]) for _ in range(resamples)]
+
+    def ci(f):
+        vals = sorted(f(b) for b in boots)
+        return [round(vals[int(0.025 * len(vals))], 4), round(vals[int(0.975 * len(vals)) - 1], 4)]
+
+    metrics = []
+    for key, unit in (("pass@1", "share"), ("pass_final", "share"), ("rounds", "rounds"),
+                      ("tokens_per_solved", "tokens")):
+        for lang in ("python", "aleph"):
+            metrics.append({"name": key, "value": round(point[lang][key], 4), "unit": unit, "condition": lang})
+        if unit == "tokens":
+            metrics.append({"name": key + " ratio aleph/python",
+                            "value": round(point["aleph"][key] / point["python"][key], 3), "unit": "ratio",
+                            "ci95": ci(lambda b: b["aleph"][key] / b["python"][key])})
+        else:
+            metrics.append({"name": key + " gap aleph-python", "value": round(point["aleph"][key] - point["python"][key], 4),
+                            "unit": unit, "ci95": ci(lambda b: b["aleph"][key] - b["python"][key])})
+    for lang in ("python", "aleph"):
+        rows = [session_tokens(r, overhead) for n in names for r in by[n][lang]]
+        for i, part in enumerate(("net input", "output", "reasoning")):
+            metrics.append({"name": f"median {part} tokens per session", "value": statistics.median(t[i] for t in rows),
+                            "unit": "tokens", "condition": lang})
+        walls = [sum(rd["wall_s"] for rd in r["rounds"]) for n in names for r in by[n][lang]]
+        metrics.append({"name": "median wall-clock per session", "value": statistics.median(walls), "unit": "s",
+                        "condition": lang})
+    return metrics
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -370,6 +438,9 @@ def main(argv=None):
     s = sub.add_parser("summary")
     s.add_argument("log")
     s.add_argument("--overhead", type=int, default=0)
+    m = sub.add_parser("metrics")
+    m.add_argument("log")
+    m.add_argument("--overhead", type=int, default=0)
     a = p.parse_args(argv)
     if a.cmd == "run":
         cmd_run(a)
@@ -377,6 +448,8 @@ def main(argv=None):
         build_python(a.mple_dir)
     elif a.cmd == "calibrate":
         cmd_calibrate(a)
+    elif a.cmd == "metrics":
+        print(json.dumps(result_metrics(list(map(json.loads, open(a.log))), a.overhead), indent=1))
     else:
         print("\n".join(summarize(map(json.loads, open(a.log)), a.overhead)))
 

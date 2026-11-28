@@ -111,3 +111,4 @@ Goal: make Aleph the cheapest language for agents to read and write correctly. M
 - [x] T-083 (autonoma) repetitions: 3 DeepSeek Aleph runs of set 5 and 2 more DeepSeek Python runs; model Aleph/Python 0.80-1.10 (mean ~0.93) on the current llms.txt
 - [x] T-085 owner decisions for v0.2-experiment: ADR-0032..0053 Accepted, ADR-0054 out of the tag, llms.txt budget stays 2110; FREEZE commands re-run
 - [x] T-086 (autonoma) EXP-002 HumanEval runner: humaneval_ab.py (opencode backend, visible-only feedback, hidden scoring, resumable), Python side of the 156 problems — EXP-002
+- [x] T-087 (autonoma) EXP-002 first phase run: 156 HumanEval x Aleph/Python x 3 reps with DeepSeek; experiments/results/EXP-002.json — EXP-002
